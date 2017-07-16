@@ -1,0 +1,35 @@
+var host__based_2fft__operations_8hpp =
+[
+    [ "DATA_ORDER", "host__based_2fft__operations_8hpp.html#aac2583f16e35875f2696e9220bd262f2", [
+      [ "ROW_MAJOR", "host__based_2fft__operations_8hpp.html#aac2583f16e35875f2696e9220bd262f2afffdaee3461226037812d7c99faf6e1b", null ],
+      [ "COL_MAJOR", "host__based_2fft__operations_8hpp.html#aac2583f16e35875f2696e9220bd262f2ab023e0d434670522cca0f9ae34e590fe", null ]
+    ] ],
+    [ "bluestein", "host__based_2fft__operations_8hpp.html#ab3b57139fbb1e34e02ec017c90fcd515", null ],
+    [ "complex_to_real", "host__based_2fft__operations_8hpp.html#a82e563af40078b14126ef4e8fa6dcf9b", null ],
+    [ "copy_to_complex_array", "host__based_2fft__operations_8hpp.html#a22586b120ff4d5da2c44beaff92dd2d2", null ],
+    [ "copy_to_complex_array", "host__based_2fft__operations_8hpp.html#a2c6807214357d10d5205ef9b448ca583", null ],
+    [ "copy_to_complex_array", "host__based_2fft__operations_8hpp.html#ad7c4c0a7c4679797d7b9fea19a55faeb", null ],
+    [ "copy_to_vector", "host__based_2fft__operations_8hpp.html#afe391bf6f99e60d85dd5e750a516323f", null ],
+    [ "copy_to_vector", "host__based_2fft__operations_8hpp.html#adea02946fbb65cce3cb5ad5428cc4eef", null ],
+    [ "copy_to_vector", "host__based_2fft__operations_8hpp.html#a02ff2fbd33af67a5a720f3bd326fa407", null ],
+    [ "direct", "host__based_2fft__operations_8hpp.html#a43b566ce63b739b6e7f21a02f7b68b07", null ],
+    [ "direct", "host__based_2fft__operations_8hpp.html#a3ff7b2755c095a7857d6d0f229a698ad", null ],
+    [ "fft_direct", "host__based_2fft__operations_8hpp.html#a71a1ae18c8ea66186ab0536edbf0ed6e", null ],
+    [ "fft_radix2", "host__based_2fft__operations_8hpp.html#a10a82996a5538f5decedd68ccfc34405", null ],
+    [ "fft_radix2_local", "host__based_2fft__operations_8hpp.html#a9befaf381636c25790ebb759fe2e7154", null ],
+    [ "get_reorder_num", "host__based_2fft__operations_8hpp.html#a34e80079134907a04faae26369135523", null ],
+    [ "multiply_complex", "host__based_2fft__operations_8hpp.html#ae7323b9a4be334a3c14e9cba3d3cc541", null ],
+    [ "next_power_2", "host__based_2fft__operations_8hpp.html#aae6f70454e6b2110276fcc01bad0fddf", null ],
+    [ "normalize", "host__based_2fft__operations_8hpp.html#abe758875bbaf780b3d92c22ee87957e0", null ],
+    [ "num_bits", "host__based_2fft__operations_8hpp.html#a324a96ae67706938073521f262220d08", null ],
+    [ "radix2", "host__based_2fft__operations_8hpp.html#a0ef41228530e7ba098b63dcf11912e44", null ],
+    [ "radix2", "host__based_2fft__operations_8hpp.html#aac4d74b494fddece60692da03d1e3e3a", null ],
+    [ "real_to_complex", "host__based_2fft__operations_8hpp.html#a6241f225749f941f1ece2a949359eb8d", null ],
+    [ "reorder", "host__based_2fft__operations_8hpp.html#a02ce2b0b08798d0a794c19a8d3ee3108", null ],
+    [ "reorder", "host__based_2fft__operations_8hpp.html#af98b9eda07ad9064aeb44cd19cde41c8", null ],
+    [ "reverse", "host__based_2fft__operations_8hpp.html#a1f5d9b9159f9d035afb1e6a0344b1c1a", null ],
+    [ "transpose", "host__based_2fft__operations_8hpp.html#a89fa0dbcad92408f304624ab57c941d3", null ],
+    [ "transpose", "host__based_2fft__operations_8hpp.html#a708eee18ebf5f7351e5c9a519ef09cf4", null ],
+    [ "zero2", "host__based_2fft__operations_8hpp.html#ac7be4ca00fcfb8603deac9c9d4e15da7", null ],
+    [ "MAX_LOCAL_POINTS_NUM", "host__based_2fft__operations_8hpp.html#af4bcc8f74962221b661666069a0ea9f6", null ]
+];

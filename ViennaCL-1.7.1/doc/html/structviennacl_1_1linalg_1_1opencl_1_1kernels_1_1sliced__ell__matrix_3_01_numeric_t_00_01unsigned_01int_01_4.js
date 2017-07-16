@@ -1,0 +1,5 @@
+var structviennacl_1_1linalg_1_1opencl_1_1kernels_1_1sliced__ell__matrix_3_01_numeric_t_00_01unsigned_01int_01_4 =
+[
+    [ "init", "structviennacl_1_1linalg_1_1opencl_1_1kernels_1_1sliced__ell__matrix_3_01_numeric_t_00_01unsigned_01int_01_4.html#ab1096eebe37f9587d00ee45591d60555", null ],
+    [ "program_name", "structviennacl_1_1linalg_1_1opencl_1_1kernels_1_1sliced__ell__matrix_3_01_numeric_t_00_01unsigned_01int_01_4.html#a9b49ade7d0139e0d00e2a451cefd94a1", null ]
+];

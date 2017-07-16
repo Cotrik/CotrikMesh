@@ -1,0 +1,4 @@
+var structviennacl_1_1device__specific_1_1utils_1_1is__same__type_3_01_t_00_01_t_01_4 =
+[
+    [ "value", "structviennacl_1_1device__specific_1_1utils_1_1is__same__type_3_01_t_00_01_t_01_4.html#a0947d587134892dc795ad41f21c7cfe4a11fbe8b012f0400b71192e0961470798", null ]
+];

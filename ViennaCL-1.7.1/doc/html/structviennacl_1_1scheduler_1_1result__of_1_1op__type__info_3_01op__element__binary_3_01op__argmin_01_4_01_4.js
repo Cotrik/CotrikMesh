@@ -1,0 +1,5 @@
+var structviennacl_1_1scheduler_1_1result__of_1_1op__type__info_3_01op__element__binary_3_01op__argmin_01_4_01_4 =
+[
+    [ "id", "structviennacl_1_1scheduler_1_1result__of_1_1op__type__info_3_01op__element__binary_3_01op__argmin_01_4_01_4.html#addba6033620cf8d81a6822bd64b7e19faf60865503283957f6857da653e1a95c8", null ],
+    [ "family", "structviennacl_1_1scheduler_1_1result__of_1_1op__type__info_3_01op__element__binary_3_01op__argmin_01_4_01_4.html#addba6033620cf8d81a6822bd64b7e19fa8143d34529cf6920d38006939a1a4c7d", null ]
+];

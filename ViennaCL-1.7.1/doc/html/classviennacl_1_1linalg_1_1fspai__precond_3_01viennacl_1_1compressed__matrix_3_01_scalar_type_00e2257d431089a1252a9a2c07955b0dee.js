@@ -1,0 +1,5 @@
+var classviennacl_1_1linalg_1_1fspai__precond_3_01viennacl_1_1compressed__matrix_3_01_scalar_type_00e2257d431089a1252a9a2c07955b0dee =
+[
+    [ "fspai_precond", "classviennacl_1_1linalg_1_1fspai__precond_3_01viennacl_1_1compressed__matrix_3_01_scalar_type_00e2257d431089a1252a9a2c07955b0dee.html#a5ca3a1d355a5cd124df71d19caf15cd2", null ],
+    [ "apply", "classviennacl_1_1linalg_1_1fspai__precond_3_01viennacl_1_1compressed__matrix_3_01_scalar_type_00e2257d431089a1252a9a2c07955b0dee.html#ac39fe59b002046bad18391dd6f465449", null ]
+];

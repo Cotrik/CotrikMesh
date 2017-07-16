@@ -1,0 +1,4 @@
+var namespaceviennacl_1_1device__specific_1_1builtin__database_1_1devices_1_1gpu_1_1amd_1_1southern__islands =
+[
+    [ "tahiti", "namespaceviennacl_1_1device__specific_1_1builtin__database_1_1devices_1_1gpu_1_1amd_1_1southern__islands_1_1tahiti.html", null ]
+];

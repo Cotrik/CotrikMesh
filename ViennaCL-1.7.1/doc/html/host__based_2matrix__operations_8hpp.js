@@ -1,0 +1,28 @@
+var host__based_2matrix__operations_8hpp =
+[
+    [ "VIENNACL_OPENMP_MATRIX_MIN_SIZE", "host__based_2matrix__operations_8hpp.html#a4b50534a3fce434335f67357a8d39f30", null ],
+    [ "am", "host__based_2matrix__operations_8hpp.html#abd62fd89100a1b1e57f62e9c96c8f668", null ],
+    [ "ambm", "host__based_2matrix__operations_8hpp.html#a32cbaf3e498ef506f879ec7c348b3320", null ],
+    [ "ambm_m", "host__based_2matrix__operations_8hpp.html#a496ef09c62e27e693d0bd3c2e1ed62ff", null ],
+    [ "bidiag_pack", "host__based_2matrix__operations_8hpp.html#ab82e103ba11e36cc0ea3c5f9ef70ad25", null ],
+    [ "bidiag_pack_impl", "host__based_2matrix__operations_8hpp.html#ac45fa740785db9ee5fd6c588cf626b9d", null ],
+    [ "convert", "host__based_2matrix__operations_8hpp.html#a4fe3f1e7af78cbeb1125758a635eb99d", null ],
+    [ "copy_vec", "host__based_2matrix__operations_8hpp.html#aef310ab4dc9b3df56487c47823e1346d", null ],
+    [ "element_op", "host__based_2matrix__operations_8hpp.html#ae02ec8df2561e6d99747334dc2e5cec8", null ],
+    [ "element_op", "host__based_2matrix__operations_8hpp.html#a67a5c8cefba7a7064212f00aa1c90a55", null ],
+    [ "givens_next", "host__based_2matrix__operations_8hpp.html#a8bf0928dea7d81dfeecc6b7545136a5f", null ],
+    [ "house_update_A_left", "host__based_2matrix__operations_8hpp.html#aa2d47d71e2eb06222cca6a91304482ea", null ],
+    [ "house_update_A_right", "host__based_2matrix__operations_8hpp.html#ad80b20282d33c37cd25908322029893a", null ],
+    [ "house_update_QL", "host__based_2matrix__operations_8hpp.html#a255baa8fc58dd6b83fcce6fa6467d871", null ],
+    [ "matrix_assign", "host__based_2matrix__operations_8hpp.html#ae38bd51a7c4c5a4b52b62611d84d8125", null ],
+    [ "matrix_column", "host__based_2matrix__operations_8hpp.html#a49cd8957ce4d0bd9425829445f629b52", null ],
+    [ "matrix_diag_from_vector", "host__based_2matrix__operations_8hpp.html#a0ff8b577fbc815458850cc1ce41c04ef", null ],
+    [ "matrix_diag_to_vector", "host__based_2matrix__operations_8hpp.html#ac6eac2f35f54f978e95b4e8e2590722c", null ],
+    [ "matrix_diagonal_assign", "host__based_2matrix__operations_8hpp.html#a424a7e54bedde5db533e6559e1c128f1", null ],
+    [ "matrix_row", "host__based_2matrix__operations_8hpp.html#aa02f5899fbd9d6f3ccd0774c20fee391", null ],
+    [ "prod", "host__based_2matrix__operations_8hpp.html#ab49256bcd1cd3ad312b75379074ac167", null ],
+    [ "prod_impl", "host__based_2matrix__operations_8hpp.html#a73ab507a304067a153e0ad741ed6a40d", null ],
+    [ "prod_impl", "host__based_2matrix__operations_8hpp.html#a328587d1630163caab72b9c1855e0947", null ],
+    [ "scaled_rank_1_update", "host__based_2matrix__operations_8hpp.html#a091f55fe22a65f0ed007007b86ae9b81", null ],
+    [ "trans", "host__based_2matrix__operations_8hpp.html#ae263e29643746ebdbe6a053d44522c76", null ]
+];

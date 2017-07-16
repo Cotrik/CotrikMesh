@@ -1,0 +1,141 @@
+\form#0:$ \sigma $
+\form#1:$ A $
+\form#2:$ M $
+\form#3:\[ \Vert AM - I \Vert_F \rightarrow \min \ , \]
+\form#4:$ \Vert \cdot \Vert_F $
+\form#5:$ z_0 $
+\form#6:$ z_1 $
+\form#7:$ 2^{16} = 65536 $
+\form#8:$ \mathcal{O}(n * \lg n) $
+\form#9:$ N \log N $
+\form#10:$ N^2 $
+\form#11:\[ (v*u)(t) = \int_{-\infty}^\infty f(x)g(t-x) dx \]
+\form#12:$ \mathcal{F} $
+\form#13:\[ \mathcal{F}\{v*u\} = \mathcal{F}\{u\} \mathcal{F}\{v\} \rightarrow v*u = \mathcal{F}^{-1}\{ \mathcal{F}\{v\} \mathcal{F}\{u\} \} \]
+\form#14:$ a \in [0,1] $
+\form#15:$ d $
+\form#16:\[ d_{\min} \leq d \leq d_{\min} + a(d_{\max} - d_{\min}) \]
+\form#17:$ d_{\min} $
+\form#18:$ d_{\max} $
+\form#19:\[ f(W, H) = \Vert V - WH \Vert_{\mathrm{F}}^2 \]
+\form#20:$ y $
+\form#21:$ Ay = x $
+\form#22:$ x $
+\form#23:$ 10^{-10} $
+\form#24:$ L $
+\form#25:$ U $
+\form#26:$ A \approx LU $
+\form#27:$ l^1 $
+\form#28:$ 2 $
+\form#29:$ l^2 $
+\form#30:$ A \in \mathbb{R}^{n\times m} $
+\form#31:$ A = Q R $
+\form#32:$ Q \in \mathbb{R}^{n\times n}$
+\form#33:$ R \in \mathbb{R}^{n \times m}$
+\form#34:$ v_i $
+\form#35:$ I - \beta_i v_i v_i^{\mathrm{T}} $
+\form#36:$ \beta_i $
+\form#37:$ R $
+\form#38:$ Q $
+\form#39:$ \mathtt{rupp @ iue.tuwien.ac.at} $
+\form#40:$ x \leftrightarrow y $
+\form#41:$ x \leftarrow \alpha x $
+\form#42:$ y \leftarrow x $
+\form#43:$ y \leftarrow \alpha x + y $
+\form#44:$ y \leftarrow \alpha x - y $
+\form#45:$ \alpha \leftarrow x^{\mathrm{T}} y $
+\form#46:$L^1$
+\form#47:$ \alpha \leftarrow \Vert x \Vert_1 $
+\form#48:$L^2$
+\form#49:$ \alpha \leftarrow \Vert x \Vert_2 $
+\form#50:$L^\infty$
+\form#51:$ \alpha \leftarrow \Vert x \Vert_\infty $
+\form#52:$ i \leftarrow \max_i \vert x_i \vert $
+\form#53:$(x,y) \leftarrow (\alpha x + \beta y, -\beta x + \alpha y) $
+\form#54:$ y_i \leftarrow x_i \cdot z_i $
+\form#55:$ y_i \leftarrow x_i^{z_i} $
+\form#56:$ y_i \leftarrow `x_i` $
+\form#57:$ y_i \leftarrow \textrm{acos}(x_i) $
+\form#58:$ y_i \leftarrow \textrm{asin}(x_i) $
+\form#59:$ y_i \leftarrow \textrm{atan}(x_i) $
+\form#60:$ y_i \leftarrow \lceil x_i \rceil $
+\form#61:$ y_i \leftarrow \textrm{cos}(x_i) $
+\form#62:$ y_i \leftarrow \textrm{cosh}(x_i) $
+\form#63:$ y_i \leftarrow \textrm{exp}(x_i) $
+\form#64:$ y_i \leftarrow \lfloor x_i \rfloor $
+\form#65:$ y_i \leftarrow \textrm{ln}(x_i) $
+\form#66:$ y_i \leftarrow \textrm{log}_{10}(x_i)$
+\form#67:$ y_i \leftarrow \textrm{sin}(x_i) $
+\form#68:$ y_i \leftarrow \textrm{sinh}(x_i) $
+\form#69:$ y_i \leftarrow \textrm{sqrt}(x_i) $
+\form#70:$ y_i \leftarrow \textrm{tan}(x_i) $
+\form#71:$ y_i \leftarrow \textrm{tanh}(x_i) $
+\form#72:$ y \leftarrow A x $
+\form#73:$ y \leftarrow A^\mathrm{T} x $
+\form#74:$ x \leftarrow A x $
+\form#75:$ x \leftarrow A^\mathrm{T} x $
+\form#76:$ y \leftarrow \alpha A x + \beta y $
+\form#77:$ y \leftarrow \alpha A^{\mathrm T} x + \beta y $
+\form#78:$ y \leftarrow A^{-1} x $
+\form#79:$ y \leftarrow A^\mathrm{T^{-1}} x $
+\form#80:$ x \leftarrow A^{-1} x $
+\form#81:$ x \leftarrow A^\mathrm{T^{-1}} x $
+\form#82:$ A \leftarrow \alpha x y^{\mathrm T} + A $
+\form#83:$ A \leftarrow \alpha x x^{\mathrm T} + A $
+\form#84:$ A \leftarrow \alpha (x y^{\mathrm T} + y x^{\mathrm T}) + A $
+\form#85:$ C \leftarrow A \times B $
+\form#86:$ C \leftarrow A \times B^\mathrm{T} $
+\form#87:$ C \leftarrow A^\mathrm{T} \times B $
+\form#88:$ C \leftarrow A^\mathrm{T} \times B^\mathrm{T} $
+\form#89:$ C \leftarrow A^{-1} B $
+\form#90:$ C \leftarrow A^\mathrm{T^{-1}} B $
+\form#91:$ C \leftarrow A^{-1} B^\mathrm{T} $
+\form#92:$ C \leftarrow A^\mathrm{T^{-1}} B^\mathrm{T} $
+\form#93:$ B \leftarrow A^{-1} B $
+\form#94:$ B \leftarrow A^\mathrm{T^{-1}} B $
+\form#95:$ B \leftarrow A^{-1} B^\mathrm{T} $
+\form#96:$ B \leftarrow A^\mathrm{T^{-1}} B^\mathrm{T} $
+\form#97:\[ \left( \begin{array}{ccccc} c_0 & c_{n-1} & \ldots & c_2 & c_1 \\ c_1 & c_0 & c_{n-1} & & c_2 \\ \vdots & c_1 & c_0 & \ddots & \vdots \\ c_{n-2} & & \ddots & \ddots & c_{n-1} \\ c_{n-1} & c_{n-2} & \hdots & c_1 & c_0 \\ \end{array} \right) \]
+\form#98:\[ \left( \begin{array}{cccc} a & b & c & d \\ b & c & d & e \\ c & d & e & f \\ d & e & f & g \\ \end{array} \right) \]
+\form#99:\[ \left( \begin{array}{cccc} a & b & c & d \\ e & a & b & c \\ f & e & a & b \\ g & f & e & a \\ \end{array} \right) \]
+\form#100:\[ \left( \begin{array}{ccccc} 1 & \alpha_1 & \alpha_1^2 & \ldots & \alpha_1^{n-1} \\ 1 & \alpha_2 & \alpha_2^2 & \ldots & \alpha_2^{n-1} \\ 1 & \vdots & \vdots & \vdots \\ 1 & \alpha_m & \alpha_m^2 & \ldots & \alpha_m^{n-1} \\ \end{array} \right) \]
+\form#101:$ s $
+\form#102:$ 1 $
+\form#103:$ i $
+\form#104:$ v $
+\form#105:$ 42 $
+\form#106:$ 42.0 $
+\form#107:$ s \times s $
+\form#108:$ s_1 \times s_2 $
+\form#109:$ N \times n_{\max} $
+\form#110:$ n_{\max} $
+\form#111:$ 10^{-6} $
+\form#112:$ \Vert Ax - b \Vert $
+\form#113:$ b' = Q^{\mathrm{T}} b $
+\form#114:$ \Vert Rx - Q^{\mathrm{T}} b $
+\form#115:$ \tilde{R} x = b' $
+\form#116:$ \tilde{R} $
+\form#117:$ I - \beta v v^{\mathrm{T}} $
+\form#118:$ Q^{\mathrm{T}} $
+\form#119:$V \approx W H $
+\form#120:$ A \in \mathbb{R}^{M \times N} $
+\form#121:\[ A = U \Sigma V^T \]
+\form#122:$ U \in \mathbb{R}^{M\times M} $
+\form#123:$ \Sigma \in \mathbb{R}^{M \times N} $
+\form#124:$ V \in \mathbb{R}^{N \times N} $
+\form#125:$ V $
+\form#126:$ \Sigma $
+\form#127:$ Ax = b $
+\form#128:$ b $
+\form#129:$ x_0 $
+\form#130:\[ x = x_0 + y \\ \Rightarrow A(x_0 + y) = b \Leftrightarrow Ay = b - Ax_0 := \tilde{b} \]
+\form#131:$ b - Ax_0 $
+\form#132:$ Ay = b - Ax_0 $
+\form#133:$ n $
+\form#134:$ k $
+\form#135:$ R x = r $
+\form#136:$ r $
+\form#137:\[ x_{k+1} = (I - R)x_k + D^{-1} b \]
+\form#138:$ \Delta \varphi = -1 $
+\form#139:$ [0,1] \times [0,1] $
+\form#140:$ N \times N $
