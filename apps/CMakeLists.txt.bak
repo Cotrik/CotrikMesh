@@ -1,0 +1,103 @@
+include(CheckCXXCompilerFlag)
+CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
+CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+if(COMPILER_SUPPORTS_CXX11)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+elseif(COMPILER_SUPPORTS_CXX0X)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+else()
+    message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+endif()
+
+
+find_package(VTK REQUIRED)
+include(${VTK_USE_FILE})  
+
+include_directories(
+    ${PROJECT_SOURCE_DIR}/libcotrik/src/ 
+    /usr/include/eigen3
+    ../../libigl/include
+    ../
+    )
+    
+foreach(app 
+    AutoMeshOpt
+    CheckMesh
+    ConvertQuadToTriangle
+    #CotrikClustering
+    DisplayFrameField
+    ExtractFaceSegments
+    ExtractFrameField
+    ExtractGaussianCurvature
+    ExtractLayers
+    ExtractPatches
+    #HexRefine
+    HexSmooth
+    #LayerOpt
+    LocalMeshOpt
+    LocalMeshOptFixBoundary
+    MeshAsjOpt
+    #MeshChecker
+    #MeshFix
+    MeshOpt
+    MeshOptFixBoundary
+    MeshProject
+    MeshQuality
+    MeshScale
+    MeshShrink
+    PerturbInnerVertices
+    ReadMesh
+    Slim
+    #SLIM
+    SlimHex
+    SlimTet
+    SlimTri
+    #Smooth
+    SmoothMap
+    SurfaceMeshOpt
+    WeightedMeshOptFixBoundary
+)
+    add_executable(${app} ${app}.cpp)
+    target_link_libraries(${app} cotrik)
+endforeach()
+
+if (ENABLE_CUDA)
+   find_package(CUDA REQUIRED)
+   set(CUDA_ARCH_FLAG "-arch=sm_30" CACHE STRING "Use one out of sm_13, sm_20, sm_30, ...")
+   set(CUDA_NVCC_FLAGS "-std=c++11" "${CUDA_NVCC_FLAGS}" "${CUDA_ARCH_FLAG}" "-DVIENNACL_WITH_CUDA")
+   #SET(CUDA_INCLUDE_DIRS "/usr/local/cuda/include" ${CUDA_INCLUDE_DIRS})
+   #SET(CUDA_LIBRARIES ${CUDA_LIBRARIES} "/usr/local/cuda/lib64/libcudart.so" "/usr/lib64/libcuda.so" "/usr/local/cuda/lib64/libcublas.so")
+   #set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" "${CUDA_ARCH_FLAG}" "-DVIENNACL_WITH_CUDA")
+   #set_directory_properties( PROPERTIES COMPILE_DEFINITIONS "" )
+   #set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+endif(ENABLE_CUDA)
+
+# Export
+########
+
+configure_file(${PROJECT_SOURCE_DIR}/ViennaCL-1.7.1/cmake/FindOpenCL.cmake
+   "${PROJECT_BINARY_DIR}/FindOpenCL.cmake" COPYONLY)
+
+configure_file(${PROJECT_SOURCE_DIR}/ViennaCL-1.7.1/cmake/ViennaCLConfig.cmake.in
+   "${PROJECT_BINARY_DIR}/ViennaCLConfig.cmake" @ONLY)
+
+configure_file(${PROJECT_SOURCE_DIR}/ViennaCL-1.7.1/cmake/ViennaCLConfigVersion.cmake.in
+   "${PROJECT_BINARY_DIR}/ViennaCLConfigVersion.cmake" @ONLY)
+
+if (CMAKE_MINOR_VERSION GREATER 6)  # export(PACKAGE ...) introduced with CMake 2.8.0
+  export(PACKAGE ViennaCL)
+endif()
+
+
+
+
+if (ENABLE_CUDA)
+  if (ENABLE_UBLAS)
+    include_directories(${PROJECT_SOURCE_DIR} ${Boost_INCLUDE_DIRS}
+    ${PROJECT_SOURCE_DIR}/libcotrik/src/)
+    foreach(tut iterative)
+        cuda_add_executable(${tut}-cotrik-cuda ${tut}.cu)
+        target_link_libraries(${tut}-cotrik-cuda ${Boost_LIBRARIES} cotrik)
+    endforeach()
+  endif ()
+endif (ENABLE_CUDA)

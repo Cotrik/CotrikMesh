@@ -68,6 +68,7 @@ public:
     , color(-1)
     , isBoundary(false)
     , isSingularity(false)
+    , isActive(true)
     {}
     GeoInfo(const GeoInfo& r)
     : id(r.id)
@@ -75,6 +76,7 @@ public:
     , color(r.color)
     , isBoundary(r.isBoundary)
     , isSingularity(r.isSingularity)
+    , isActive(r.isActive)
     {}
     GeoInfo& operator = (const GeoInfo& rhs)
     {
@@ -83,6 +85,7 @@ public:
         color = rhs.color;
         isBoundary = rhs.isBoundary;
         isSingularity = rhs.isSingularity;
+        isActive = rhs.isActive;
         return *this;
     }
     virtual ~GeoInfo()
@@ -93,6 +96,7 @@ public:
     char color;
     bool isBoundary;
     bool isSingularity;
+    bool isActive;
 };
 
 enum SurfaceVertexType
@@ -247,6 +251,7 @@ public:
     bool isSharpFeature;
     size_t label;     // patch number starting from 0, MAXID is invalid
     size_t componentEid = MAXID;
+    size_t singularEid = MAXID;
 };
 
 class Face : public GeoInfo, public NeighborInfo

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 2.8)
 set(vtkverdict_THIRD_PARTY 1)
 set(vtkverdict_LIBRARIES verdict)
 vtk_module_export_info()

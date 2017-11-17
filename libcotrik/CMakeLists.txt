@@ -55,8 +55,16 @@ add_library(cotrik SHARED
     src/BaseComplex.h
     src/BaseComplexEditor.cpp
     src/BaseComplexEditor.h
+    src/BaseComplexSheet.cpp
+    src/BaseComplexSheet.h
+    src/BaseComplexChord.cpp
+    src/BaseComplexChord.h
+    src/SingularityGraph.cpp
+    src/SingularityGraph.h
     src/Component.cpp
     src/Component.h
+    src/Dual.cpp
+    src/Dual.h
     src/EdgeLines.cpp
     src/EdgeLines.h
     src/FeatureLine.cpp

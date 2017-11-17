@@ -14,7 +14,7 @@ ELSE()
 ENDIF()
 
 add_subdirectory(libcotrik)
-add_subdirectory(libframe)
+#add_subdirectory(libframe)
 add_subdirectory(apps)
 add_subdirectory(cuda-apps)
 add_subdirectory(ViennaCL-1.7.1)

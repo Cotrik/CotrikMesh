@@ -30,11 +30,14 @@ foreach(app
     #CotrikClustering
     DisplayFrameField
     ExtractBaseComplex
+    RemovePadding
+    CollapseComponent
     ExtractFaceSegments
     ExtractFrameField
     ExtractGaussianCurvature
     ExtractLayers
     ExtractPatches
+    ExtractSharpEdges
     #HexRefine
     HexSmooth
     HexGen
@@ -62,6 +65,7 @@ foreach(app
     SmoothMap
     SurfaceMeshOpt
     WeightedMeshOptFixBoundary
+    tet2hex
 )
     add_executable(${app} ${app}.cpp)
     target_link_libraries(${app} cotrik CGAL)

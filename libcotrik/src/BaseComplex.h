@@ -188,9 +188,15 @@ public:
     void WriteSingularV_VTK(const char* filename) const;
     void WriteSingularE_VTK(const char *filename) const;
     void WriteBaseComplex_VTK(const char *filename) const;
+    void WriteBaseComplexHexVTK(const char *filename) const;
+    void WriteBaseComplex_ColorVerticesVTK(const char *filename) const;
     void WriteBaseComplex_ColorEdgesVTK(const char *filename) const;
     void WriteBaseComplex_ColorFacesVTK(const char *filename) const;
     void WriteBaseComplexComponentsVTK(const char *filename) const;
+    void WriteBaseComplexAllComponentsVTK(const char *filename_prefix) const;
+    void WriteBaseComplexComponentsVTK(const char *filename_prefix, const size_t id) const;
+    void WriteBaseComplexComponentsWithoutSingularitiesVTK(const char *filename) const;
+    void WriteBaseComplexComponentsWithSingularitiesVTK(const char *filename) const;
     void WriteBaseComplexSeparatedFacePatchesVTK(const char *filename) const;
     // Write Neighboring information
     void WriteComponentEdge_NeighborComponentFaces_VTK(const char *filename) const;
@@ -222,7 +228,7 @@ protected:
     std::vector<char> GetColorsOfNeighborComponents(const ComponentCell& component);
 
 
-private:
+public:
     size_t GetNextSingularEdgeId(const size_t vid, const size_t cur_edge_id);
     // vid is the starting point, eid tells the direction; circular edge link returns true;
     bool TraceEdge(const size_t vid, const size_t eid, std::vector<size_t>& Vids, std::vector<size_t>& Eids, std::vector<bool>& is_edge_visited);
@@ -271,7 +277,10 @@ private:
     size_t RegionGrowEdge(const Edge& start_edge, std::vector<bool>& is_edge_visited, std::vector<size_t>& eids);
 
     std::vector<size_t> GetComponentFids(const ComponentCell& component) const;
+    std::vector<size_t> GetComponentEids(const ComponentCell& component) const;
+    std::vector<size_t> GetComponentVids(const ComponentCell& component) const;
     std::vector<size_t> GetComponentEids(const ComponentFace& componentFace) const;
+    std::vector<size_t> GetComponentVids(const ComponentFace& componentFace) const;
 
     std::vector<size_t> GetNeighborComponentCids(const ComponentFace& componentFace) const;
     std::vector<size_t> GetNeighborComponentCids(const ComponentEdge& componentEdge) const;
@@ -284,9 +293,13 @@ private:
     std::vector<size_t> GetNeighborComponentCids(const SingularE& singularEdge) const;
     std::vector<size_t> GetNeighborComponentFids(const SingularE& singularEdge) const;
 
+    void BuildComponentEdgeLink(ComponentEdge& componentEdge);
+    size_t TraceVertex(ComponentEdge& componentEdge, const Vertex& start_vertex, const Edge& start_edge,
+            std::vector<bool>& is_edge_visited, std::vector<size_t>& vids_link, std::vector<size_t> &eids_link); // return end_mesh_vertex_id
 
+    void AlignComponentE();
 
-private:
+public:
     Mesh& mesh;
     std::vector<size_t> Vids;
     std::vector<size_t> Eids;
