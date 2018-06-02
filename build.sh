@@ -3,7 +3,7 @@ if [ ! -d "Release" ]; then
 fi
 cd Release
 ccmake .. -DCMAKE_BUILD_TYPE=Release
-make -j 4
+make -j 8
 cd ../
 
 if [ ! -d "Debug" ]; then
@@ -11,5 +11,5 @@ if [ ! -d "Debug" ]; then
 fi
 cd Debug
 cmake .. -DCMAKE_BUILD_TYPE=Debug
-make -j 4
+make -j 8
 

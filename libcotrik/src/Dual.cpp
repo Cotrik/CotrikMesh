@@ -8,6 +8,101 @@
 #include "Dual.h"
 #include <unordered_map>
 #include <unordered_set>
+#include <iostream>
+#include <algorithm>
+
+Mesh GetRefineMesh1(const Mesh& hex_mesh, int clockwise = 0)
+{
+    const Mesh& new_mesh = hex_mesh;
+    ////////////////////////////////////////////////////////////////////////////
+    // add vertices
+    std::vector<Vertex> new_vertex(new_mesh.V.size() + new_mesh.E.size() + new_mesh.F.size() + new_mesh.C.size());
+    for (size_t i = 0; i < new_mesh.V.size(); i++)
+        new_vertex.at(i) = new_mesh.V.at(i);
+    size_t offset = new_mesh.V.size();
+    for (size_t i = 0; i < new_mesh.E.size(); i++) {
+        const Edge& e = new_mesh.E.at(i);
+        const Vertex& v0 = new_mesh.V.at(e.Vids[0]);
+        const Vertex& v1 = new_mesh.V.at(e.Vids[1]);
+        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+    }
+    offset = new_mesh.V.size() + new_mesh.E.size();
+    for (size_t i = 0; i < new_mesh.F.size(); i++) {
+        const Face& f = new_mesh.F.at(i);
+        const Vertex& v0 = new_mesh.V.at(f.Vids[0]);
+        const Vertex& v1 = new_mesh.V.at(f.Vids[2]);
+        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+    }
+    offset = new_mesh.V.size() + new_mesh.E.size() + new_mesh.F.size();
+    for (size_t i = 0; i < new_mesh.C.size(); i++) {
+        const Cell& c = new_mesh.C.at(i);
+        const Vertex& v0 = new_mesh.V.at(c.Vids[0]);
+        const Vertex& v1 = new_mesh.V.at(c.Vids[6]);
+        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+    }
+    //new_mesh.V = new_vertex;
+    /////////////////////////////////////////////////////////////////
+    // add cells
+    const unsigned int HexEdge[12][2] = { { 0, 1 }, { 1, 2 }, { 2, 3 }, { 3, 0 }, { 4, 5 }, { 5, 6 }, { 6, 7 }, { 7, 4 }, { 0, 4 }, { 1, 5 }, { 2, 6 }, { 3, 7 }, };
+
+    const int HexRefine[8][8] =
+    {
+        11, 20, 10, 3, 22, 26, 25, 19,
+        20, 9, 2, 10, 26, 23, 18, 25,
+        22, 26, 25, 19, 15, 21, 14, 7,
+        26, 23, 18, 25, 21, 13, 6, 14,
+        0, 8, 20, 11, 16, 24, 26, 22,
+        8, 1, 9, 20, 24, 17, 23, 26,
+        16, 24, 26, 22, 4, 12, 21, 15,
+        24, 17, 23, 26, 12, 5, 13, 21
+    };
+
+    Cell cell(8);
+    std::vector<Cell> new_cells(8 * new_mesh.C.size(), cell);
+    int count = 0;
+    for (size_t i = 0; i < new_mesh.C.size(); i++) {
+        unsigned long v_index[27];
+        const Cell& c = new_mesh.C.at(i);
+        for (auto j = 0; j < 8; j++)
+            v_index[j] = c.Vids.at(j);
+        if (clockwise != 0) {
+            std::swap(v_index[1], v_index[3]);
+            std::swap(v_index[5], v_index[7]);
+        }
+        for (unsigned long j = 0; j < 12; j++) {
+            const Edge e({c.Vids.at(HexEdge[j][0]), c.Vids.at(HexEdge[j][1])});
+            auto it = std::find(new_mesh.E.begin(), new_mesh.E.end(), e);
+            if (it == new_mesh.E.end()) std::cout << "Edge search Error !" << std::endl;
+            const unsigned long e_index = std::distance(new_mesh.E.begin(), it);
+            v_index[8 + j] = new_mesh.V.size() + e_index;
+        }
+        auto face_qual = [](const Face& a, const Face& b) {
+            std::unordered_set<size_t> s;
+            s.insert(a.Vids.begin(), a.Vids.end());
+            s.insert(b.Vids.begin(), b.Vids.end());
+            return s.size() == 4;
+        };
+        for (unsigned long j = 0; j < 6; j++) {
+            Face f({c.Vids.at(HexFaces[j][0]), c.Vids.at(HexFaces[j][1]), c.Vids.at(HexFaces[j][2]), c.Vids.at(HexFaces[j][3])});
+            for (auto f_index = 0; f_index < new_mesh.F.size(); ++f_index) {
+                auto& a = new_mesh.F.at(f_index);
+                std::unordered_set<size_t> s;
+                s.insert(a.Vids.begin(), a.Vids.end());
+                s.insert(f.Vids.begin(), f.Vids.end());
+                if (s.size() == 4) {
+                    v_index[20 + j] = new_mesh.V.size() + new_mesh.E.size() + f_index;
+                    break;
+                }
+            }
+        }
+        v_index[26] = new_mesh.V.size() + new_mesh.E.size() + new_mesh.F.size() + i;
+        for (int k = 0; k < 8; k++, count++)
+            for (int j = 0; j < 8; j++)
+                new_cells[count].Vids[j] = v_index[HexRefine[k][j]];
+    }
+    Mesh mesh(new_vertex, new_cells, HEXAHEDRA);
+    return mesh;
+}
 
 Dual::Dual(Mesh& mesh)
 : mesh(mesh)
@@ -138,6 +233,30 @@ const size_t parallelEdges[3][4][2] = {
              1                    2
 */
 
+const size_t parallelQuadEdges[2][2][2] = {
+        {{0, 1}, {3, 2}},
+        {{0, 3}, {1, 2}}
+};
+
+std::vector<std::vector<size_t>> getParallelEdgeIds(const Mesh& mesh, const Face& face) {
+    std::vector<std::vector<size_t>> parallel_edge_ids(2, std::vector<size_t>(2, MAXID));
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            auto v1 = face.Vids.at(parallelQuadEdges[i][j][0]);
+            auto v2 = face.Vids.at(parallelQuadEdges[i][j][1]);
+            for (const auto edge_id : face.Eids) {
+                const auto& edge = mesh.E.at(edge_id);
+                auto v_1 = edge.Vids[0];
+                auto v_2 = edge.Vids[1];
+                if ((v1 == v_1 && v2 == v_2) || (v1 == v_2 && v2 == v_1)) {
+                    parallel_edge_ids[i][j] = edge_id;
+                    break;
+                }
+            }
+        }
+    }
+    return parallel_edge_ids;
+}
 
 std::vector<std::vector<size_t>> getParallelEdgeIds(const Mesh& mesh, const Cell& cell) {
     std::vector<std::vector<size_t>> parallel_edge_ids(3, std::vector<size_t>(4, MAXID));
@@ -158,6 +277,7 @@ std::vector<std::vector<size_t>> getParallelEdgeIds(const Mesh& mesh, const Cell
     }
     return parallel_edge_ids;
 }
+
 void Dual::BuildF() {
     F.resize(3 * mesh.C.size());
     size_t id = 0;

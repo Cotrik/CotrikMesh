@@ -7,6 +7,12 @@
 
 #include "Patches.h"
 #include "algorithm"
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <memory>
+#include "stdio.h"
+using namespace std;
 
 Patches::Patches(Mesh& mesh)
 : mesh(mesh)
@@ -201,4 +207,52 @@ void Patches::LabelSurface()
     }
     mesh.numberOfPatches = label;
     patches.clear();
+}
+
+void Patch::WriteMeshFile(const char* filename) const {
+    const std::vector<Vertex>& V = mesh.V;
+    const std::vector<Face>& F = mesh.F;
+
+    std::ofstream ofs(filename);
+    ofs << "# vtk DataFile Version 2.0\n"
+        << filename << "\n"
+        << "ASCII\n\n"
+        << "DATASET POLYDATA\n" ;
+    ofs << "POINTS " << V.size() << " float\n";
+    ofs << std::fixed << setprecision(7);
+    for (size_t i = 0; i < V.size(); i++)
+        ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << "\n";
+    if (mesh.m_cellType == HEXAHEDRA || mesh.m_cellType == QUAD) {
+        ofs << "POLYGONS " << faceIds.size() << " " << 5 * faceIds.size() << std::endl;
+        for (auto i : faceIds) {
+            ofs << "4";
+            const Face& face = F.at(i);
+            for (size_t j = 0; j < face.Vids.size(); j++)
+                ofs << " " << face.Vids.at(j);
+            ofs << "\n";
+        }
+    }
+    else if (mesh.m_cellType == TETRAHEDRA || mesh.m_cellType == TRIANGLE) {
+        ofs << "POLYGONS " << faceIds.size() << " " << 4 * faceIds.size() << std::endl;
+        for (auto i : faceIds) {
+            ofs << "3";
+            const Face& face = F.at(i);
+            for (size_t j = 0; j < face.Vids.size(); j++)
+                ofs << " " << face.Vids.at(j);
+            ofs << "\n";
+        }
+    }
+    {
+        ofs << "CELL_DATA " << faceIds.size() << std::endl
+            << "SCALARS " << " Label" << " int 1" << std::endl
+            << "LOOKUP_TABLE default" << std::endl;
+        for (auto i : faceIds)
+            ofs << (F.at(i).label == MAXID ? 0 : F.at(i).label)  << std::endl;
+    }
+}
+
+void Patches::WriteMeshFile(const char* filename_prefix) const {
+    size_t id = 0;
+    for (const auto& p : patches)
+        p.WriteMeshFile((string(filename_prefix) + to_string(id++) + ".vtk").c_str());
 }

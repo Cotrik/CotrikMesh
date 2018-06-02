@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-
+#include <stack>
 
 BaseComplex::BaseComplex(Mesh& mesh)
 : mesh(mesh)
@@ -195,6 +195,7 @@ void BaseComplex::AlignComponentE() {
             {{0, 3}, {1, 2}, {5, 6}, {4, 7}}
     };
     for (auto& componentCell : componentC) {
+        if (componentCell.Vids.empty()) continue; // circular component cell
         for (int i = 0; i < 3; ++i)
             for (int j = 0; j < 4; ++j){
                 auto vid1 = componentCell.Vids.at(parallelEdges[i][j][0]);
@@ -1039,8 +1040,8 @@ void BaseComplex::BuildV()
         if (is_mesh_vertex_in_an_vertex_of_base_complex[i]) Vids.push_back(i);
     Vids.resize(Vids.size());
 
-    MeshFileWriter writer(mesh, "BaseComplexVertices.vtk");
-    writer.WriteVerticesVtk(Vids);
+//    MeshFileWriter writer(mesh, "BaseComplexVertices.vtk");
+//    writer.WriteVerticesVtk(Vids);
 }
 
 bool IsTwoFaceShareCommonEdge(const Face& face1, const Face& face2)
@@ -1172,19 +1173,31 @@ bool BaseComplex::IsFaceOnBaseComplexFace(const Face& face)
     return false;
 }
 
-bool BaseComplex::IsOnBaseComplex(const Vertex& vertex) const
-{
-    return std::find(Vids.begin(), Vids.end(), vertex.id) != Vids.end();
+//bool BaseComplex::IsOnBaseComplex(const Vertex& vertex) const
+//{
+//    return std::find(Vids.begin(), Vids.end(), vertex.id) != Vids.end();
+//}
+//
+//bool BaseComplex::IsOnBaseComplex(const Edge& edge) const
+//{
+//    return std::find(Eids.begin(), Eids.end(), edge.id) != Eids.end();
+//}
+//
+//bool BaseComplex::IsOnBaseComplex(const Face& face) const
+//{
+//    return std::find(Fids.begin(), Fids.end(), face.id) != Fids.end();
+//}
+
+bool BaseComplex::IsOnBaseComplex(const Vertex& vertex) const {
+    return hashVids.find(vertex.id) != hashVids.end();
 }
 
-bool BaseComplex::IsOnBaseComplex(const Edge& edge) const
-{
-    return std::find(Eids.begin(), Eids.end(), edge.id) != Eids.end();
+bool BaseComplex::IsOnBaseComplex(const Edge& edge) const {
+    return hashEids.find(edge.id) != hashEids.end();
 }
 
-bool BaseComplex::IsOnBaseComplex(const Face& face) const
-{
-    return std::find(Fids.begin(), Fids.end(), face.id) != Fids.end();
+bool BaseComplex::IsOnBaseComplex(const Face& face) const {
+    return hashFids.find(face.id) != hashFids.end();
 }
 
 void BaseComplex::TraceEdge(const std::vector<size_t>& mesh_edge_ids_on_singular_edge, const Face& start_face, std::vector<bool>& is_mesh_edge_visited)
@@ -1421,8 +1434,8 @@ void BaseComplex::BuildE()
         if (is_mesh_edge_in_an_edge_of_base_complex[i]) Eids.push_back(i);
     Eids.resize(Eids.size());
 
-    MeshFileWriter writer(mesh, "BaseComplexEdges.vtk");
-    writer.WriteEdgesVtk(Eids);
+//    MeshFileWriter writer(mesh, "BaseComplexEdges.vtk");
+//    writer.WriteEdgesVtk(Eids);
 }
 
 void BaseComplex::BuildF()
@@ -1454,8 +1467,8 @@ void BaseComplex::BuildF()
         if (is_mesh_face_visited[i] || mesh.F.at(i).isBoundary) Fids.push_back(i);
     Fids.resize(Fids.size());
 
-    MeshFileWriter writer(mesh, "BaseComplexFaces.vtk");
-    writer.WriteFacesVtk(Fids);
+//    MeshFileWriter writer(mesh, "BaseComplexFaces.vtk");
+//    writer.WriteFacesVtk(Fids);
 }
 
 void BaseComplex::BuildC()
@@ -1469,16 +1482,21 @@ void BaseComplex::BuildC()
 ////    MeshFileWriter writer(mesh.V, F, "BaseComplexMesh.vtk");
 ////    writer.WriteFacesVtk();
 //    WriteBaseComplex_ColorFacesVTK("BaseComplexColorFaces.vtk");
+    hashVids.insert(Vids.begin(), Vids.end());
+    hashEids.insert(Eids.begin(), Eids.end());
+    hashFids.insert(Fids.begin(), Fids.end());
+    hashCids.insert(Cids.begin(), Cids.end());
+
     BuildComponentC();
     BuildComponentColor();
     BuildComponentF();
     BuildComponentE();
     BuildComponentV();
-    WriteBaseComplexAllComponentsVTK("ComponentCells");
-    WriteBaseComplexComponentsVTK("BaseComplexComponents.vtk");
-    WriteBaseComplex_ColorFacesVTK("BaseComplexColorFaces.vtk");
-    WriteBaseComplex_ColorEdgesVTK("BaseComplexColorEdges.vtk");
-    WriteBaseComplex_ColorVerticesVTK("BaseComplexColorVertices.vtk");
+//    WriteBaseComplexAllComponentsVTK("ComponentCells");
+//    WriteBaseComplexComponentsVTK("BaseComplexComponents.vtk");
+//    WriteBaseComplex_ColorFacesVTK("BaseComplexColorFaces.vtk");
+//    WriteBaseComplex_ColorEdgesVTK("BaseComplexColorEdges.vtk");
+//    WriteBaseComplex_ColorVerticesVTK("BaseComplexColorVertices.vtk");
 }
 
 void BaseComplex::BuildComponentV()
@@ -1507,6 +1525,7 @@ void BaseComplex::BuildComponentE()
         //componentCell.Vids = c.Vids;
         componentEdge.eids_link = eids;
         componentEdge.id = eid;
+        componentEdge.isBoundary = mesh.E.at(eids.front()).isBoundary;
         sort(eids.begin(), eids.end());
         BuildComponentEdgeLink(componentEdge);
         componentE.push_back(componentEdge);
@@ -1604,6 +1623,7 @@ void BaseComplex::BuildComponentF()
         //componentCell.Vids = c.Vids;
         componentFace.fids_patch = fids;
         componentFace.id = fid;
+        componentFace.isBoundary = mesh.F.at(fids.front()).isBoundary;
         componentF.push_back(componentFace);
         ++fid;
     }
@@ -2104,6 +2124,7 @@ std::vector<char> BaseComplex::GetColorsOfNeighborComponents(const ComponentCell
     }
     return colors;
 }
+
 size_t BaseComplex::RegionGrowCell(const Cell& start_cell, std::vector<bool>& is_cell_visited, std::vector<size_t>& cids)
 {
     is_cell_visited[start_cell.id] = true;
@@ -2121,6 +2142,33 @@ size_t BaseComplex::RegionGrowCell(const Cell& start_cell, std::vector<bool>& is
 
     return cids.size();
 }
+
+//size_t BaseComplex::RegionGrowCell(const Cell& start_cell, std::vector<bool>& is_cell_visited, std::vector<size_t>& cids)
+//{
+//    // is_cell_visited[start_cell.id] = true;
+//    // cids.push_back(start_cell.id);
+//    std::stack<size_t> st;
+//    st.push(start_cell.id);
+//    while (!st.empty()) {
+//        auto cellId = st.top();
+//        st.pop();
+//        is_cell_visited[cellId] = true;
+//        cids.push_back(cellId);
+//        auto& cell = mesh.C.at(cellId);
+//        for (auto face_id : cell.Fids) {
+//            const Face& face = mesh.F.at(face_id);
+//            if (!IsOnBaseComplex(face)) {
+//                const size_t nextCellId = face.N_Cids[0] == start_cell.id ? face.N_Cids[1] : face.N_Cids[0];
+//                if (!is_cell_visited[nextCellId]) {
+//                    st.push(nextCellId);
+//                    break;
+//                }
+//            }
+//        }
+//    }
+//
+//    return cids.size();
+//}
 
 size_t BaseComplex::RegionGrowFace(const Face& start_face, std::vector<bool>& is_face_visited, std::vector<size_t>& fids)
 {
@@ -2207,6 +2255,11 @@ void BaseComplex::WriteSingularE_VTK(const char *filename) const
     ofs << "SCALARS SingularityEdge int" << std::endl;
     ofs << "LOOKUP_TABLE SingularEdge" << std::endl;
     for (int i = 0; i < SingularityI.E.size(); i++) ofs << i << std::endl;
+
+    //ofs << "CELL_DATA " << SingularityI.E.size() << std::endl;
+    ofs << "SCALARS valence int" << std::endl;
+    ofs << "LOOKUP_TABLE valence" << std::endl;
+    for (int i = 0; i < SingularityI.E.size(); i++) ofs << mesh.E.at(SingularityI.E[i].es_link.front()).N_Cids.size() << std::endl;
 }
 
 void BaseComplex::WriteSingularities_VTK(const char *filename) const
@@ -2500,6 +2553,97 @@ void BaseComplex::WriteBaseComplexComponentsVTK(const char *filename_prefix, con
         << "LOOKUP_TABLE default" << std::endl;
         for (const auto& cellid : cellPatch.cids_patch)
             ofs << cellPatch.color % 8 << std::endl;
+}
+
+void BaseComplex::WriteBaseComplexAllComponentsEdgesAndFacesVTK(const char *filename_prefix) const {
+    for (size_t id = 0; id < componentC.size(); ++id)
+        WriteBaseComplexComponentsEdgesAndFacesVTK(filename_prefix, id);
+}
+
+void BaseComplex::WriteBaseComplexComponentsEdgesAndFacesVTK(const char *filename_prefix, const size_t id) const
+{
+    const std::vector<Vertex>& V = mesh.V;
+    const std::vector<Edge>& E = mesh.E;
+    const std::vector<Face>& F = F;
+
+    std::string filename = std::string(filename_prefix) + std::to_string(id) + ".vtk";
+    std::ofstream ofs(filename);
+    ofs << "# vtk DataFile Version 2.0" << std::endl
+        << filename << std::endl
+        << "ASCII" << std::endl << std::endl
+        << "DATASET POLYDATA" << std::endl;
+
+    ofs << "POINTS " << V.size() << " double" << std::endl;
+    for (size_t i = 0; i < V.size(); i++)
+        ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << std::endl;
+
+    const auto& cellPatch = componentC.at(id);
+    int numOfVertices = cellPatch.Vids.size();
+    int numOfLines = 0;
+    for (auto componentEid : cellPatch.Eids)
+        numOfLines += 1 + componentE.at(componentEid).vids_link.size();
+    int numOfFaces = 0;
+    for (auto componentFid : cellPatch.Fids)
+        numOfFaces += componentF.at(componentFid).fids_patch.size();
+
+    if (cellPatch.Vids.size()) {
+    ofs << "VERTICES " << cellPatch.Vids.size() << " " << 2 * cellPatch.Vids.size() << std::endl;
+    for (auto vid : cellPatch.Vids)
+        ofs << "1 " << vid << std::endl;
+    }
+
+    ofs << "LINES " << cellPatch.Eids.size() << " " << numOfLines << std::endl;
+    for (auto componentEid : cellPatch.Eids) {
+        const auto& componentEdge = componentE.at(componentEid);
+        ofs << componentEdge.vids_link.size() << " ";
+        for (auto vid : componentEdge.vids_link)
+            ofs << vid << " ";
+        ofs << "\n";
+    }
+
+    ofs << "POLYGONS " << numOfFaces << " " << 5 * numOfFaces << std::endl;
+    for (auto componentFid : cellPatch.Fids) {
+        const auto& componentFace = componentF.at(componentFid);
+        for (auto faceid : componentFace.fids_patch) {
+            const Face& face = mesh.F.at(faceid);
+            ofs << face.Vids.size();
+            for (size_t j = 0; j < face.Vids.size(); j++)
+                ofs << " " << face.Vids.at(j);
+            ofs << "\n";
+        }
+    }
+
+    int eid = 0;
+    int fid = 0;
+    ofs << "CELL_DATA " << numOfVertices + cellPatch.Eids.size() + numOfFaces << std::endl
+        << "SCALARS " << " edges" << " int 1" << std::endl
+        << "LOOKUP_TABLE edges" << std::endl;
+    for (auto vid : cellPatch.Vids)
+        ofs << "0\n";
+    for (auto componentEid : cellPatch.Eids)
+        ofs << eid++ << "\n";
+    for (auto componentFid : cellPatch.Fids) {
+        const auto& componentFace = componentF.at(componentFid);
+        for (auto faceid : componentFace.fids_patch)
+            ofs << fid << "\n";
+        //fid++;
+    }
+
+    eid = 0;
+    fid = 0;
+    //ofs << "CELL_DATA " << numOfVertices + cellPatch.Eids.size() + numOfFaces << std::endl
+    ofs << "SCALARS " << " faces" << " int 1" << std::endl
+        << "LOOKUP_TABLE faces" << std::endl;
+    for (auto vid : cellPatch.Vids)
+        ofs << "0\n";
+    for (auto componentEid : cellPatch.Eids)
+        ofs << 0 << "\n";
+    for (auto componentFid : cellPatch.Fids) {
+        const auto& componentFace = componentF.at(componentFid);
+        for (auto faceid : componentFace.fids_patch)
+            ofs << fid << "\n";
+        fid++;
+    }
 }
 
 void BaseComplex::WriteBaseComplexHexVTK(const char *filename) const
@@ -2875,6 +3019,12 @@ void BaseComplex::WriteSingularEdge_NeighborSeparatedFacePatches_VTK(const char 
 
 }
 
+void BaseComplex::WriteAllSingularEdge_NeighborSeparatedComponentFacePatches_VTK(const char *filename_prefix) const
+{
+    int id = 0;
+    for (const auto& e : SingularityI.E)
+        WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK((std::string(filename_prefix) + std::to_string(id) + ".vtk").c_str(), id++);
+}
 void BaseComplex::WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK(const char *filename) const
 {
     const std::vector<Vertex>& V = mesh.V;
@@ -2954,4 +3104,60 @@ void BaseComplex::WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK(co
 //            for (auto & face_id : separatedFacePatches.at(separatedFacePatchId))
 //                    ofs << mesh.F.at(face_id).componentFid << std::endl;
 //    }
+}
+
+void BaseComplex::WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK(const char *filename, const int singularEdgeId) const
+{
+    const std::vector<Vertex>& V = mesh.V;
+    const std::vector<Edge>& E = mesh.E;
+    std::ofstream ofs(filename);
+    ofs << "# vtk DataFile Version 2.0" << std::endl
+        << filename << std::endl
+        << "ASCII" << std::endl << std::endl
+        << "DATASET POLYDATA" << std::endl;
+    ofs << "POINTS " << V.size() << " double" << std::endl;
+
+    for (size_t i = 0; i < V.size(); i++)
+        ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << std::endl;
+
+    auto & singularityEdge = SingularityI.E.at(singularEdgeId);
+
+    int edge_num = singularityEdge.vs_link.size() + 1;
+    int face_num = 0;
+    for (auto & separatedFacePatchId : singularityEdge.separatedFacePatchIds)
+            face_num += separatedFacePatches.at(separatedFacePatchId).size();
+
+    ofs << "LINES " << 1 << " " << edge_num << std::endl;
+    ofs << singularityEdge.vs_link.size();
+    for (const auto vid : singularityEdge.vs_link)
+        ofs << " " << vid;
+    ofs << "\n";
+
+    ofs << "POLYGONS " << face_num << " " << 5 * face_num << std::endl;
+    for (auto & separatedFacePatchId : singularityEdge.separatedFacePatchIds)
+        for (auto & face_id : separatedFacePatches.at(separatedFacePatchId)) {
+            const Face& face = mesh.F.at(face_id);
+            ofs << face.Vids.size();
+            for (size_t j = 0; j < face.Vids.size(); j++)
+                ofs << " " << face.Vids.at(j);
+            ofs << "\n";
+        }
+
+    ofs << "CELL_DATA " << 1 + face_num << std::endl
+        << "SCALARS " << "SingularEdge_SeparatedFacePatches" << " int 1" << std::endl
+        << "LOOKUP_TABLE default" << std::endl;
+    ofs << singularEdgeId << "\n";
+    int count = 0;
+    for (auto & separatedFacePatchId : singularityEdge.separatedFacePatchIds)
+        for (auto & face_id : separatedFacePatches.at(separatedFacePatchId))
+            ofs << count << "\n";
+    ++count;
+    ofs << "SCALARS " << "SeparatedFacePatches" << " int 1" << std::endl
+        << "LOOKUP_TABLE default" << std::endl;
+    ofs << singularEdgeId << "\n";
+    count = 0;
+    for (auto & separatedFacePatchId : singularityEdge.separatedFacePatchIds)
+        for (auto & face_id : separatedFacePatches.at(separatedFacePatchId))
+            ofs << separatedFacePatchId << "\n";
+    ++count;
 }

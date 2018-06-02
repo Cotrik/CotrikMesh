@@ -114,18 +114,30 @@ void MeshFileReader::ReadVtkFile()
             V.at(i).z = p[2];
             V.at(i).id = i;
         }
+//        vtkSmartPointer<vtkCellTypes> cellTypes = vtkSmartPointer<vtkCellTypes>::New();
+//        output->GetCellTypes(cellTypes.GetPointer());
         m_mesh.m_cellType = POLYGON;
         std::vector<Cell>& C = m_mesh.C;
         for (vtkIdType i = 0; i < cnum; i++)
         {
             vtkSmartPointer<vtkIdList> idList = vtkSmartPointer<vtkIdList>::New();
-            output->GetPolys()->GetCell(i, idList);
+            output->GetPolys()->GetNextCell(idList);
             const vtkIdType csize = idList->GetNumberOfIds();
             Cell c(csize);
             for (vtkIdType j = 0; j < csize; j++)
                 c.Vids.at(j) = idList->GetId(j);
+            c.id = i;
             C.push_back(c);
         }
+        bool hasTriangle = false;
+        bool hasQuad = false;
+        for (auto& c : C) {
+            if (!hasTriangle && c.Vids.size() == 3) hasTriangle = true;
+            if (!hasQuad && c.Vids.size() == 4) hasQuad = true;
+            if (hasTriangle && hasQuad) break;
+        }
+        if (hasTriangle && !hasQuad) m_mesh.m_cellType = TRIANGLE;
+        if (!hasTriangle && hasQuad) m_mesh.m_cellType = QUAD;
         C.resize(C.size());
     }
     else if (reader->IsFileUnstructuredGrid())
@@ -136,6 +148,7 @@ void MeshFileReader::ReadVtkFile()
         std::cout << m_strFileName << " UnstructuredGrid: " << vnum << " points " << cnum << " cells" << std::endl;
         std::vector<Vertex>& V = m_mesh.V;
         V.resize(vnum);
+        m_mesh.m_cellTypes.resize(cnum);
         // Read V
         double p[3];
         for (vtkIdType i = 0; i < vnum; i++)
@@ -152,6 +165,13 @@ void MeshFileReader::ReadVtkFile()
         else if (cellType == VTK_QUAD) m_mesh.m_cellType = QUAD;
         else if (cellType == VTK_TETRA) m_mesh.m_cellType = TETRAHEDRA;
         else if (cellType == VTK_HEXAHEDRON) m_mesh.m_cellType = HEXAHEDRA;
+        for (vtkIdType i = 0; i < cnum; i++)
+            m_mesh.m_cellTypes[i] = output->GetCellType(i);
+        for (vtkIdType i = 0; i < cnum; i++)
+            if (output->GetCellType(i) != cellType) {
+                m_mesh.m_cellType = POLYHEDRA;
+                break;
+            }
         // Read C
         std::vector<Cell>& C = m_mesh.C;
         for (vtkIdType i = 0; i < cnum; i++)

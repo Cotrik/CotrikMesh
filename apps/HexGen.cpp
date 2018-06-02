@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
 void GetBoundingBox(const Mesh& mesh, glm::vec3& min_coordinate, glm::vec3& max_coordinate)
 {
     for (auto const & v : mesh.V) {
-        if (!v.isBoundary) continue;
+        //if (!v.isBoundary) continue;
 
         if (v.x < min_coordinate.x) min_coordinate.x = v.x;
         if (v.y < min_coordinate.y) min_coordinate.y = v.y;

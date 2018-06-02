@@ -26,12 +26,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})   
 include_directories(
-    /usr/include/
-    /usr/include/eigen3
-    /usr/local/include/
-    /usr/local/include/vtk-6.3/
-    ../verdict/vtkverdict
-    ../../libigl/include
+    ${PROJECT_SOURCE_DIR}/eigen3
+    #/usr/local/include/
+    #/usr/local/include/vtk-6.3/
+    ${PROJECT_SOURCE_DIR}/verdict/vtkverdict
+    ${PROJECT_SOURCE_DIR}/libigl/include
     ../
     #${PROJECT_SOURCE_DIR}/libgeodesic_heart/include
 )
@@ -40,7 +39,8 @@ set(ALL_LIBS
 #       ${OPENGL_LIBRARY}
 #       GL
 #    boost_program_options
-    pthread
+#    pthread
+#    gmp
     ${VTK_LIBRARIES}
 #    viennacl
 )
@@ -48,15 +48,19 @@ set(ALL_LIBS
 add_definitions(
 #       -D_CRT_SECURE_NO_WARNINGS
 )
-add_library(cotrik SHARED 
-    src/AutoMeshOpt.cpp
-    src/AutoMeshOpt.h
+add_library(cotrik SHARED STATIC 
+    #src/AutoMeshOpt.cpp
+    #src/AutoMeshOpt.h
     src/BaseComplex.cpp
     src/BaseComplex.h
+    src/BaseComplexQuad.cpp
+    src/BaseComplexQuad.h
     src/BaseComplexEditor.cpp
     src/BaseComplexEditor.h
     src/BaseComplexSheet.cpp
     src/BaseComplexSheet.h
+    src/BaseComplexSheetQuad.cpp
+    src/BaseComplexSheetQuad.h
     src/BaseComplexChord.cpp
     src/BaseComplexChord.h
     src/SingularityGraph.cpp
@@ -65,6 +69,10 @@ add_library(cotrik SHARED
     src/Component.h
     src/Dual.cpp
     src/Dual.h
+    src/RefinedDual.cpp
+    src/RefinedDual.h
+    src/RefinedDualQuad.cpp
+    src/RefinedDualQuad.h
     src/EdgeLines.cpp
     src/EdgeLines.h
     src/FeatureLine.cpp
@@ -113,3 +121,4 @@ add_library(cotrik SHARED
     src/WeightedMeshOptFixBoundary.h
 )
 target_link_libraries(cotrik ${ALL_LIBS})
+#install(FILES cotrik DESTINATION D:/Program\ Files/CotrikMesh/)

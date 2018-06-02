@@ -1,12 +1,9 @@
 /*
- * slim_tri.cpp
+ * PolycubeOpt.cpp
  *
- *  Created on: Feb 27, 2017
+ *  Created on: May 18, 2018
  *      Author: cotrik
  */
-
-#include <iostream>
-
 #include <igl/slim.h>
 
 #include <igl/components.h>
@@ -28,15 +25,22 @@
 #include <igl/doublearea.h>
 #include <igl/cat.h>
 
-#include "Mesh.h"
-#include "MeshFileReader.h"
-#include "MeshFileWriter.h"
-#include "ArgumentManager.h"
 #include <stdlib.h>
 
 #include <string>
 #include <vector>
 #include <map>
+#include <unordered_set>
+
+#include "MeshFileReader.h"
+#include "MeshFileWriter.h"
+#include "EdgeLines.h"
+#include "FeatureLine.h"
+#include <iostream>
+#include <iomanip>
+#include "ArgumentManager.h"
+
+std::unordered_set<size_t> ring3vIds;
 
 void BuildEnergyMap(std::map<std::string, igl::SLIMData::SLIM_ENERGY>& energyMap)
 {
@@ -69,16 +73,21 @@ void GetCells(const Eigen::MatrixXi& F, std::vector<Cell>& C)
             c.Vids[j] = F(i, j);
     }
 }
-void WriteVtk(const igl::SLIMData& sData, const ElementType cellType = TRIANGLE)
+void WriteVtk(const igl::SLIMData& sData, const ElementType cellType = TRIANGLE, const char* pFilename = NULL)
 {
     std::vector<Vertex> V;
     GetVertices(sData.V_o, V);
     std::vector<Cell> C;
     GetCells(sData.F, C);
     static int iter = 0;
-    std::string filename = std::string("iter.") + std::to_string(iter++) + ".vtk";
-    MeshFileWriter writer(V, C, filename.c_str(), cellType);
-    writer.WriteFile();
+    if (pFilename == NULL) {
+        std::string filename = std::string("iter.") + std::to_string(iter++) + ".vtk";
+        MeshFileWriter writer(V, C, filename.c_str(), cellType);
+        writer.WriteFile();
+    } else {
+        MeshFileWriter writer(V, C, pFilename, cellType);
+        writer.WriteFile();
+    }
 }
 const size_t TetToHex[8] = {4, 5, 6, 7, 2, 3, 0, 1};
 void GetHexCells(const Eigen::MatrixXi& F, std::vector<Cell>& C)
@@ -101,6 +110,23 @@ void WriteHexVtk(const igl::SLIMData& sData, const ElementType cellType = HEXAHE
     static int iter = 0;
     if (pFilename == NULL) {
         std::string filename = std::string("Hex.") + std::to_string(iter++) + ".vtk";
+        MeshFileWriter writer(V, C, filename.c_str(), cellType);
+        writer.WriteFile();
+    } else {
+        MeshFileWriter writer(V, C, pFilename, cellType);
+        writer.WriteFile();
+    }
+}
+
+void WriteTriVtk(const igl::SLIMData& sData, const ElementType cellType = TRIANGLE, const char* pFilename = NULL)
+{
+    std::vector<Vertex> V;
+    GetVertices(sData.V_o, V);
+    std::vector<Cell> C;
+    GetHexCells(sData.F, C);
+    static int iter = 0;
+    if (pFilename == NULL) {
+        std::string filename = std::string("Tri.") + std::to_string(iter++) + ".vtk";
         MeshFileWriter writer(V, C, filename.c_str(), cellType);
         writer.WriteFile();
     } else {
@@ -170,7 +196,7 @@ void SetConstraints(const Mesh& targetMesh, Eigen::VectorXi& b, Eigen::MatrixXd&
     int numOfVerticesOnBondary = 0;
     for (size_t i = 0; i < targetMesh.V.size(); i++) {
         const Vertex& v = targetMesh.V.at(i);
-        if (v.isBoundary)
+        //if (v.isBoundary)
             numOfVerticesOnBondary++;
     }
     b.resize(numOfVerticesOnBondary);
@@ -178,7 +204,8 @@ void SetConstraints(const Mesh& targetMesh, Eigen::VectorXi& b, Eigen::MatrixXd&
     numOfVerticesOnBondary = 0;
     for (size_t i = 0; i < targetMesh.V.size(); i++) {
         const Vertex& v = targetMesh.V.at(i);
-        if (v.isBoundary) {
+        //if (v.isBoundary || ring3vIds.find(v.id) == ring3vIds.end())
+        {
             b(numOfVerticesOnBondary) = v.id;
             for (size_t j = 0; j < 3; j++)
                 bc(numOfVerticesOnBondary, j) = targetMesh.V[i][j];
@@ -228,15 +255,15 @@ void GetArguments(ArgumentManager& argumentManager,
     std::cout << "-----------------------------------\n";
 }
 
-int main(int argc, char* argv[])
+int Slim(int argc, char* argv[])
 {
     if (argc < 2)
     {
-        std::cout << "Usage: SlimTri input=<input.tri.vtk> target=<target.tri.vtk> result=<result.tri.vtk> iters=<20> soft_const_p=<1e5> exp_factor=<5.0> "
+        std::cout << "Usage: Slim input=<input.tet.vtk> target=<target.tet.vtk> result=<result.tet.vtk> iters=<20> soft_const_p=<1e5> exp_factor=<5.0> "
                   << "energy=<ARAP|LOG_ARAP|SYMMETRIC_DIRICHLET|CONFORMAL|EXP_CONFORMAL|EXP_SYMMETRIC_DIRICHLET>\n\n";
-        std::cout << "Example: Slim hex=\033[1;32mpolycube.hex.vtk\033[0m "
-                  << "tri=\033[1;32mpolycube.tri.vtk\033[0m "
-                  << "orig=\033[1;32morig.tri.vtk\033[0m "
+        std::cout << "Example: Slim input=\033[1;32minput.tet.vtk\033[0m "
+                  << "target=\033[1;32mtarget.tet.vtk\033[0m "
+                  << "result=\033[1;32mresult.tet.vtk\033[0m "
                   << "iters=\033[1;32m50\033[0m "
                   << "soft_const_p=\033[1;32m1e5\033[0m "
                   << "exp_factor=\033[1;32m5.0\033[0m "
@@ -244,11 +271,11 @@ int main(int argc, char* argv[])
         return -1;
     }
 
-    std::string input = "input.hex.vtk";
-    std::string target = "target.hex.vtk";
-    std::string result = "result.hex.vtk";
+    std::string input = "input.tet.vtk";
+    std::string target = "target.tet.vtk";
+    std::string result = "result.tet.vtk";
     std::string energy = "EXP_CONFORMAL";
-    size_t iters = 50;
+    size_t iters = 20;
     double soft_const_p = 1e5;
     double exp_factor = 5.0;
     ArgumentManager argumentManager(argc, argv);
@@ -269,9 +296,12 @@ int main(int argc, char* argv[])
     Eigen::MatrixXi inputH;
     GetVertices(inputMesh.V, inputV);
     GetCells(inputMesh.C, inputH);
+    cout << "number of V : " << inputMesh.V.size() << std::endl;
+    cout << "number of C : " << inputMesh.C.size() << std::endl;
 
     Eigen::MatrixXi inputT;
-    ConvertHexToTet(inputH, inputT);
+//    ConvertHexToTet(inputH, inputT);
+    inputT = inputH;
 
     Eigen::MatrixXd V = inputV;
     Eigen::MatrixXi F = inputT;
@@ -289,16 +319,137 @@ int main(int argc, char* argv[])
     timer.start();
     slim_precompute(V, F, V_0, sData, energyMap[energy], b, bc, soft_const_p);
     std::cout << "precomputed time = " << timer.getElapsedTime() << std::endl;
-    WriteVtk(sData, TETRAHEDRA);
-    WriteHexVtk(sData, HEXAHEDRA);
+    WriteVtk(sData, TRIANGLE);
+    //WriteHexVtk(sData, HEXAHEDRA);
     while (iters-- != 0) {
         timer.start();
         slim_solve(sData, 1); // 1 iter
         static int iter = 1;
         std::cout << "iter = " << iter++ << " time = " << timer.getElapsedTime() << std::endl;
-        WriteVtk(sData, TETRAHEDRA);
-        WriteHexVtk(sData, HEXAHEDRA);
-        if (iters == 0)
-            WriteHexVtk(sData, HEXAHEDRA, result.c_str());
+        WriteVtk(sData, TRIANGLE);
+//        WriteHexVtk(sData, HEXAHEDRA);
+        if (iters == 0){
+            //WriteHexVtk(sData, HEXAHEDRA, result.c_str());
+            WriteVtk(sData, TRIANGLE, result.c_str());
+        }
+    }
+}
+
+void WriteSharpEdgesVtk(const char* filename, const Mesh& m_mesh, const std::vector<FeatureLine>& featureLines);
+
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cout << "Usage: PolycubeOpt orig=<orig.vtk> polycube=<polycube.vtk> result=<result.tet.vtk> cosangle=<0.965925826>\n";
+        return -1;
+    }
+    ArgumentManager argumentManager(argc, argv);
+    std::string orig_filename = "orig.vtk";
+    std::string polycube_filename = "polycube.vtk";
+    // cos10 = 0.984807753; cos15 = 0.965925826; cos20 = 0.939692621; cos25 = 0.906307787; cos30 = 0.866025404;
+    double cosangle = 0.965925826;
+    bool converge = true;
+    {
+        const std::string strOrig = argumentManager.get("orig");
+        if (!strOrig.empty()) orig_filename = strOrig;
+
+        const std::string strPolycube = argumentManager.get("polycube");
+        if (!strPolycube.empty()) polycube_filename = strPolycube;
+
+        const std::string strcosangle = argumentManager.get("cosangle");
+        if (!strcosangle.empty()) cosangle = std::stod(strcosangle);
+
+        std::cout << "-----------------------------------\n";
+        std::cout << "orig = " << orig_filename << std::endl;
+        std::cout << "polycube = " << polycube_filename << std::endl;
+        std::cout << "cosangle = " << cosangle << std::endl;
+        std::cout << "-----------------------------------\n";
+    }
+
+    MeshFileReader orig_reader(orig_filename.c_str());
+    Mesh& orig_mesh = (Mesh&)orig_reader.GetMesh();
+    orig_mesh.BuildAllConnectivities();
+    orig_mesh.ExtractBoundary();
+    orig_mesh.ExtractSingularities();
+    orig_mesh.SetCosAngleThreshold(cosangle); // 10°
+    orig_mesh.LabelSurface();
+    orig_mesh.LabelSharpEdges(true);
+    orig_mesh.ExtractSingularities();
+    orig_mesh.GetNormalOfSurfaceFaces();
+    orig_mesh.GetNormalOfSurfaceVertices();
+
+    std::vector<FeatureLine> orig_featureLines(orig_mesh.numOfSharpEdges, FeatureLine(orig_mesh));
+    for (size_t i = 0; i < orig_mesh.numOfSharpEdges; i++)
+    	orig_featureLines.at(i).Extract(i);
+    WriteSharpEdgesVtk("orig_meshFeatureLines.vtk", orig_mesh, orig_featureLines);
+
+    MeshFileReader polycube_reader(polycube_filename.c_str());
+    Mesh& polycube_mesh = (Mesh&)polycube_reader.GetMesh();
+    polycube_mesh.BuildAllConnectivities();
+    polycube_mesh.ExtractBoundary();
+    polycube_mesh.ExtractSingularities();
+    polycube_mesh.SetCosAngleThreshold(cosangle); // 10°
+    polycube_mesh.LabelSurface();
+    polycube_mesh.LabelSharpEdges(true);
+    polycube_mesh.ExtractSingularities();
+    polycube_mesh.GetNormalOfSurfaceFaces();
+    polycube_mesh.GetNormalOfSurfaceVertices();
+    polycube_mesh.ExtractTwoRingNeighborSurfaceFaceIdsForEachVertex(3);
+
+//    for (const Edge& e : polycube_mesh.E) {
+//    	if (e.isSharpFeature) {
+//    		for (auto vid : e.Vids) {
+//    			const Vertex& v = polycube_mesh.V.at(vid);
+//    			for (auto faceId : v.twoRingNeighborSurfaceFaceIds) {
+//    				const Face& f = polycube_mesh.F.at(faceId);
+//    				ring3vIds.insert(f.Vids.begin(), f.Vids.end());
+//    			}
+//    		}
+//    	}
+//    }
+    for (const Vertex& v : polycube_mesh.V)
+    	if (v.isCorner) ring3vIds.insert(v.id);
+    std::vector<FeatureLine> polycube_featureLines(polycube_mesh.numOfSharpEdges, FeatureLine(polycube_mesh));
+    for (size_t i = 0; i < polycube_mesh.numOfSharpEdges; i++)
+    	polycube_featureLines.at(i).Extract(i);
+    WriteSharpEdgesVtk("polycube_meshFeatureLines.vtk", polycube_mesh, polycube_featureLines);
+
+    Slim(argc, argv);
+    return 0;
+}
+
+void WriteSharpEdgesVtk(const char* filename, const Mesh& m_mesh, const std::vector<FeatureLine>& featureLines) {
+    const std::vector<Vertex>& V = m_mesh.V;
+    const std::vector<Edge>& E = m_mesh.E;
+
+    std::ofstream ofs(filename);
+    ofs << "# vtk DataFile Version 2.0" << std::endl
+        << filename << std::endl
+        << "ASCII" << std::endl << std::endl
+        << "DATASET POLYDATA" << std::endl;
+    ofs << "POINTS " << V.size() << " float" << std::endl;
+    ofs << std::fixed << setprecision(7);
+    for (size_t i = 0; i < V.size(); i++)
+        ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << std::endl;
+    size_t numOfSharpVertices = 0;
+    for (size_t i = 0; i < featureLines.size(); i++) {
+        const FeatureLine& fl = featureLines.at(i);
+        numOfSharpVertices += fl.Vids.size();
+    }
+
+    ofs << "LINES " << featureLines.size() << " " << numOfSharpVertices + featureLines.size() << std::endl;
+    for (size_t i = 0; i < featureLines.size(); i++) {
+        const FeatureLine& fl = featureLines.at(i);
+        ofs << fl.Vids.size();
+        for (size_t j = 0; j < fl.Vids.size(); j++) {
+            const size_t vid = fl.Vids.at(j);
+            ofs << " " << vid << std::endl;
+        }
+    }
+
+    ofs << "CELL_DATA " << featureLines.size() << std::endl
+        << "SCALARS " << " Feature" << " int 1" << std::endl
+        << "LOOKUP_TABLE default" << std::endl;
+    for (size_t i = 0; i < featureLines.size(); i++) {
+        ofs << i << std::endl;
     }
 }

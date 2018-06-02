@@ -110,12 +110,14 @@ int main(int argc, char* argv[])
 
     Patches patches(mesh);
     patches.SetGlobalCosAngle(cosglobalangle);
-    patches.Extract2();
+    if (!strGlobalaAngle.empty()) patches.Extract2();
+    else patches.Extract();
     std::vector<size_t> edgeIds;
     for (size_t i = 0; i < patches.patches.size(); i++) {
         const Patch& patch = patches.patches.at(i);
         std::copy(patch.edgeIds.begin(), patch.edgeIds.end(), back_inserter(edgeIds));
     }
+    patches.WriteMeshFile(output_filename.substr(0, output_filename.size() - 4).c_str());
     MeshFileWriter facesFileWriter(mesh, output_filename.c_str());
     facesFileWriter.WriteFacesVtk();
     MeshFileWriter edgesFileWriter(mesh, "PatchesEdges.vtk");

@@ -10,6 +10,7 @@
 
 #include "Component.h"
 #include <set>
+#include <unordered_set>
 
 class ComponentVertex : public Vertex
 {
@@ -195,6 +196,8 @@ public:
     void WriteBaseComplexComponentsVTK(const char *filename) const;
     void WriteBaseComplexAllComponentsVTK(const char *filename_prefix) const;
     void WriteBaseComplexComponentsVTK(const char *filename_prefix, const size_t id) const;
+    void WriteBaseComplexAllComponentsEdgesAndFacesVTK(const char *filename_prefix) const;
+    void WriteBaseComplexComponentsEdgesAndFacesVTK(const char *filename_prefix, const size_t id) const;
     void WriteBaseComplexComponentsWithoutSingularitiesVTK(const char *filename) const;
     void WriteBaseComplexComponentsWithSingularitiesVTK(const char *filename) const;
     void WriteBaseComplexSeparatedFacePatchesVTK(const char *filename) const;
@@ -204,6 +207,8 @@ public:
     void WriteComponentFace_NeighborComponentCells_VTK(const char *filename) const;
     void WriteSingularEdge_NeighborSeparatedFacePatches_VTK(const char *filename) const;
     void WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK(const char *filename) const;
+    void WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK(const char *filename, const int singularEdgeId) const;
+    void WriteAllSingularEdge_NeighborSeparatedComponentFacePatches_VTK(const char *filename_prefix) const;
 
     void Build();
 
@@ -251,9 +256,9 @@ public:
     bool IsEdgeMetBaseComplexVertex(const Edge& edge);
     bool IsEdgeOnBaseComplexEdge(const Edge& edge);
     bool IsFaceOnBaseComplexFace(const Face& face);
-    bool IsOnBaseComplex(const Vertex& vertex) const;
-    bool IsOnBaseComplex(const Edge& edge) const;
-    bool IsOnBaseComplex(const Face& face) const;
+    inline bool IsOnBaseComplex(const Vertex& vertex) const;
+    inline bool IsOnBaseComplex(const Edge& edge) const;
+    inline bool IsOnBaseComplex(const Face& face) const;
     size_t GetOppositEdgeId(const Face& face, const size_t edgeid);
     size_t GetOppositFaceId(const Cell& cell, const size_t faceid);
 
@@ -305,6 +310,11 @@ public:
     std::vector<size_t> Eids;
     std::vector<size_t> Fids;
     std::vector<size_t> Cids;
+
+    std::unordered_set<size_t> hashVids;
+    std::unordered_set<size_t> hashEids;
+    std::unordered_set<size_t> hashFids;
+    std::unordered_set<size_t> hashCids;
 
     std::vector<std::vector<size_t> > separatedFacePatches;
     std::vector<std::vector<size_t> > separatedEdgePatches;

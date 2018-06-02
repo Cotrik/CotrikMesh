@@ -351,7 +351,7 @@ std::vector<size_t> singleNumber(const std::vector<size_t>& nums) {
         if (item & lastBit) intA = intA ^ item;
         else intB = intB ^ item;
     }
-    return std::vector<size_t>{intA, intB};
+    return std::vector<size_t>{(size_t)intA, (size_t)intB};
 }
 
 bool BaseComplexEditor::CanNeighborCompoenntsCollapsed(SingularE& singularEdge, std::vector<size_t>& separatedFacePatchIds) {

@@ -12,6 +12,7 @@
 #include "FrameOpt.h"
 #include <iostream>
 #include <random>
+#include <time.h>
 
 int main(int argc, char* argv[])
 {
@@ -47,7 +48,7 @@ int main(int argc, char* argv[])
     if (argc == 3)
         magnitude = std::stoi(argv[2]);
 
-    srandom(time(NULL));
+    srand(time(NULL));
     for (size_t i = 0; i < mesh.V.size(); i++){
         Vertex& v = mesh.V.at(i);
         if (v.isBoundary)

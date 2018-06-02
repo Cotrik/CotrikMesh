@@ -31,6 +31,7 @@ public:
 	void WriteVerticesVtk();
 	void WriteVerticesVtk(const std::vector<size_t>& vertexIds);
 	void WriteSurfaceOff();
+	void WriteMatrixVTK(const std::vector<std::vector<size_t>>& m) const;
 
 public:
 	void WriteFile();

@@ -24,6 +24,7 @@ public:
 
     void LabelFace(Face& initialFace, Face& face, size_t& label);
     void SetGlobalCosAngle(const double value = 0.0) {cosangle = value;}
+    void WriteMeshFile(const char* filename) const;
 private:
     Patch();
 public:
@@ -43,6 +44,7 @@ public:
     void Extract();
     void Extract2();
     void SetGlobalCosAngle(const double value = 0.0) {cosangle = value;}
+    void WriteMeshFile(const char* filename_prefix) const;
 private:
     Patches();
     void LabelSurface();

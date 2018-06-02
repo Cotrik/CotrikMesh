@@ -205,4 +205,5 @@ private:
 };
 
 std::vector<std::vector<size_t>> getParallelEdgeIds(const Mesh& mesh, const Cell& cell);
+std::vector<std::vector<size_t>> getParallelEdgeIds(const Mesh& mesh, const Face& face);
 #endif /* LIBCOTRIK_SRC_DUAL_H_ */

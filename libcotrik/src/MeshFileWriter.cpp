@@ -5,7 +5,7 @@
 #include <memory>
 #include "stdio.h"
 using namespace std;
-#include <boost/smart_ptr.hpp>
+//#include <boost/smart_ptr.hpp>
 
 #include <vtkGenericDataObjectReader.h>
 #include <vtkUnstructuredGridReader.h>
@@ -102,30 +102,40 @@ void MeshFileWriter::WriteVtkFile()
     const size_t cnum = C.size();
 
     std::ofstream ofs(m_strFileName.c_str());
-    ofs << "# vtk DataFile Version 3.0" << endl
-        << m_strFileName.c_str() << endl
-        << "ASCII" << endl << endl
-        << "DATASET UNSTRUCTURED_GRID" << endl;
-    ofs << "POINTS " << vnum << " double" << endl;
+    ofs << "# vtk DataFile Version 3.0\n"
+        << m_strFileName.c_str() << "\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs << "POINTS " << vnum << " double\n";
     for (size_t i = 0; i < vnum; i++)
-        ofs << std::fixed << setprecision(7) << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << endl;
+        ofs << std::fixed << setprecision(7) << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << "\n";
     ofs << "CELLS " << cnum << " ";
 
     vtkIdType idType = VTK_TRIANGLE;
-    if (m_mesh.m_cellType == TRIANGLE) ofs << 4*cnum << std::endl;
-    else if (m_mesh.m_cellType == QUAD) {idType = VTK_QUAD;  ofs << 5*cnum << std::endl;}
-    else if (m_mesh.m_cellType == TETRAHEDRA) {idType = VTK_TETRA; ofs << 5*cnum << std::endl;}
-    else if (m_mesh.m_cellType == HEXAHEDRA) {idType = VTK_HEXAHEDRON; ofs << 9*cnum << std::endl;}
+    if (m_mesh.m_cellType == TRIANGLE) ofs << 4*cnum << "\n";
+    else if (m_mesh.m_cellType == QUAD) {idType = VTK_QUAD;  ofs << 5*cnum << "\n";}
+    else if (m_mesh.m_cellType == TETRAHEDRA) {idType = VTK_TETRA; ofs << 5*cnum << "\n";}
+    else if (m_mesh.m_cellType == HEXAHEDRA) {idType = VTK_HEXAHEDRON; ofs << 9*cnum << "\n";}
+    else if (m_mesh.m_cellType == POLYHEDRA) {
+        size_t sum = 0;
+        for (auto& cell : C)
+            sum += 1 + cell.Vids.size();
+        ofs << sum << "\n";
+    }
 
     for (size_t i = 0; i < cnum; i++){
         ofs << C.at(i).Vids.size();
         for (size_t j = 0; j < C.at(i).Vids.size(); j++)
             ofs << " " << C.at(i).Vids.at(j);
-        ofs << std::endl;
+        ofs << "\n";
     }
-    ofs << "CELL_TYPES " << cnum << endl;
-    for (size_t i = 0; i < cnum; i++)
-        ofs << idType << std::endl;
+    ofs << "CELL_TYPES " << cnum << "\n";
+    if (m_mesh.m_cellType != POLYHEDRA)
+        for (size_t i = 0; i < cnum; i++)
+            ofs << idType << "\n";
+    else
+        for (auto cellType : m_mesh.m_cellTypes)
+            ofs << cellType << "\n";
 }
 
 void MeshFileWriter::WriteVtkPolyDataFile()
@@ -174,8 +184,9 @@ void MeshFileWriter::WriteOffFile()
     for (size_t i = 0; i < vnum; i++)
         ofs << std::fixed << setprecision(7) << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << endl;
 
-    for (size_t i = 0; i < cnum; i++){
-        if (m_mesh.m_cellType == TRIANGLE) ofs << 3;
+    for (size_t i = 0; i < cnum; i++) {
+        if (m_mesh.m_cellType == POLYGON) ofs << C.at(i).Vids.size();
+        else if (m_mesh.m_cellType == TRIANGLE) ofs << 3;
         else if (m_mesh.m_cellType == QUAD) ofs << 4;
         else if (m_mesh.m_cellType == TETRAHEDRA) ofs << 5;
         else if (m_mesh.m_cellType == HEXAHEDRA) ofs << 10;
@@ -695,4 +706,46 @@ void MeshFileWriter::WriteSurfaceOff()
             ofs << "\n";
         }
     }
+}
+
+static void GetQuadVertexIds(size_t i, size_t j, int n, size_t quadVids[]){
+    quadVids[0] = i * (n + 1) + j;
+    quadVids[1] = i * (n + 1) + j + 1;
+    quadVids[2] = (i + 1) * (n + 1) + j + 1;
+    quadVids[3] = (i + 1) * (n + 1) + j;
+}
+
+void MeshFileWriter::WriteMatrixVTK(const std::vector<std::vector<size_t>>& m) const {
+    const size_t n = m.size();
+    const size_t numOfVertices = (n + 1) * (n + 1);
+    const size_t numOfCells = n * n;
+    std::vector<glm::vec2> V(numOfVertices);
+    for (size_t i = 0; i <= n; ++i)
+        for (size_t j = 0; j <= n; ++j)
+            V[i * (n + 1) + j] = glm::vec2(i, j);
+
+    std::ofstream ofs(m_strFileName);
+    ofs << "# vtk DataFile Version 3.0\n"
+        << m_strFileName << "\n"
+        << "ASCII\n\n"
+        << "DATASET POLYDATA\n";
+
+    ofs << "POINTS " << numOfVertices << " double\n";
+    for (size_t i = 0; i < V.size(); i++)
+        ofs << V.at(i).x << " " << V.at(i).y << " 0\n";
+
+    ofs << "POLYGONS " << numOfCells << " " << 5 * numOfCells << "\n";
+    size_t quadVids[4] = {0};
+    for (size_t i = 0; i < n; ++i)
+        for (size_t j = 0; j < n; ++j) {
+            GetQuadVertexIds(i, j, n, quadVids);
+            ofs << "4 " << quadVids[0] << " " << quadVids[1] << " " << quadVids[2] << " " << quadVids[3] << "\n";
+        }
+
+    ofs << "CELL_DATA " << numOfCells << "\n"
+        << "SCALARS " << "label" << " int 1\n"
+        << "LOOKUP_TABLE default\n";
+    for (size_t i = 0; i < n; ++i)
+        for (size_t j = 0; j < n; ++j)
+            ofs << m[i][j] << "\n";
 }

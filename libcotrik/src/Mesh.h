@@ -18,7 +18,8 @@ enum ElementType
     TRIANGLE,
     QUAD,
     TETRAHEDRA,
-    HEXAHEDRA
+    HEXAHEDRA,
+    POLYHEDRA
 };
 
 extern const size_t MAXID;
@@ -373,41 +374,29 @@ class Plane
 {
 public:
     Plane(const double a, const double b, const double c, const double d)
-        : a(a), b(b), c(c), d(d)
-    {
-
+        : a(a), b(b), c(c), d(d) {
     }
-
-    Plane(const Vertex& p1, const Vertex& p2, const Vertex& p3)
-    {
+    Plane(const Vertex& p1, const Vertex& p2, const Vertex& p3) {
         a = ((p2.y - p1.y) * (p3.z - p1.z) - (p2.z - p1.z) * (p3.y - p1.y));
         b = ((p2.z - p1.z) * (p3.x - p1.x) - (p2.x - p1.x) * (p3.z - p1.z));
         c = ((p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x));
         d = (0 - (a * p1.x + b * p1.y + c * p1.z));
     }
-
     Plane(const Plane& plane)
-    : a(plane.a), b(plane.b), c(plane.c), d(plane.d)
-    {
+    : a(plane.a), b(plane.b), c(plane.c), d(plane.d) {
     }
-
-    double IntersectionAngle(const Plane& p) const
-    {
+    ~Plane(){}
+    double IntersectionAngle(const Plane& p) const  {
         double cosangle = (a*p.a + b*p.b + c*p.c) / (sqrt(a*a + b*b + c*c)* sqrt(p.a*p.a + p.b*p.b + p.c*p.c));
         return cosangle;
     }
-
-    double DistanseFromPoint(const glm::vec3& p, glm::vec3& intersection) const
-    {
+    double DistanseFromPoint(const glm::vec3& p, glm::vec3& intersection) const {
         const double distance = fabs(a*p.x + b*p.y + c*p.z + d) / sqrt(a*a + b*b + c*c);
         const double t = (a*p.x + b*p.y + c*p.z + d) / (a*a + b*b + c*c);
         intersection = glm::vec3(p.x - a*t, p.y - b*t, p.z - c*t);
         return distance;
     }
-
-    ~Plane(){}
-    bool operator < (const Plane& right) const
-    {
+    bool operator < (const Plane& right) const {
         return d < right.d;
     }
 
@@ -422,43 +411,32 @@ class Line
 {
 public:
     Line(const glm::vec3& o, const glm::vec3& d)
-        : o(o), dir(d)
-    {
+        : o(o), dir(d) {
     }
-
     Line(const Vertex& p1, const Vertex& p2)
-        : o(p1.xyz()), dir(p2.xyz() - p1.xyz())
-    {
-
+        : o(p1.xyz()), dir(p2.xyz() - p1.xyz()) {
     }
-
     Line(const Line& r)
-    : o(r.o), dir(r.dir)
-    {
+    : o(r.o), dir(r.dir)    {
     }
-
-    double Perpendicular(const glm::vec3& a, glm::vec3& intersection) const
-    {
+    double Perpendicular(const glm::vec3& a, glm::vec3& intersection) const {
         const double t = ((a.x - o.x) * dir.x + (a.y - o.y) * dir.y + (a.z - o.z) * dir.z) / (dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
         intersection.x = o.x + dir.x * t;
         intersection.y = o.y + dir.y * t;
         intersection.z = o.z + dir.z * t;
         return glm::length(intersection - a);
     }
-
     ~Line(){}
 //    bool operator < (const Plane& right) const
 //    {
 //        return d < right.d;
 //    }
-
 public:
     glm::vec3 o;
     glm::vec3 dir;
 };
 
-class Mesh
-{
+class Mesh {
 public:
     Mesh();
     Mesh(const Mesh& r);
@@ -470,6 +448,7 @@ public:
 public:
     void BuildAllConnectivities(); // Get Neighboring Info, including, E, F, C, V_V, V_E, V_F, V_C, E_V, E_F, E_C, F_V, F_E, F_F, F_C, C_V, C_E, C_F, C_C
     void ExtractBoundary();
+    inline bool HasBoundary() const;
     size_t ExtractLayers();
     void ExtractSingularities();
     void ExtractTwoRingNeighborSurfaceFaceIdsForEachVertex(int N = 2);
@@ -519,7 +498,6 @@ public:
     void Zoom(const glm::vec3& ref, const double scale = 1);
     const float GetScaledJacobian(const Cell& c) const;
     double GetMinScaledJacobian(double& avgSJ) const;
-
     bool IsPointInside(const glm::vec3& orig, const glm::vec3 dir = glm::vec3(0, 0, 1)) const;
 protected:
     virtual void BuildE();
@@ -559,6 +537,7 @@ public:
     std::vector<Face> F;
     std::vector<Cell> C;
     ElementType m_cellType;
+    std::vector<size_t> m_cellTypes;
 
     std::vector<std::string> pointScalarFieldNames;
     std::vector<std::string> cellScalarNameFields;
@@ -575,6 +554,8 @@ public:
     std::vector<size_t> m_refIds;
     double cos_angle_threshold = 0.984807753;
     size_t numberOfPatches = 0;
+
+    bool hasBoundary = false;
 };
 
 void set_redundent_clearn(std::vector<size_t>& set);

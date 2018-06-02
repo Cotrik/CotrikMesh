@@ -11,25 +11,40 @@ endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 
+add_definitions(
+       -D_CRT_SECURE_NO_WARNINGS
+	   -D_USE_MATH_DEFINES
+)
+
 find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})  
 
 include_directories(
     ${PROJECT_SOURCE_DIR}/libcotrik/src/ 
-    /usr/include/eigen3
-    ../../libigl/include
+    ${PROJECT_SOURCE_DIR}/eigen3
+    ${PROJECT_SOURCE_DIR}/libigl/include
     ../
     )
     
 #link_directories(/usr/local/lib)    
 
 foreach(app 
-    AutoMeshOpt
+    Align
+    #AutoMeshOpt
     CheckMesh
+    ClipMesh
+    ConvertFileFormat
+    SliceMesh
+    MeasureMesh
+    VerifyHexMesh
+    CheckManifold
     ConvertQuadToTriangle
     #CotrikClustering
     DisplayFrameField
     ExtractBaseComplex
+    ExtractBaseComplexQuad
+    ExtractSheetDecompositions
+    ExtractSheetDecompositionsQuad
     RemovePadding
     CollapseComponent
     ExtractFaceSegments
@@ -38,9 +53,9 @@ foreach(app
     ExtractLayers
     ExtractPatches
     ExtractSharpEdges
-    #HexRefine
+    HexRefine
     HexSmooth
-    HexGen
+    #HexGen
     #LayerOpt
     LocalMeshOpt
     LocalMeshOptFixBoundary
@@ -66,9 +81,17 @@ foreach(app
     SurfaceMeshOpt
     WeightedMeshOptFixBoundary
     tet2hex
+    TriangleSmooth
+    #Triangulate
+    #IsotropicRemesh
+    Test
+    Rotate
+    FixedSmooth
+    PolycubeOpt
 )
     add_executable(${app} ${app}.cpp)
-    target_link_libraries(${app} cotrik CGAL)
+    target_link_libraries(${app} cotrik )
+	#install(FILES ${app} DESTINATION D:/Program\ Files/CotrikMesh/)
 endforeach()
 
 #option(LIBIGL_WITH_COMISO           "Use CoMiso"         ON)

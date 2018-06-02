@@ -69,7 +69,7 @@ void WriteSharpEdgesVtk(const char* filename, const Mesh& m_mesh, const std::vec
     ofs << "# vtk DataFile Version 2.0" << std::endl
         << filename << std::endl
         << "ASCII" << std::endl << std::endl
-        << "DATASET POLYDATA" << std::endl;
+        << "DATASET UNSTRUCTURED_GRID" << std::endl;
     ofs << "POINTS " << V.size() << " float" << std::endl;
     ofs << std::fixed << setprecision(7);
     for (size_t i = 0; i < V.size(); i++)
@@ -80,14 +80,20 @@ void WriteSharpEdgesVtk(const char* filename, const Mesh& m_mesh, const std::vec
         numOfSharpVertices += fl.Vids.size();
     }
 
-    ofs << "LINES " << featureLines.size() << " " << numOfSharpVertices + featureLines.size() << std::endl;
+    ofs << "CELLS " << featureLines.size() << " " << numOfSharpVertices + featureLines.size() << std::endl;
     for (size_t i = 0; i < featureLines.size(); i++) {
         const FeatureLine& fl = featureLines.at(i);
         ofs << fl.Vids.size();
         for (size_t j = 0; j < fl.Vids.size(); j++) {
             const size_t vid = fl.Vids.at(j);
-            ofs << " " << vid << std::endl;
+            ofs << " " << vid;
         }
+        ofs << std::endl;
+    }
+
+    ofs << "CELL_TYPES " << featureLines.size() << std::endl;
+    for (size_t i = 0; i < featureLines.size(); i++) {
+        ofs << 4 << std::endl;
     }
 
     ofs << "CELL_DATA " << featureLines.size() << std::endl
