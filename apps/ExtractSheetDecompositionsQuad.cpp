@@ -65,22 +65,43 @@ int main(int argc, char* argv[]) {
     BaseComplexSheetQuad baseComplexSheets(baseComplex);
     baseComplexSheets.Extract();
     //baseComplexSheets.ExtractSets();
-    baseComplexSheets.ExtractSheetDecompositions(bfs);
+    //baseComplexSheets.ExtractSheetDecompositions(bfs);
+    baseComplexSheets.ExtractSheetDecompositionsAll();
     baseComplexSheets.ExtractSheetConnectivities();
+//    int sheet_id = 0;
+//    for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()){
+//        baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
+//        baseComplexSheets.ComputeComplexityDrChen(sheet_id++);
+//    }
+//    {
+//        std::ofstream ofs("sheet_decompositions.txt");
+//        for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()) {
+//            for (auto sheetId : sheetIds) ofs << sheetId << " ";
+//            ofs << "\n";
+//        }
+//    }
+//    baseComplexSheets.ExtractMainSheetConnectivities(0);
+//    baseComplexSheets.ComputeComplexityDrChen(0);
+
     int sheet_id = 0;
-    for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()){
+    float min_complexity = INT_MAX;
+    std::vector<pair<int, float>> representativeSheetId_complexities(baseComplexSheets.Get_sheets_coverSheetIds().size());
+    for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()) {
         baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
-        baseComplexSheets.ComputeComplexityDrChen(sheet_id++);
+        float complexity = baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id++);
+        representativeSheetId_complexities.push_back(std::make_pair(sheet_id, complexity));
+        min_complexity = std::min(min_complexity, complexity);
     }
+    std::cout << "min_main_chords_complexity = " << min_complexity << "\n";
     {
-        std::ofstream ofs("sheet_decompositions.txt");
+        std::ofstream ofs("chord_decompositions.txt");
         for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()) {
             for (auto sheetId : sheetIds) ofs << sheetId << " ";
             ofs << "\n";
         }
     }
     baseComplexSheets.ExtractMainSheetConnectivities(0);
-    baseComplexSheets.ComputeComplexityDrChen(0);
+    baseComplexSheets.ComputeComplexityUnbalancedMatrix(0);
 
     return 0;
 }

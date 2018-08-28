@@ -390,6 +390,7 @@ size_t GetMinScaledJacobianVerdict(const Mesh& mesh, double& MinScaledJacobian, 
             coordinates[j][2] = v.z;
         }
         double scaledJacobian = v_hex_scaled_jacobian(8, coordinates);
+        if (scaledJacobian > 1.01 or scaledJacobian < -1.01) scaledJacobian = -1.0;
         minScaledJacobian = minScaledJacobian < scaledJacobian ? minScaledJacobian : scaledJacobian;
         if (scaledJacobian < minSJ) {
             numOfInvertedElements++;

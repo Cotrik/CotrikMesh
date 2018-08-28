@@ -1277,9 +1277,11 @@ void BaseComplexQuad::BuildComponentV()
     for (size_t i = 0; i < Vids.size(); i++) {
         const size_t vertexId = Vids.at(i);
         mesh.V.at(vertexId).component_id = i;
-        Vertex v = mesh.V.at(vertexId).xyz();
+        ComponentVertex v = mesh.V.at(vertexId).xyz();
         v.id = i;
-        V.push_back(v);
+        v.isBoundary = mesh.V.at(vertexId).isBoundary;
+        v.isSingularity = mesh.V.at(vertexId).isSingularity;
+        componentV.push_back(v);
     }
 }
 
@@ -1626,11 +1628,11 @@ Edge* BaseComplexQuad::GetNextEdge(const Vertex& currentVertex, const Edge& curr
     return NULL;
 }
 
-static bool IsTwoEdgeHasCommonVertex(const Edge& edge1, const Edge& edge2)
-{
-    return (edge1.Vids[0] == edge2.Vids[0] || edge1.Vids[0] == edge2.Vids[1]
-          ||edge1.Vids[1] == edge2.Vids[0] || edge1.Vids[1] == edge2.Vids[1]);
-}
+//static bool IsTwoEdgeHasCommonVertex(const Edge& edge1, const Edge& edge2)
+//{
+//    return (edge1.Vids[0] == edge2.Vids[0] || edge1.Vids[0] == edge2.Vids[1]
+//          ||edge1.Vids[1] == edge2.Vids[0] || edge1.Vids[1] == edge2.Vids[1]);
+//}
 /*
                 ---------
                 |       |

@@ -27,8 +27,15 @@ enum Relation {
     HYBRID
 };
 
+
 // const int SheetsConnectivity_HYBRID = SheetsConnectivity_NEIGHBOR_AND_INTERSECT;
 // #define SheetsConnectivity_HYBRID SheetsConnectivity_NEIGHBOR_AND_INTERSECT
+
+struct sheetIds_overlaps_complexity {
+	std::set<size_t> sheetIds;
+	size_t overlaps;
+	float complexity;
+};
 
 class BaseComplexSheet {
 public:
@@ -47,9 +54,15 @@ public:
     void ExtractSheetDecompositionsAll();
     void ExtractSheetDecompositions(const bool bfs = false);
     void ExtractSheetConnectivities();
+    void VerifySheetDecompositions();
+    /////////////////////////////////////////////
+    void ExtractMainSheets();
+    std::vector<std::vector<std::vector<std::unordered_set<size_t>>>> Get_sheet_intersecting_component_ids_groups() const;
+    /////////////////////////////////////////////
     void ExtractMainSheetConnectivities(int main_sheets_id = 0);
     void ComputeComplexity();
     void ComputeComplexityDrChen(int sheetid = 0);
+    void ComputeComplexityUnbalancedMatrix(int mainsheetid = 0);
     void ComputeImportance();
     void WriteSheetDecompositionsFile(const char *filename) const;
     void WriteSheetDecompositionsVTK(const char *filename) const;
@@ -80,7 +93,7 @@ public:
     std::unordered_set<size_t> GetParallelEdgeIds(const size_t sheet_id) const;
     std::unordered_set<size_t> GetParallelSingularEdgeIds(const size_t sheet_id) const;
     std::unordered_set<size_t> GetSheetBoundaryFaceComponentIds(size_t sheetId) const;
-    bool HasCoveredSheetComponents(size_t sheetId, const std::vector<size_t>& componentCovered) const;
+    bool HasCoveredSheetComponents(size_t sheetId, const std::vector<bool>& componentCovered) const;
     std::vector<size_t> GetCoverSheetIds(size_t beginSheetId) const;
     std::vector<size_t> GetCoverSheetIdsBFS(size_t beginSheetId) const;
     std::unordered_set<size_t> GetNeighborSheetIds(size_t sheetId) const;
@@ -97,6 +110,17 @@ public:
     std::unordered_set<size_t> GetCommonComponentFaceIds(size_t sheetid1, size_t sheetid2) const;
     std::unordered_set<size_t> GetCommonComponentCellIds(size_t sheetid1, size_t sheetid2) const;
     size_t GetNumOfIntersections(const std::unordered_set<size_t>& common_component_cell_ids) const;
+    std::vector<std::unordered_set<size_t>> GetIntersectionGroups(const std::unordered_set<size_t>& common_component_cell_ids) const;
+    void WriteComplexityMat(const std::vector<std::vector<float>>& M, const char* filename) const;
+    void WriteDiagonalMat(const std::vector<std::vector<float>>& M, const char* filename) const;
+    void WriteAdjacentMat(const std::vector<std::vector<float>>& M, const char* filename) const;
+    void WriteIntersectingMat(const std::vector<std::vector<float>>& M, const char* filename) const;
+    void WriteHybridMat(const std::vector<std::vector<float>>& M, const char* filename) const;
+    //void WriteHybridMat(const std::vector<std::vector<float>>& M, const char* filename) const;
+    int GetNumberOfSingularities(int sheet_id) const;
+    bool IsSheetRedundant(size_t sheetId, const std::vector<bool>& componentCovered) const;
+    bool Verify();
+
 //private:
     BaseComplex& baseComplex;
     std::vector<std::vector<size_t>> sheets_componentEdgeIds;  // each sheet consists a list of base-complex componentEdge ids;
@@ -114,6 +138,8 @@ public:
     std::vector<std::vector<size_t>> all_sheets_connectivities;
     std::vector<float> sheets_importance;
     bool m_flag = false;
+
+    std::vector<sheetIds_overlaps_complexity> socs;
 };
 
 #endif /* LIBCOTRIK_SRC_BASECOMPLEXSHEET_H_ */

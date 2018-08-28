@@ -20,6 +20,7 @@
 #include <iostream>
 
 void OutputSheetDecompositonsDual(const char* mesh_filename, const char* dual_filename, const int scalar);
+void OutputSheetDecompositonsDual_New(const char* mesh_filename, const char* dual_filename, const int scalar);
 
 int main(int argc, char* argv[]){
     if (argc < 2) {
@@ -84,17 +85,17 @@ int main(int argc, char* argv[]){
     BaseComplexSheet baseComplexSheets(baseComplex);
     baseComplexSheets.Extract();
     baseComplexSheets.ExtractSets();
-//    baseComplexSheets.WriteAllSheetsCellsVTK("SheetCells");
+    baseComplexSheets.WriteAllSheetsCellsVTK("SheetCells");
 //    baseComplexSheets.WriteAllSheetsFacesVTK("SheetFaces");
 //    baseComplexSheets.WriteAllSheetsEdgesVTK("SheetEdges");
-//    baseComplexSheets.WriteAllSheetsFacesAndEdgesVTK("SheetFacesAndEdges");
+    baseComplexSheets.WriteAllSheetsFacesAndEdgesVTK("TestSheetFacesAndEdges");
     baseComplexSheets.WriteAllSheetsCellsDualVTK("SheetDual");
     baseComplexSheets.ExtractSheetDecompositions();
 
     for (auto sheet_id = 0; sheet_id < baseComplexSheets.GetNumOfSheets(); ++sheet_id) {
         std::string mesh_filename = "SheetDual" + std::to_string(sheet_id) + ".vtk";
         std::string dual_filename = "QuadDual" + std::to_string(sheet_id) + ".vtk";
-        OutputSheetDecompositonsDual(mesh_filename.c_str(), dual_filename.c_str(), sheet_id);
+        OutputSheetDecompositonsDual_New(mesh_filename.c_str(), dual_filename.c_str(), sheet_id);
     }
 
 //    baseComplexSheets.ExtractSheetConnectivities();
@@ -163,3 +164,59 @@ void OutputSheetDecompositonsDual(const char* mesh_filename, const char* dual_fi
     baseComplexSheets.ComputeComplexity();
 }
 
+void OutputSheetDecompositonsDual_New(const char* mesh_filename, const char* dual_filename, const int scalar) {
+    MeshFileReader reader(mesh_filename);
+    Mesh& mesh = (Mesh&)reader.GetMesh();
+    mesh.BuildAllConnectivities();
+    mesh.ExtractBoundary();
+    mesh.ExtractSingularities();
+    //"Info: cos10 = 0.984807753; cos15 = 0.965925826; cos20 = 0.939692621; cos25 = 0.906307787; cos30 = 0.866025404\n\n";
+    const double cosangle = 0.866025404;
+    mesh.SetCosAngleThreshold(cosangle);
+    mesh.LabelSurface();
+    mesh.LabelSharpEdges(true);
+    // For extracting singularity Graph
+    mesh.BuildParallelE();
+    mesh.BuildConsecutiveE();
+    mesh.BuildOrthogonalE();
+
+    BaseComplexQuad baseComplex(mesh);
+    baseComplex.Build();
+    BaseComplexSheetQuad baseComplexSheets(baseComplex);
+    baseComplexSheets.Extract();
+    baseComplexSheets.ExtractSheetDecompositionsAll();
+    baseComplexSheets.ExtractSheetConnectivities();
+
+    auto sheetType = baseComplexSheets.GetSheetType();
+    if (sheetType == NON_SIMPLE) {
+        std::cout << "sheet " << scalar << " is NON_SIMPLE\n";
+        baseComplexSheets.WriteSelfIntersectingEdges((std::string("SelfIntersectingEdges") + std::to_string(scalar) + ".vtk").c_str());
+    }
+
+    int sheet_id = 0;
+    float min_complexity = INT_MAX;
+    int min_complexity_id = 0;
+    std::vector<pair<int, float>> representativeSheetId_complexities(baseComplexSheets.Get_sheets_coverSheetIds().size());
+    for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()) {
+        baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
+        float complexity = baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id);
+        representativeSheetId_complexities.push_back(std::make_pair(sheet_id, complexity));
+        if (complexity < min_complexity) {
+            min_complexity = complexity;
+            min_complexity_id = sheet_id;
+        }
+        ++sheet_id;
+    }
+    std::cout << "min_main_chords_complexity = " << min_complexity << "\n";
+    baseComplexSheets.WriteSheetDecompositionsDuaVTK(dual_filename, scalar, min_complexity_id);
+
+    {
+        std::ofstream ofs("chord_decompositions.txt");
+        for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()) {
+            for (auto sheetId : sheetIds) ofs << sheetId << " ";
+            ofs << "\n";
+        }
+    }
+    baseComplexSheets.ExtractMainSheetConnectivities(0);
+    baseComplexSheets.ComputeComplexityUnbalancedMatrix(0);
+}

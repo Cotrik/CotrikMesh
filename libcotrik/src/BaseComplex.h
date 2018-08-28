@@ -350,4 +350,5 @@ private:
 bool IsTwoFaceShareCommonEdge(const Face& face1, const Face& face2);
 bool IsTwoFaceOnOneCell(const Mesh& mesh, const Face& face1, const Face& face2, const Edge& commonEdge);
 bool IsTwoEdgesOnOneFace(const Mesh& mesh, const Edge& edge1, const Edge& edge2, const Vertex& commonVertex);
+bool IsTwoEdgeHasCommonVertex(const Edge& edge1, const Edge& edge2);
 #endif /* LIBCOTRIK_SRC_BASECOMPLEX_H_ */

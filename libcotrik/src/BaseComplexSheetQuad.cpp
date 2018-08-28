@@ -15,9 +15,13 @@
 #include <iostream>
 #include <unordered_map>
 #include <unordered_set>
+#include <stack>
 #include <queue>
 #include <iterator>
 #include <Eigen/Dense>
+
+const std::string red_color = "\033[1;31m";
+const std::string end_color = "\033[0m";
 
 static std::set<std::set<size_t>> shortestCombination(const std::set<size_t>& filter, const std::vector<std::set<size_t>>& listOfSets) {
     size_t size = listOfSets.size();
@@ -159,7 +163,7 @@ void BaseComplexSheetQuad::ExtractSheetDecompositions(const bool bfs) {
             edgeComponent_neighborSheetIds[edgeComponentId].insert(sheetId);
         sheets_BoundaryEdgeComponentIds.push_back(sheetBoundaryEdgeComponentIds);
     }
-    for (size_t sheetId = 0; sheetId < sheets_componentCellIds.size(); ++sheetId)
+    for (size_t sheetId = 0; sheetId < sheets_componentFaceIds.size(); ++sheetId)
         sheets_coverSheetIds.push_back(!bfs ? GetCoverSheetIds(sheetId) : GetCoverSheetIdsBFS(sheetId));
 
     std::sort(sheets_coverSheetIds.begin(), sheets_coverSheetIds.end(), [&](const std::vector<size_t>& a, const std::vector<size_t>& b) {return a.size() < b.size();});
@@ -186,12 +190,12 @@ void BaseComplexSheetQuad::WriteSheetDecompositionsFile(const char *filename) co
     WriteSheetNeighborsSheetIdsJS("sheet_neighborsheetids.js");
 }
 
-void BaseComplexSheetQuad::WriteSheetDecompositionsDuaVTK(const char *filename, const int scalar) const {
+void BaseComplexSheetQuad::WriteSheetDecompositionsDuaVTK(const char *filename, const int scalar, const int main_sheets_id) const {
     if (sheets_coverSheetIds.empty()) return;
     RefinedDualQuad dual(baseComplex.mesh);
     dual.Build();
     std::vector<std::unordered_set<size_t>> dualEdgeIdsSet;
-    for (auto sheet_id : sheets_coverSheetIds[0])
+    for (auto sheet_id : sheets_coverSheetIds[main_sheets_id])
         dualEdgeIdsSet.push_back(GetDualEdgeIds(sheet_id));
 
     const auto& mesh = baseComplex.GetMesh();
@@ -230,6 +234,7 @@ void BaseComplexSheetQuad::RemoveSheetSetsRedundancy() {
     std::unordered_set<std::string> hash_sheets_coverSheetIds;
     std::vector<std::vector<size_t>> res;
     for (auto& coverSheetIds : sheets_coverSheetIds) {
+        if (coverSheetIds.empty()) continue;
         std::set<size_t> s(coverSheetIds.begin(), coverSheetIds.end());
         std::string key;
         for (auto v : s)
@@ -264,7 +269,7 @@ void BaseComplexSheetQuad::RemoveSheetSetsRedundancy(std::vector<size_t>& coverS
                 for (auto componentFaceId : sheets_componentFaceIds[sheetId])
                     --componentFaceId_count[componentFaceId];
                 iter = sheetIds.erase(iter);
-                sheetIdsChanged = false;
+                sheetIdsChanged = true;
             } else ++iter;
         }
         if (!sheetIdsChanged) break;
@@ -334,18 +339,21 @@ static bool isSheetIdExistedInResult(size_t sheetId, const std::vector<size_t>& 
     return existed;
 }
 
-static bool hasCoveredAllComponents(size_t sheetId, const std::vector<size_t>& componentCovered, const BaseComplex& baseComplex, bool& coveredAllComponent) {
+static bool hasCoveredAllComponents(size_t sheetId, const std::vector<bool>& componentCovered, const BaseComplex& baseComplex, bool& coveredAllComponent) {
+    bool coverAll = true;
     for (size_t componentId = 0; componentId < baseComplex.componentF.size(); ++componentId)
         if (!componentCovered[componentId]) {
-            coveredAllComponent = false;
+            coverAll = false;
             break;
         }
+    if (coverAll) coveredAllComponent = true;
+    else coveredAllComponent = false;
     return coveredAllComponent;
 }
 
-bool BaseComplexSheetQuad::HasCoveredSheetComponents(size_t sheetId, const std::vector<size_t>& componentCovered) const {
+bool BaseComplexSheetQuad::HasCoveredSheetComponents(size_t sheetId, const std::vector<bool>& componentCovered) const {
     bool coveredSheetComponent = true;
-    for (auto component : sheets_componentCellIds[sheetId])
+    for (auto component : sheets_componentFaceIds[sheetId])
         if (!componentCovered[component]) {
             coveredSheetComponent = false;
             break;
@@ -353,34 +361,59 @@ bool BaseComplexSheetQuad::HasCoveredSheetComponents(size_t sheetId, const std::
     return coveredSheetComponent;
 }
 
+bool BaseComplexSheetQuad::IsSheetRedundant(size_t sheetId, const std::vector<bool>& componentCovered) const{
+    bool coverAll = true;
+    for (size_t componentId : sheets_componentFaceIds.at(sheetId))
+        if (!componentCovered[componentId]) {
+            coverAll = false;
+            break;
+        }
+    return coverAll;
+}
+
 std::vector<size_t> BaseComplexSheetQuad::GetCoverSheetIds(size_t beginSheetId) const {
     std::vector<size_t> res;
     std::unordered_set<size_t> resSet;
     std::queue<size_t> q;
+    std::stack<std::pair<size_t, std::unordered_set<size_t>>> st; // sheetid_neigboringSheetIds
     q.push(beginSheetId);
-    std::vector<size_t> componentCovered(baseComplex.componentF.size(), false);
-    while (!q.empty()) {
-        bool coveredAllComponent = true;
-        size_t n = q.size();
-        for (size_t i = 0; i < n; ++i) {
-            auto sheetId = q.front();
-            q.pop();
-            if (isSheetIdExistedInResult(sheetId, res)) continue;
-            res.push_back(sheetId);
-            resSet.insert(sheetId);
+    std::vector<bool> componentCovered(baseComplex.componentF.size(), false);
+    bool coveredAllComponent = false;
+    while (!coveredAllComponent) {
+        while (!q.empty()) {
+            size_t n = q.size();
+            for (size_t i = 0; i < n; ++i) {
+                auto sheetId = q.front();
+                q.pop();
+                if (isSheetIdExistedInResult(sheetId, res)) continue;
+                if (IsSheetRedundant(sheetId, componentCovered)) continue;
+                res.push_back(sheetId);
+                resSet.insert(sheetId);
 
-            for (auto component : sheets_componentFaceIds[sheetId])
-                componentCovered[component] = true;
-            if (hasCoveredAllComponents(sheetId, componentCovered, baseComplex, coveredAllComponent)) break;
+                for (auto component : sheets_componentFaceIds[sheetId])
+                    componentCovered[component] = true;
+                if (hasCoveredAllComponents(sheetId, componentCovered, baseComplex, coveredAllComponent)) break;
 
-            std::unordered_set<size_t> neighborSheetIds = GetNeighborSheetIds(sheetId);
-            q.push(GetMinComponentIntersectionNeighborSheetId(sheetId, neighborSheetIds, resSet));
-//            auto candidateSheetIds = GetMinComponentIntersectionNeighborSheetIds(sheetId, neighborSheetIds, resSet);
-//            for (auto candidateSheetId : candidateSheetIds)
-//                q.push(candidateSheetId);
+                std::unordered_set<size_t> neighborSheetIds = GetNeighborSheetIds(sheetId);
+                auto target = GetMinComponentIntersectionNeighborSheetId(sheetId, neighborSheetIds, resSet);
+                q.push(target);
+                neighborSheetIds.erase(target);
+                if (!neighborSheetIds.empty())
+                	st.push(std::make_pair(sheetId, neighborSheetIds));
+            }
+            if (coveredAllComponent) break;
         }
-        if (coveredAllComponent) break;
+        if (!coveredAllComponent) {
+        	auto& t = st.top();
+            auto target = GetMinComponentIntersectionNeighborSheetId(t.first, t.second, resSet);
+            q.push(target);
+            t.second.erase(target);
+            if (t.second.empty())
+            	st.pop();
+        }
     }
+    if (!coveredAllComponent)
+        std::cerr << red_color << "Decomposition incorrect in GetCoverSheetIds for begining with " << beginSheetId << "\n" << end_color;
     return res;
 }
 
@@ -388,31 +421,53 @@ std::vector<size_t> BaseComplexSheetQuad::GetCoverSheetIdsBFS(size_t beginSheetI
     std::vector<size_t> res;
     std::unordered_set<size_t> resSet;
     std::queue<size_t> q;
+    std::stack<std::pair<size_t, std::unordered_set<size_t>>> st; // sheetid_neigboringSheetIds
     q.push(beginSheetId);
-    std::vector<size_t> componentCovered(baseComplex.componentC.size(), false);
-    while (!q.empty()) {
-        bool coveredAllComponent = true;
-        size_t n = q.size();
-        for (size_t i = 0; i < n; ++i) {
-            auto sheetId = q.front();
-            q.pop();
-            if (isSheetIdExistedInResult(sheetId, res)) continue;
-            if (HasCoveredSheetComponents(sheetId, componentCovered)) continue;
-            res.push_back(sheetId);
-            resSet.insert(sheetId);
+    std::vector<bool> componentCovered(baseComplex.componentF.size(), false);
+    bool coveredAllComponent = false;
+    while (!coveredAllComponent) {
+        while (!q.empty()) {
+            size_t n = q.size();
+            for (size_t i = 0; i < n; ++i) {
+                auto sheetId = q.front();
+                q.pop();
+                if (isSheetIdExistedInResult(sheetId, res)) continue;
+                if (IsSheetRedundant(sheetId, componentCovered)) continue;
+                res.push_back(sheetId);
+                resSet.insert(sheetId);
 
-            for (auto component : sheets_componentCellIds[sheetId])
-                componentCovered[component] = true;
-            if (hasCoveredAllComponents(sheetId, componentCovered, baseComplex, coveredAllComponent)) break;
+                for (auto component : sheets_componentFaceIds[sheetId])
+                    componentCovered[component] = true;
+                if (hasCoveredAllComponents(sheetId, componentCovered, baseComplex, coveredAllComponent)) break;
 
-            std::unordered_set<size_t> neighborSheetIds = GetNeighborSheetIds(sheetId);
-            auto candidateSheetIds = GetMinComponentIntersectionNeighborSheetIds(sheetId, neighborSheetIds, resSet);
-            for (auto candidateSheetId : candidateSheetIds)
-                if (!isSheetIdExistedInResult(candidateSheetId, res))
-                    q.push(candidateSheetId);
+                std::unordered_set<size_t> neighborSheetIds = GetNeighborSheetIds(sheetId);
+                auto candidateSheetIds = GetMinComponentIntersectionNeighborSheetIds(sheetId, neighborSheetIds, resSet);
+                for (auto candidateSheetId : candidateSheetIds) {
+                    if (!isSheetIdExistedInResult(candidateSheetId, res)) {
+                        q.push(candidateSheetId);
+                    }
+                    neighborSheetIds.erase(candidateSheetId);
+                }
+                if (!neighborSheetIds.empty())
+                	st.push(std::make_pair(sheetId, neighborSheetIds));
+            }
+            if (!coveredAllComponent) {
+            	auto& t = st.top();
+                std::unordered_set<size_t>& neighborSheetIds = t.second;
+                auto candidateSheetIds = GetMinComponentIntersectionNeighborSheetIds(t.first, neighborSheetIds, resSet);
+                for (auto candidateSheetId : candidateSheetIds) {
+                    if (!isSheetIdExistedInResult(candidateSheetId, res)) {
+                        q.push(candidateSheetId);
+                    }
+                    neighborSheetIds.erase(candidateSheetId);
+                }
+                if (neighborSheetIds.empty())
+                	st.pop();
+            }
         }
-        if (coveredAllComponent) break;
     }
+    if (!coveredAllComponent)
+        std::cerr << red_color << "Decomposition incorrect in GetCoverSheetIdsBFS for begining with " << beginSheetId << "\n" << end_color;
     return res;
 }
 
@@ -456,25 +511,25 @@ std::vector<size_t> BaseComplexSheetQuad::GetMinComponentIntersectionNeighborShe
     std::vector<size_t> res;
     size_t minComponentIntersectionNums = MAXID;
     size_t minComponentIntersectionNeighborSheetId = *neighborSheetIds.begin();
-    std::unordered_set<size_t> sheetComponentIds(sheets_componentCellIds[sheetId].begin(), sheets_componentCellIds[sheetId].end());
+    std::unordered_set<size_t> sheetComponentIds(sheets_componentFaceIds[sheetId].begin(), sheets_componentFaceIds[sheetId].end());
     //const auto& sheetComponentIds = sheets_hashComponentCellIds.at(sheetId);
     for (auto neighborSheetId : neighborSheetIds) {
         if (resSet.find(neighborSheetId) != resSet.end()) continue;
-        std::unordered_set<size_t> neighborSheetComponentIds(sheets_componentCellIds[neighborSheetId].begin(), sheets_componentCellIds[neighborSheetId].end());
+        std::unordered_set<size_t> neighborSheetComponentIds(sheets_componentFaceIds[neighborSheetId].begin(), sheets_componentFaceIds[neighborSheetId].end());
         //const auto& neighborSheetComponentIds = sheets_hashComponentCellIds.at(neighborSheetId);
         size_t intersectionNum = 0;
         for (auto id : sheetComponentIds)
             if (neighborSheetComponentIds.find(id) != neighborSheetComponentIds.end()) ++intersectionNum;
         if (intersectionNum < minComponentIntersectionNums ||
                 (intersectionNum == minComponentIntersectionNums &&
-                        sheets_componentCellIds[neighborSheetId].size() > sheets_componentCellIds[minComponentIntersectionNums].size())) {
+                		sheets_componentFaceIds[neighborSheetId].size() > sheets_componentFaceIds[minComponentIntersectionNums].size())) {
             minComponentIntersectionNums = intersectionNum;
             minComponentIntersectionNeighborSheetId = neighborSheetId;
         }
     }
     for (auto neighborSheetId : neighborSheetIds) {
         if (resSet.find(neighborSheetId) != resSet.end()) continue;
-        std::unordered_set<size_t> neighborSheetComponentIds(sheets_componentCellIds[neighborSheetId].begin(), sheets_componentCellIds[neighborSheetId].end());
+        std::unordered_set<size_t> neighborSheetComponentIds(sheets_componentFaceIds[neighborSheetId].begin(), sheets_componentFaceIds[neighborSheetId].end());
         //const auto& neighborSheetComponentIds = sheets_hashComponentCellIds.at(neighborSheetId);
         size_t intersectionNum = 0;
         for (auto id : sheetComponentIds)
@@ -1132,6 +1187,7 @@ void BaseComplexSheetQuad::ExtractSheetConnectivities() {
             if (sheets_connectivities[i][j] == SheetsConnectivity_NEIGHBOR) sheets_connectivities_float[i][j] = -1.0f;
             else if (sheets_connectivities[i][j] == SheetsConnectivity_INTERSECT) sheets_connectivities_float[i][j] = 1.0f;
             else if (sheets_connectivities[i][j] == SheetsConnectivity_NEIGHBOR_AND_INTERSECT) sheets_connectivities_float[i][j] = 0.5f;
+    all_sheets_connectivities = sheets_connectivities;
 }
 
 //void BaseComplexSheetQuad::ExtractMainSheetConnectivities() {
@@ -1201,7 +1257,7 @@ void BaseComplexSheetQuad::ComputeComplexity() {
     }
     //if (complexity == 0) complexity = 1;
     std::cout << "##############################\n";
-    std::cout << "Complexity of main sheets = " << complexity << "\n";
+    std::cout << "Complexity of main sheets = " << 1 + complexity << "\n";
     std::cout << "##############################\n";
 
     //std::unordered_set<size_t> hash_main_sheet_ids(main_sheet_ids.begin(), main_sheet_ids.end());
@@ -1227,14 +1283,13 @@ bool BaseComplexSheetQuad::IsAdjacent(const int component_id1, const int compone
 
     return s.size() == 7;
 }
+enum Relation {
+    Relation_UNKNOWN = 0,
+    ADJACENT,
+    INTERSECTING,
+    HYBRID
+};
 void BaseComplexSheetQuad::ComputeComplexityDrChen(int sheetid) {
-    enum Relation {
-        Relation_UNKNOWN = 0,
-        ADJACENT,
-        INTERSECTING,
-        HYBRID
-    };
-
     size_t max_num_of_intersections = 1;
     float max_num_of_hybrid = 1;
 
@@ -1512,4 +1567,450 @@ void BaseComplexSheetQuad::ExtractMainSheetConnectivities(int main_sheets_id) {
             if (sheets_connectivities[i][j] == SheetsConnectivity_NEIGHBOR) sheets_connectivities_float[i][j] = -1.0f;
             else if (sheets_connectivities[i][j] == SheetsConnectivity_INTERSECT) sheets_connectivities_float[i][j] = 1.0f;
             else if (sheets_connectivities[i][j] == SheetsConnectivity_NEIGHBOR_AND_INTERSECT) sheets_connectivities_float[i][j] = 0.5f;
+}
+
+
+
+std::unordered_set<size_t> BaseComplexSheetQuad::GetCommonComponentFaceIds(const std::unordered_set<size_t>& common_component_edge_ids) const {
+    std::unordered_set<size_t> common_component_face_ids;
+    for (auto common_component_edge_id : common_component_edge_ids) {
+        auto& component_edge = baseComplex.componentE[common_component_edge_id];
+        common_component_face_ids.insert(component_edge.N_Fids.begin(), component_edge.N_Fids.end());
+    }
+    return common_component_face_ids;
+}
+
+std::unordered_set<size_t> BaseComplexSheetQuad::GetCommonComponentEdgeIds(size_t sheetid1, size_t sheetid2) const {
+    const auto& sheet1_component_edge_ids = sheets_BoundaryEdgeComponentIds[sheetid1];
+    const auto& sheet2_component_edge_ids = sheets_BoundaryEdgeComponentIds[sheetid2];
+    std::unordered_set<size_t> sheet1_component_edge_ids_set(sheet1_component_edge_ids.begin(), sheet1_component_edge_ids.end());
+    std::unordered_set<size_t> common_component_edge_ids;
+    for (auto component_edge_id : sheet2_component_edge_ids)
+        if (sheet1_component_edge_ids_set.find(component_edge_id) != sheet1_component_edge_ids_set.end())
+            common_component_edge_ids.insert(component_edge_id);
+    return common_component_edge_ids;
+}
+
+std::unordered_set<size_t> BaseComplexSheetQuad::GetCommonComponentFaceIds(size_t sheetid1, size_t sheetid2) const {
+    const auto& sheet1_component_face_ids = sheets_componentFaceIds[sheetid1];
+    const auto& sheet2_component_face_ids = sheets_componentFaceIds[sheetid2];
+    std::unordered_set<size_t> sheet1_component_face_ids_set(sheet1_component_face_ids.begin(), sheet1_component_face_ids.end());
+    std::unordered_set<size_t> common_component_face_ids;
+    for (auto component_face_id : sheet2_component_face_ids)
+        if (sheet1_component_face_ids_set.find(component_face_id) != sheet1_component_face_ids_set.end())
+            common_component_face_ids.insert(component_face_id);
+    return common_component_face_ids;
+}
+
+static int find(int x, std::vector<int>& parents) {
+    return parents[x] == x ? x : find(parents[x], parents);
+}
+
+static int findCircleNum(std::vector<std::vector<int>>& M) {
+    if (M.empty()) return 0;
+    int n = M.size();
+
+    std::vector<int> leads(n, 0);
+    for (int i = 0; i < n; i++) { leads[i] = i; }   // initialize leads for every kid as themselves
+
+    int groups = n;
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {   // avoid recalculate M[i][j], M[j][i]
+            if (M[i][j]) {
+                int lead1 = find(i, leads);
+                int lead2 = find(j, leads);
+                if (lead1 != lead2) {       // if 2 group belongs 2 different leads, merge 2 group to 1
+                    leads[lead1] = lead2;
+                    groups--;
+                }
+            }
+        }
+    }
+    return groups;
+}
+
+
+static size_t find(int x, std::vector<std::pair<size_t, std::unordered_set<size_t>>>& parents) {
+    return parents[x].first == x ? x : find(parents[x].first, parents);
+}
+
+static std::vector<std::unordered_set<size_t>> findCircleGroups(std::vector<std::vector<size_t>>& M) {
+    if (M.empty()) return {};
+    int n = M.size();
+
+    std::vector<std::pair<size_t, std::unordered_set<size_t>>> leads(n);
+    for (int i = 0; i < n; i++) { leads[i].first = i; }   // initialize leads for every kid as themselves
+
+    int groups = n;
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < i; j++) {   // avoid recalculate M[i][j], M[j][i]
+            if (M[i][j]) {
+                size_t lead1 = find(i, leads);
+                size_t lead2 = find(j, leads);
+                leads[lead1].second.insert(i);
+                leads[lead2].second.insert(j);
+                if (lead1 != lead2) {       // if 2 group belongs 2 different leads, merge 2 group to 1
+                    leads[lead1].first = lead2;
+                    leads[lead2].second.insert(leads[lead1].second.begin(), leads[lead1].second.end());
+                    leads[lead1].second.clear();
+                    groups--;
+                }
+            }
+        }
+    }
+
+    std::vector<std::unordered_set<size_t>> res;
+    for (auto& e : leads)
+        if (!e.second.empty()) res.push_back(e.second);
+    if (res.size() > 1) {
+        std::cout << "findCircleGroups numberOfgroups = " << groups << " results groups = " << res.size() << std::endl;
+    }
+    return res;
+}
+
+
+size_t BaseComplexSheetQuad::GetNumOfIntersections(const std::unordered_set<size_t>& common_component_face_ids) const {
+    //int n = baseComplex.componentC.size();
+    int n = common_component_face_ids.size();
+    std::vector<std::vector<int>> M(n, std::vector<int>(n, 0));
+    size_t common_component_face_ids_size = common_component_face_ids.size();
+    std::vector<size_t> common_component_face_ids_array(common_component_face_ids.begin(), common_component_face_ids.end());
+    auto combs = combine(common_component_face_ids_size, 2);
+    for (auto& comb : combs) {
+        auto component_id1 = common_component_face_ids_array[comb[0]];
+        auto component_id2 = common_component_face_ids_array[comb[1]];
+        if (IsAdjacent(component_id1, component_id2))
+            M[comb[0]][comb[1]] = M[comb[1]][comb[0]] = 1;
+    }
+    return findCircleNum(M);
+}
+
+
+float BaseComplexSheetQuad::ComputeComplexityUnbalancedMatrix(int sheetid) {
+
+    size_t max_num_of_intersections = 1;
+    float max_num_of_hybrid = 1;
+
+    auto sorted_main_sheet_ids = sheets_coverSheetIds.at(sheetid);
+    std::sort(sorted_main_sheet_ids.begin(), sorted_main_sheet_ids.end());
+
+    size_t n = sheets_connectivities.size();
+    sheets_connectivities_float.clear();
+    sheets_connectivities_float.resize(n,std::vector<float>(n, 0.0f));
+    auto combinations = combine(n, 2);
+    for (auto& p : combinations) {
+        auto sheetid1 = sorted_main_sheet_ids[p[0]];
+        auto sheetid2 = sorted_main_sheet_ids[p[1]];
+        auto relation = sheets_connectivities[p[0]][p[1]];
+        if (relation == ADJACENT) {
+            auto common_component_edge_ids = GetCommonComponentEdgeIds(sheetid1, sheetid2);
+            auto common_component_size = GetCommonComponentFaceIds(common_component_edge_ids).size();//common_component_face_ids.size() * 2;
+            auto total_component_size = sheets_componentFaceIds[sheetid1].size() + sheets_componentFaceIds[sheetid2].size();
+            auto relation_float = (float(common_component_size))/total_component_size;
+            sheets_connectivities_float[p[0]][p[1]] = relation_float;
+            sheets_connectivities_float[p[1]][p[0]] = relation_float;
+        } else if (relation == INTERSECTING) {
+            auto num_of_intersections = GetNumOfIntersections(GetCommonComponentFaceIds(sheetid1, sheetid2));
+            if (num_of_intersections > max_num_of_intersections) max_num_of_intersections = num_of_intersections;
+            sheets_connectivities_float[p[0]][p[1]] = num_of_intersections;
+            sheets_connectivities_float[p[1]][p[0]] = num_of_intersections;
+        } else if (relation == HYBRID) {
+            auto common_component_edge_ids = GetCommonComponentEdgeIds(sheetid1, sheetid2);
+            auto common_component_size = GetCommonComponentFaceIds(common_component_edge_ids).size();//common_component_face_ids.size() * 2;
+            auto total_component_size = sheets_componentFaceIds[sheetid1].size() + sheets_componentFaceIds[sheetid2].size();
+            auto relation_float = (float(common_component_size)) / total_component_size;
+
+            auto numOfIntersections = GetNumOfIntersections(GetCommonComponentFaceIds(sheetid1, sheetid2));
+
+            relation_float = (1 + relation_float) * numOfIntersections;
+            if (relation_float > max_num_of_hybrid) max_num_of_hybrid = relation_float;
+            sheets_connectivities_float[p[0]][p[1]] = relation_float;
+            sheets_connectivities_float[p[1]][p[0]] = relation_float;
+        }
+    }
+
+    auto sheets_connectivities_real = sheets_connectivities_float;
+    for (auto& p : combinations) {
+        auto sheetid1 = sorted_main_sheet_ids[p[0]];
+        auto sheetid2 = sorted_main_sheet_ids[p[1]];
+        auto relation = sheets_connectivities[p[0]][p[1]];
+        if (relation == ADJACENT) {
+            ;
+        } else if (relation == INTERSECTING) {
+            sheets_connectivities_float[p[0]][p[1]] /= max_num_of_intersections;
+            sheets_connectivities_float[p[1]][p[0]] /= max_num_of_intersections;
+        } else if (relation == HYBRID) {
+            sheets_connectivities_float[p[0]][p[1]] /= max_num_of_hybrid;
+            sheets_connectivities_float[p[1]][p[0]] /= max_num_of_hybrid;
+        }
+    }
+
+    /////////////////////////////////
+//    std::ifstream ifs("sheet_complexity.txt");
+//    std::vector<size_t> sheets_complexities;
+//    std::string line;
+//    while (getline(ifs, line)) {
+//        std::stringstream ss(line);
+//        std::string str;
+//        while (ss >> str);
+//        sheets_complexities.push_back(std::stoi(str));
+//    }
+//
+//    for (int i = 1; i < n; ++i)
+//        for (int j = 0; j < i; ++j)
+//            sheets_connectivities_real[i][j] *= sheets_complexities[sorted_main_sheet_ids[j]];
+//    for (int i = 0; i < n; ++i)
+//        for (int j = i + 1; j < n; ++j)
+//            sheets_connectivities_real[i][j] *= sheets_complexities[sorted_main_sheet_ids[j]];
+    int id = 0;
+    float max_sum = 0;
+    for (auto& row : sheets_connectivities_real) {
+        float sum = 0.0f;
+        for (auto ele: row) sum += fabs(ele);
+        // sum *= sheets_complexities[sorted_main_sheet_ids[id]];
+        if (sum > max_sum) max_sum = sum;
+        row[id++] = sum;
+    }
+    id = 0;
+    for (auto& row : sheets_connectivities_real) {
+        sheets_connectivities_float[id][id] = sheets_connectivities_real[id][id];
+        sheets_connectivities_float[id][id] /= 1.25 * max_sum;
+        ++id;
+    }
+    struct sc {
+        int s; // sheet_id
+        std::vector<float> c; // connectivities
+        sc(){}
+        sc(const sc& o) : s(o.s), c(o.c){}
+        sc& operator = (const sc& o) {
+            s = o.s;
+            c = o.c;
+            return *this;
+        }
+    };
+    std::vector<sc> ss(n);
+    for (int i = 0; i < n; ++i) {
+        ss[i].c = sheets_connectivities_real[i];
+        ss[i].s = i;
+    }
+    std::sort(ss.begin(), ss.end(), [&](const sc& a, const sc& b){return a.c[a.s] > b.c[b.s];});
+
+    auto sheets_connectivities_float_new = sheets_connectivities_float;
+    auto sheets_connectivities_real_new = sheets_connectivities_real;
+    auto sheets_connectivities_new = sheets_connectivities;
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j) {
+            sheets_connectivities_float_new[i][j] = sheets_connectivities_float[ss[i].s][ss[j].s];
+            sheets_connectivities_real_new[i][j] = sheets_connectivities_real[ss[i].s][ss[j].s];
+            sheets_connectivities_new[i][j] = sheets_connectivities[ss[i].s][ss[j].s];
+        }
+
+    sheets_connectivities_float = sheets_connectivities_float_new;
+    sheets_connectivities_real = sheets_connectivities_real_new;
+    sheets_connectivities = sheets_connectivities_new;
+
+    // std::cout << "\n\n\n ********** NEW *********** \n";
+    std::cout << "---------------------------- \n";
+    for (auto& row : ss)
+        std::cout << sorted_main_sheet_ids[row.s] << " ";
+    std::cout << "\n";
+    for (auto& row : ss)
+        std::cout << GetNumberOfSingularities(sorted_main_sheet_ids[row.s]) << " ";
+    std::cout << "\n";
+    {
+        int i = 0;
+        for (auto& row : ss)
+            sheets_coverSheetIds.at(sheetid).at(i++) = sorted_main_sheet_ids[row.s];
+    }
+//    WriteComplexityMat(sheets_connectivities_real, ("chord_complexity" + std::to_string(sheetid) + ".mat").c_str());
+//    WriteDiagonalMat(sheets_connectivities_float, ("chord_diagonal" + std::to_string(sheetid) + ".mat").c_str());
+//    WriteAdjacentMat(sheets_connectivities_float, ("chord_adjacent" + std::to_string(sheetid) + ".mat").c_str());
+//    WriteIntersectingMat(sheets_connectivities_float, ("chord_intersecting" + std::to_string(sheetid) + ".mat").c_str());
+//    WriteHybridMat(sheets_connectivities_float, ("chord_hybrid" + std::to_string(sheetid) + ".mat").c_str());
+
+    WriteComplexityMat(sheets_connectivities_real, "complexity.mat");
+    WriteDiagonalMat(sheets_connectivities_float, "diagonal.mat");
+    WriteAdjacentMat(sheets_connectivities_float, "adjacent.mat");
+    WriteIntersectingMat(sheets_connectivities_float, "intersecting.mat");
+    WriteHybridMat(sheets_connectivities_float, "hybrid.mat");
+
+    {
+        Eigen::MatrixXf m(n,n);
+        for (int i = 0; i < n; ++i)
+            for (int j = 0; j < n; ++j)
+                m(i, j) = (i == j ? 0 : sheets_connectivities_real[i][j]);
+        std::cout << "#mainchords = " << sheets_coverSheetIds.at(sheetid).size() << " main chords set = " << sheetid << " #COMPLEXITY = " << m.norm() << "\n";
+        return m.norm();
+    }
+}
+
+void BaseComplexSheetQuad::WriteComplexityMat(const std::vector<std::vector<float>>& M, const char* filename) const {
+    std::ofstream ofs(filename);
+    for (int i = 0; i < M.size(); ++i) {
+        for (int j = 0; j < M.size(); ++j)
+            ofs << M[i][j] << "\t";
+        ofs << "\n";
+    }
+}
+void BaseComplexSheetQuad::WriteDiagonalMat(const std::vector<std::vector<float>>& M, const char* filename) const {
+    std::ofstream ofs(filename);
+    for (int i = 0; i < M.size(); ++i) {
+        for (int j = 0; j < M.size(); ++j)
+            ofs << (i == j ? M[i][j] : 0) << "\t";
+        ofs << "\n";
+    }
+}
+void BaseComplexSheetQuad::WriteAdjacentMat(const std::vector<std::vector<float>>& M, const char* filename) const {
+    std::ofstream ofs(filename);
+    for (int i = 0; i < M.size(); ++i) {
+        for (int j = 0; j < M.size(); ++j)
+            ofs << (sheets_connectivities[i][j] == ADJACENT ? M[i][j] : 0) << "\t";
+        ofs << "\n";
+    }
+}
+void BaseComplexSheetQuad::WriteIntersectingMat(const std::vector<std::vector<float>>& M, const char* filename) const {
+    std::ofstream ofs(filename);
+    for (int i = 0; i < M.size(); ++i) {
+        for (int j = 0; j < M.size(); ++j)
+            ofs << (sheets_connectivities[i][j] == INTERSECTING ? M[i][j] : 0) << "\t";
+        ofs << "\n";
+    }
+}
+void BaseComplexSheetQuad::WriteHybridMat(const std::vector<std::vector<float>>& M, const char* filename) const {
+    std::ofstream ofs(filename);
+    for (int i = 0; i < M.size(); ++i) {
+        for (int j = 0; j < M.size(); ++j)
+            ofs << (sheets_connectivities[i][j] == HYBRID ? M[i][j] : 0) << "\t";
+        ofs << "\n";
+    }
+}
+
+int BaseComplexSheetQuad::GetNumberOfSingularities(int sheet_id) const {
+    std::unordered_set<size_t> singularity_ids;
+    for (auto component_face_id : sheets_componentFaceIds.at(sheet_id)) {
+        for (auto component_vertex_id : baseComplex.componentF.at(component_face_id).Vids) {
+            auto& component_vertex = baseComplex.componentV.at(component_vertex_id);
+            if (component_vertex.isSingularity)
+                singularity_ids.insert(component_vertex_id);
+        }
+    }
+    return singularity_ids.size();
+}
+
+void BaseComplexSheetQuad::ExtractSheetDecompositionsAll() {
+    ExtractSheetDecompositions(false);
+    std::cout << "\n---- ChordDecomposition bfs = false! ----" << "\n";
+    VerifySheetDecompositions();
+    auto representativeSheetSets = Get_sheets_coverSheetIds();
+    {
+        BaseComplexSheetQuad baseComplexSheets1(baseComplex);
+        baseComplexSheets1.Extract();
+        //baseComplexSheets1.ExtractSets();
+        baseComplexSheets1.ExtractSheetDecompositions(true);
+        std::cout << "\n---- ChordDecomposition bfs = true! ----" << "\n";
+        baseComplexSheets1.VerifySheetDecompositions();
+        std::copy(baseComplexSheets1.Get_sheets_coverSheetIds().begin(), baseComplexSheets1.Get_sheets_coverSheetIds().end(), back_inserter(representativeSheetSets));
+    }
+    std::vector<bool> componentEdgeBoundary(baseComplex.componentE.size(), false);
+    for (auto& bE : baseComplex.componentE) {
+        componentEdgeBoundary[bE.id] = bE.isBoundary;
+        bE.isBoundary = false;
+    }
+    {
+        BaseComplexSheetQuad baseComplexSheets1(baseComplex);
+        baseComplexSheets1.Extract();
+        //baseComplexSheets1.ExtractSets();
+        baseComplexSheets1.ExtractSheetDecompositions(false);
+        std::cout << "\n---- bE.isBoundary = false; ChordDecomposition bfs = false! ----" << "\n";
+        baseComplexSheets1.VerifySheetDecompositions();
+        std::copy(baseComplexSheets1.Get_sheets_coverSheetIds().begin(), baseComplexSheets1.Get_sheets_coverSheetIds().end(), back_inserter(representativeSheetSets));
+    }
+    {
+        BaseComplexSheetQuad baseComplexSheets1(baseComplex);
+        baseComplexSheets1.Extract();
+        // baseComplexSheets1.ExtractSets();
+        baseComplexSheets1.ExtractSheetDecompositions(true);
+        std::cout << "\n---- bE.isBoundary = false; ChordDecomposition bfs = true! ----" << "\n";
+        baseComplexSheets1.VerifySheetDecompositions();
+        std::copy(baseComplexSheets1.Get_sheets_coverSheetIds().begin(), baseComplexSheets1.Get_sheets_coverSheetIds().end(), back_inserter(representativeSheetSets));
+    }
+    for (auto& bE : baseComplex.componentE)
+        bE.isBoundary = componentEdgeBoundary[bE.id];
+    sheets_coverSheetIds = representativeSheetSets;
+    VerifySheetDecompositions();
+    RemoveSheetSetsRedundancy();
+    std::sort(sheets_coverSheetIds.begin(), sheets_coverSheetIds.end(), [&](const std::vector<size_t>& a, const std::vector<size_t>& b) {return a.size() < b.size();});
+    std::cout << "****** chordDecompositions after RemoveChordSetsRedundancy******\n";
+    for (auto& sheetIds : sheets_coverSheetIds) {
+        for (auto sheetId : sheetIds) std::cout << sheetId << " ";
+        std::cout << "\n";
+//        break;
+    }
+}
+
+SheetType BaseComplexSheetQuad::GetSheetType() {
+    for (auto& e : baseComplex.mesh.E) {
+        if (e.N_Fids.size() > 2) {
+            sheetType = NON_SIMPLE;
+            break;
+        }
+    }
+    return sheetType;
+}
+
+void BaseComplexSheetQuad::WriteSelfIntersectingEdges(const char *filename) const {
+    std::vector<size_t> intersecting_edge_ids;
+    for (auto& e : baseComplex.mesh.E)
+        if (e.N_Fids.size() > 2)
+            intersecting_edge_ids.push_back(e.id);
+
+    auto n = intersecting_edge_ids.size();
+    std::vector<std::vector<size_t>> M(n, std::vector<size_t>(n, 0));
+    auto combs = combine(n, 2);
+    for (auto& comb : combs) {
+        auto eid1 = intersecting_edge_ids[comb[0]];
+        auto eid2 = intersecting_edge_ids[comb[1]];
+        const auto& e1 = baseComplex.mesh.E.at(eid1);
+        const auto& e2 = baseComplex.mesh.E.at(eid2);
+        if (IsTwoEdgeHasCommonVertex(e1, e2))
+            M[comb[0]][comb[1]] = M[comb[1]][comb[0]] = 1;
+    }
+
+    auto groups = findCircleGroups(M);
+    //intersecting_edge_ids.clear();
+    std::vector<size_t> edge_ids;
+    std::vector<int> groupIds;
+    int i = 0;
+    for (auto& group : groups) {
+        for (auto id : group) {
+            edge_ids.push_back(intersecting_edge_ids.at(id));
+            groupIds.push_back(i);
+        }
+        ++i;
+    }
+
+    MeshFileWriter writer(baseComplex.mesh, filename);
+    writer.WriteEdgesVtk(edge_ids);
+    writer.WriteCellData(groupIds, "intersections");
+}
+
+void BaseComplexSheetQuad::VerifySheetDecompositions() {
+    for (const auto& coverSheetIds : sheets_coverSheetIds) {
+        std::vector<size_t> componentFaceId_count(baseComplex.componentF.size(), 0);
+        for (auto sheetId : coverSheetIds)
+            for (auto componentFaceId : sheets_componentFaceIds.at(sheetId))
+                ++componentFaceId_count.at(componentFaceId);
+        bool correct = true;
+        for (auto count : componentFaceId_count)
+            if (count == 0) {
+                correct = false;
+                break;
+            }
+        if (!correct) {
+            std::cerr << red_color << "\n---- ChordDecomposition is incorrect! ----\n" << end_color;
+            for (auto sheetId : coverSheetIds)
+                std::cerr << " " << sheetId;
+            std::cerr << "\n";
+        }
+    }
 }

@@ -96,7 +96,7 @@ int main(int argc, char* argv[])
         mesh.m_center = GetCenter(mesh.V);
         mesh.Zoom(mesh.m_center, 1.0/scale);
         cout << "center = (" << mesh.m_center.x << ", " << mesh.m_center.y << ", " << mesh.m_center.z << ")\n";
-        cout << "scale = " << scale << "\n";
+        cout << "scale = " << scale << " 1.0/scale = " << 1.0/scale << "\n";
 
         MeshFileWriter writer(mesh, argv[2]);
         writer.WriteFile();

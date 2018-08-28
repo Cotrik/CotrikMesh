@@ -66,7 +66,7 @@ void MeshOpt::ComputeAvgEdgeLength()
         }
     }
     avgMeshEdgeLength = sumEdgeLength / numOfBoundaryEdges;
-    std::cout << "Average Surface Edge Length = " << avgMeshEdgeLength << std::endl;
+    std::cout << "Average Surface Edge Length = " << avgMeshEdgeLength << " sumEdgeLength = " << sumEdgeLength << " numOfBoundaryEdges = " << numOfBoundaryEdges << std::endl;
 }
 
 size_t MeshOpt::Run(const size_t iters/* = 1*/)
@@ -323,8 +323,8 @@ bool MeshOpt::Optimize()
 
         double minimumScaledJacobian = 0.0;
         size_t InvertedElements = GetMinScaledJacobianVerdict(mesh, minimumScaledJacobian, this->minScaledJacobian);
-
-        if (InvertedElements > m_numOfInvertdElements){
+        // std::cout << "InvertedElements = " << InvertedElements << " m_numOfInvertdElements = " << m_numOfInvertdElements << " minimumScaledJacobian = " << minimumScaledJacobian << std::endl;
+        if (InvertedElements > m_numOfInvertdElements) {
             std::cout << "Recover previous mesh\n";
             for (size_t i = 0; i < mesh.V.size(); i++)
             {

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <iomanip>
 #include <memory>
+#include <algorithm>
 #include "stdio.h"
 using namespace std;
 //#include <boost/smart_ptr.hpp>

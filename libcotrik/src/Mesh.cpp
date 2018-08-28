@@ -2886,9 +2886,10 @@ void Mesh::Zoom(const glm::vec3& ref, const double scale/* = 1*/) {
     for (size_t i = 0; i < V.size(); i++) {
         Vertex& v = V.at(i);
         const glm::vec3 dir = v - ref;
-        v.x = ref.x + scale * dir.x;
-        v.y = ref.y + scale * dir.y;
-        v.z = ref.z + scale * dir.z;
+        const glm::dvec3 d(dir.x, dir.y, dir.z);
+        v.x = scale * d.x + ref.x;
+        v.y = scale * d.y + ref.y;
+        v.z = scale * d.z + ref.z;
     }
 }
 

@@ -16,16 +16,18 @@
 #include "ArgumentManager.h"
 
 #include <iostream>
+#include <fstream>
+#include <algorithm>
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cout << "Usage: ExtractSheetDecompositions hex.vtk bfs=false" << std::endl;
+        std::cout << "Usage: ExtractSheetDecompositions hex.vtk verify=false" << std::endl;
         return -1;
     }
     ArgumentManager argumentManager(argc, argv);
     std::string filename = argv[1];
-    bool bfs = false;
-    if (argumentManager.get("bfs") == "true") bfs = true;
+    bool verify = false;
+    if (argumentManager.get("verify") == "true") verify = true;
     std::cout << "---------------------------------------" << std::endl;
     std::cout << "filename = " << filename << std::endl;
     std::cout << "---------------------------------------" << std::endl;
@@ -65,30 +67,94 @@ int main(int argc, char* argv[]) {
 
     BaseComplexSheet baseComplexSheets(baseComplex);
     baseComplexSheets.Extract();
-    baseComplexSheets.ExtractSets();
+    // baseComplexSheets.ExtractSets();
     // baseComplexSheets.ExtractSheetDecompositions(bfs);
     baseComplexSheets.ExtractSheetDecompositionsAll();
+    baseComplexSheets.VerifySheetDecompositions();
+    if (verify)  baseComplexSheets.Verify();
+    else {
+    	std::vector<size_t> xx;
+		for (int i = 0; i < baseComplexSheets.sheets_componentCellIds.size(); ++i) xx.push_back(i);
+		baseComplexSheets.sheets_coverSheetIds.push_back(xx);
+    }
     baseComplexSheets.ExtractSheetConnectivities();
     baseComplexSheets.WriteSheetsConnectivitiesMatrixVTK("SheetsConnectivities.vtk");
     baseComplexSheets.WriteSheetsConnectivitiesMatrixMat("SheetsConnectivities.mat");
     baseComplexSheets.ExtractMainSheetConnectivities();
 
     int sheet_id = 0;
-    for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()){
+    for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds){
         baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
-        baseComplexSheets.ComputeComplexityDrChen(sheet_id++);
+        baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id++);
+    }
+    {
+
+    	auto& vs = baseComplexSheets.socs;
+    	  sort(vs.begin(), vs.end(),
+    	       [&](const sheetIds_overlaps_complexity & a, const sheetIds_overlaps_complexity& b) {
+    		  if (a.complexity < b.complexity) {
+    			  return true;
+    		  } else if (a.complexity > b.complexity) {
+    			  return false;
+    		  } else {
+				   if (a.sheetIds.size() < b.sheetIds.size()) return true;
+				   else if (a.sheetIds.size() == b.sheetIds.size()) {
+					   std::vector<size_t> as, bs;
+					   for (auto x : a.sheetIds) as.push_back(x);
+					   for (auto x : b.sheetIds) bs.push_back(x);
+					   for (int i = 0; i < as.size(); ++i) {
+					       if (as.at(i) < bs.at(i)) return true;
+					       else if (as.at(i) > bs.at(i)) return false;
+					   }
+					   return false;
+				   }
+				   return false;
+			  }
+    		  return false;
+    	  });
+    	  if (verify) {
+    		  std::ofstream ofs("all.txt");
+    		  ofs << "complexity\toverlaps\tsheets\n";
+			  for (auto& v : vs) {
+				  ofs << v.complexity << "/" << v.complexity*v.sheetIds.size() << "/" << v.sheetIds.size() << "\t";
+				  ofs << v.overlaps << "\t";
+				for (auto i : v.sheetIds) ofs << i << " ";
+				ofs << "\n";
+			  }
+    	  } else {
+    		  std::ofstream ofs("ours.txt");
+    		  ofs << "complexity\toverlaps\tsheets\n";
+			  for (auto& v : vs) {
+				  ofs << v.complexity << "/" << v.complexity*v.sheetIds.size() << "/" << v.sheetIds.size() << "\t";
+				  ofs << v.overlaps << "\t";
+				for (auto i : v.sheetIds) ofs << i << " ";
+				ofs << "\n";
+			  }
+    	  }
+    	  baseComplexSheets.sheets_coverSheetIds.clear();
+    	  for (auto it = vs.rbegin(); it != vs.rend(); ++it) {
+    		  std::vector<size_t> x;
+    		  for (auto xx : it->sheetIds) x.push_back(xx);
+    		  baseComplexSheets.sheets_coverSheetIds.push_back(x);
+    	  }
+//    	  vs.clear();
+//    	  sheet_id = 0;
+//		  for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds){
+//			  baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
+//			  baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id++);
+//		  }
     }
     {
         std::ofstream ofs("sheet_decompositions.txt");
-        for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()) {
+        for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds) {
             for (auto sheetId : sheetIds) ofs << sheetId << " ";
             ofs << "\n";
         }
     }
-    baseComplexSheets.ExtractMainSheetConnectivities(0);
-    baseComplexSheets.ComputeComplexityDrChen(0);
-    baseComplexSheets.WriteSheetsConnectivitiesMatrixVTK("DominantSheetsConnectivities.vtk");
-    baseComplexSheets.WriteSheetsConnectivitiesMatrixMat("DominantSheetsConnectivities.mat");
+//    baseComplexSheets.ExtractMainSheetConnectivities(0);
+//    baseComplexSheets.ComputeComplexityUnbalancedMatrix(0);
+//    baseComplexSheets.WriteSheetsConnectivitiesMatrixVTK("DominantSheetsConnectivities.vtk");
+//    baseComplexSheets.WriteSheetsConnectivitiesMatrixMat("DominantSheetsConnectivities.mat");
 //    baseComplexSheets.ComputeComplexity();
 //    baseComplexSheets.WriteAllDominantSheetsConnectivitiesMatrixMat("DominantSheetsConnectivities");
     return 0;
