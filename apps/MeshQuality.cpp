@@ -1,4 +1,3 @@
-
 #include <vtkVersion.h>
 #include <vtkSmartPointer.h>
 #include <vtkPolyData.h>
@@ -29,14 +28,12 @@
 #include <vtkLight.h>
 #include <vtkLightActor.h>
 
-void GetMetrics(vtkMeshQuality* qualityFilter, double& minValue, double& maxValue, double& avgValue)
-{
+void GetMetrics(vtkMeshQuality* qualityFilter, double& minValue, double& maxValue, double& avgValue) {
     vtkSmartPointer<vtkDoubleArray> qualityArray = vtkDoubleArray::SafeDownCast(qualityFilter->GetOutput()->GetCellData()->GetArray("Quality"));
     minValue = qualityArray->GetValue(0);
     maxValue = qualityArray->GetValue(0);
     avgValue = 0;
-    for (vtkIdType i = 0; i < qualityArray->GetNumberOfTuples(); i++)
-    {
+    for (vtkIdType i = 0; i < qualityArray->GetNumberOfTuples(); i++) {
         double val = qualityArray->GetValue(i);
         if (minValue > val) minValue = val;
         if (maxValue < val) maxValue = val;
@@ -46,8 +43,7 @@ void GetMetrics(vtkMeshQuality* qualityFilter, double& minValue, double& maxValu
     avgValue /= qualityArray->GetNumberOfTuples();
 }
 
-void OutputMetricFile(const char* vtkfilename, const char* filename="metric.txt")
-{
+void OutputMetricFile(const char* vtkfilename, const char* filename = "metric.txt") {
     vtkSmartPointer<vtkUnstructuredGridReader> reader = vtkSmartPointer<vtkUnstructuredGridReader>::New();
     reader->SetFileName(vtkfilename);
     reader->Update();
@@ -184,14 +180,12 @@ void OutputMetricFile(const char* vtkfilename, const char* filename="metric.txt"
     for (size_t i = 0; i < metrics.size(); i++)
         ofs << metrics.at(i) << std::endl;
 }
-int main(int argc, char *argv[])
-{
-    if (argc < 2)
-    {
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
         std::cout << "Usage: " << argv[0] << " Filename(.vtk) opacity metricFileName=<> " << std::endl;
         return EXIT_FAILURE;
     }
-
+    OutputMetricFile(argv[1]);
     // Get the filename from the command line
     std::string inputFilename = argv[1];
 
@@ -248,8 +242,7 @@ int main(int argc, char *argv[])
     maxValue = qualityArray->GetValue(0);
     avgValue = 0;
     size_t numOfInvertedElements = 0;
-    for (vtkIdType i = 0; i < qualityArray->GetNumberOfTuples(); i++)
-    {
+    for (vtkIdType i = 0; i < qualityArray->GetNumberOfTuples(); i++) {
         double val = qualityArray->GetValue(i);
         if (minValue > val) minValue = val;
         if (maxValue < val) maxValue = val;
@@ -265,16 +258,13 @@ int main(int argc, char *argv[])
     std::cout << "avg value = " << avgValue << std::endl;
     std::cout << "#InvertedElements = " << numOfInvertedElements << std::endl;
 
-    if (argc == 2)
-        return 0;
+    if (argc == 2) return 0;
 
     // Hightlight inverted elements
     vtkDataSet* qualityMesh = qualityFilter->GetOutput();
     vtkSmartPointer<vtkThreshold> selectCells = vtkSmartPointer<vtkThreshold>::New();
-    if (minValue < 0)
-    selectCells->ThresholdByLower(0.00);
-    else
-        selectCells->ThresholdByLower(minValue + 1e-2);
+    if (minValue < 0) selectCells->ThresholdByLower(0.00);
+    else selectCells->ThresholdByLower(minValue + 1e-2);
     selectCells->SetInputArrayToProcess(0, 0, 0, vtkDataObject::FIELD_ASSOCIATION_CELLS, vtkDataSetAttributes::SCALARS);
 #if VTK_MAJOR_VERSION <= 5
     selectCells->SetInput(qualityMesh);
@@ -350,7 +340,6 @@ int main(int argc, char *argv[])
 //    mapper->SetLookupTable(hueLut);
 //    scalarBar->SetLookupTable(hueLut);
 
-
     vtkSmartPointer<vtkColorTransferFunction> ctf = vtkSmartPointer<vtkColorTransferFunction>::New();
 //    if (minValue < 0 && maxValue > 0)
 //    {
@@ -384,20 +373,18 @@ int main(int argc, char *argv[])
     mapper->SetLookupTable(ctf);
     scalarBar->SetLookupTable(ctf);
 
-
     vtkSmartPointer<vtkRenderer> renderer = vtkSmartPointer<vtkRenderer>::New();
     vtkSmartPointer<vtkRenderWindow> renderWindow = vtkSmartPointer<vtkRenderWindow>::New();
     renderWindow->AddRenderer(renderer);
     vtkSmartPointer<vtkRenderWindowInteractor> renderWindowInteractor = vtkSmartPointer<vtkRenderWindowInteractor>::New();
     renderWindowInteractor->SetRenderWindow(renderWindow);
-    vtkSmartPointer<vtkInteractorStyleTrackballCamera>  InteractorStyleTrackballCamera = vtkSmartPointer<vtkInteractorStyleTrackballCamera>::New();
+    vtkSmartPointer<vtkInteractorStyleTrackballCamera> InteractorStyleTrackballCamera = vtkSmartPointer<vtkInteractorStyleTrackballCamera>::New();
     renderWindowInteractor->SetInteractorStyle(InteractorStyleTrackballCamera);
 
     renderer->AddActor(actor);
     renderer->AddActor2D(scalarBar);
     renderer->AddActor(inverted_actor);
-    if (numOfInvertedElements != 0 && std::stod(argv[2]) != 1.0)
-    renderer->AddActor(edges_actor);
+    if (numOfInvertedElements != 0 && std::stod(argv[2]) != 1.0) renderer->AddActor(edges_actor);
 
     renderer->SetBackground(1, 1, 1);
 
@@ -422,7 +409,7 @@ int main(int argc, char *argv[])
     renderWindow->Render();
     std::string name = std::string("Visualization ToolKit - OpenGL - ") + inputFilename;
     renderWindow->SetWindowName(name.c_str());
-    renderWindow->SetSize(1920,1080);
+    renderWindow->SetSize(1920, 1080);
     renderWindowInteractor->Start();
 
     return EXIT_SUCCESS;

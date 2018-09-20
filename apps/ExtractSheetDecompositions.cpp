@@ -137,20 +137,22 @@ int main(int argc, char* argv[]) {
     		  for (auto xx : it->sheetIds) x.push_back(xx);
     		  baseComplexSheets.sheets_coverSheetIds.push_back(x);
     	  }
-//    	  vs.clear();
-//    	  sheet_id = 0;
-//		  for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds){
-//			  baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
-//			  baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id++);
-//		  }
-    }
-    {
-        std::ofstream ofs("sheet_decompositions.txt");
-        for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds) {
-            for (auto sheetId : sheetIds) ofs << sheetId << " ";
-            ofs << "\n";
+        {
+            std::ofstream ofs("sheet_decompositions.txt");
+            for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds) {
+                for (auto sheetId : sheetIds)
+                    ofs << sheetId << " ";
+                ofs << "\n";
+            }
         }
+//    	  vs.clear();
+    	  sheet_id = 0;
+		  for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds){
+			  baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
+			  baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id++);
+		  }
     }
+
 //    baseComplexSheets.ExtractMainSheetConnectivities(0);
 //    baseComplexSheets.ComputeComplexityUnbalancedMatrix(0);
 //    baseComplexSheets.WriteSheetsConnectivitiesMatrixVTK("DominantSheetsConnectivities.vtk");

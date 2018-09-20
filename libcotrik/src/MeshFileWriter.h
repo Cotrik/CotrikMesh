@@ -46,7 +46,7 @@ public:
     void SetFixFlag(bool bFixed = true);
 	void FixMesh();
 
-private:
+protected:
 	std::string m_strFileName;
 	Mesh m_mesh;
 	bool m_bFixed;

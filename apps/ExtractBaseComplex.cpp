@@ -86,6 +86,8 @@ int main(int argc, char* argv[]){
     baseComplexSheets.Extract();
     baseComplexSheets.ExtractSets();
     baseComplexSheets.WriteAllSheetsCellsVTK("SheetCells");
+    baseComplexSheets.WriteAllSheetsCellsWithConnectedSingularitiesVTK("SheetWithConnectedSingularities");
+    baseComplexSheets.WriteAllSheetsCellsConnectedSingularitiesVTK("SheetConnectedSingularities");
 //    baseComplexSheets.WriteAllSheetsFacesVTK("SheetFaces");
 //    baseComplexSheets.WriteAllSheetsEdgesVTK("SheetEdges");
     baseComplexSheets.WriteAllSheetsFacesAndEdgesVTK("TestSheetFacesAndEdges");

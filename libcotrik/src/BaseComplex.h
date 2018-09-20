@@ -237,8 +237,8 @@ public:
     size_t GetNextSingularEdgeId(const size_t vid, const size_t cur_edge_id);
     // vid is the starting point, eid tells the direction; circular edge link returns true;
     bool TraceEdge(const size_t vid, const size_t eid, std::vector<size_t>& Vids, std::vector<size_t>& Eids, std::vector<bool>& is_edge_visited);
-    void AddSingularV(const size_t current_vid, const size_t singularVid, size_t& ending_singular_vid);
-    void AddSingularE(const std::vector<size_t>& leftVids, const std::vector<size_t>& leftEids,
+    bool AddSingularV(const size_t current_vid, const size_t singularVid, size_t& ending_singular_vid);
+    bool AddSingularE(const std::vector<size_t>& leftVids, const std::vector<size_t>& leftEids,
             const std::vector<size_t>& rightVids, const std::vector<size_t>& rightEids,
             const size_t left_singular_vid, const size_t right_singular_vid, const size_t singularEid);
     void AddcircularSingularE(const std::vector<size_t>& leftVids, const std::vector<size_t>& leftEids, const size_t singularEid);

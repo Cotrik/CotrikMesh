@@ -38,6 +38,7 @@ foreach(app
     MeasureMesh
     VerifyHexMesh
     CheckManifold
+    CleanStructure
     ConvertQuadToTriangle
     #CotrikClustering
     DisplayFrameField
@@ -45,6 +46,7 @@ foreach(app
     ExtractBaseComplexQuad
     ExtractSheetDecompositions
     ExtractSheetDecompositionsQuad
+    ExtractMainSheets
     RemovePadding
     CollapseComponent
     ExtractFaceSegments
@@ -53,6 +55,7 @@ foreach(app
     ExtractLayers
     ExtractPatches
     ExtractSharpEdges
+    ExtractSingularities
     HexRefine
     HexSmooth
     #HexGen

@@ -106,8 +106,7 @@ void MeshFileReader::ReadVtkFile()
         std::vector<Vertex>& V = m_mesh.V;
         V.resize(vnum);
         double p[3];
-        for (vtkIdType i = 0; i < vnum; i++)
-        {
+        for (vtkIdType i = 0; i < vnum; i++) {
             output->GetPoint(i, p);
             V.at(i).x = p[0];
             V.at(i).y = p[1];
@@ -118,8 +117,7 @@ void MeshFileReader::ReadVtkFile()
 //        output->GetCellTypes(cellTypes.GetPointer());
         m_mesh.m_cellType = POLYGON;
         std::vector<Cell>& C = m_mesh.C;
-        for (vtkIdType i = 0; i < cnum; i++)
-        {
+        for (vtkIdType i = 0; i < cnum; i++) {
             vtkSmartPointer<vtkIdList> idList = vtkSmartPointer<vtkIdList>::New();
             output->GetPolys()->GetNextCell(idList);
             const vtkIdType csize = idList->GetNumberOfIds();
@@ -127,6 +125,9 @@ void MeshFileReader::ReadVtkFile()
             for (vtkIdType j = 0; j < csize; j++)
                 c.Vids.at(j) = idList->GetId(j);
             c.id = i;
+            if (csize == 3) c.cellType = VTK_TRIANGLE;
+            else if (csize == 4) c.cellType = VTK_QUAD;
+            else c.cellType = VTK_POLYGON;
             C.push_back(c);
         }
         bool hasTriangle = false;
@@ -151,13 +152,13 @@ void MeshFileReader::ReadVtkFile()
         m_mesh.m_cellTypes.resize(cnum);
         // Read V
         double p[3];
-        for (vtkIdType i = 0; i < vnum; i++)
-        {
+        for (vtkIdType i = 0; i < vnum; i++) {
             output->GetPoint(i, p);
             V.at(i).x = p[0];
             V.at(i).y = p[1];
             V.at(i).z = p[2];
             V.at(i).id = i;
+            V.at(i).cellType = VTK_VERTEX;
         }
         // Read CellType
         const vtkIdType cellType = output->GetCellType(0);
@@ -174,13 +175,15 @@ void MeshFileReader::ReadVtkFile()
             }
         // Read C
         std::vector<Cell>& C = m_mesh.C;
-        for (vtkIdType i = 0; i < cnum; i++)
-        {
+        for (vtkIdType i = 0; i < cnum; i++) {
             vtkSmartPointer<vtkIdList> idList = vtkSmartPointer<vtkIdList>::New();
             output->GetCellPoints(i, idList);
             const vtkIdType csize = idList->GetNumberOfIds();
             Cell c(csize);
             c.id = i;
+            if (csize == 4) c.cellType = VTK_TETRA;
+            else if (csize == 8) c.cellType = VTK_HEXAHEDRON;
+            else c.cellType = VTK_POLYHEDRON;
             for (vtkIdType j = 0; j < csize; j++)
                 c.Vids.at(j) = idList->GetId(j);
             C.push_back(c);

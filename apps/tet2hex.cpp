@@ -98,10 +98,11 @@ int main(int argc, char* argv[]) {
         // C
         const auto& v14 = hexMesh.V.at(c.id + tetMesh.V.size() + tetMesh.E.size() + tetMesh.F.size());
 
-        std::vector<size_t> c1 = {v0.id, v4.id, v12.id, v8.id, v6.id, v10.id, v14.id, v11.id};
+        std::vector<size_t> c1 = {v0.id, v8.id, v12.id, v4.id, v6.id, v11.id, v14.id, v10.id};
         std::vector<size_t> c2 = {v1.id, v5.id, v10.id, v4.id, v9.id, v13.id, v14.id, v12.id};
-        std::vector<size_t> c3 = {v2.id, v7.id, v13.id, v5.id, v6.id, v11.id, v14.id, v10.id};
-        std::vector<size_t> c4 = {v3.id, v7.id, v11.id, v8.id, v9.id, v13.id, v14.id, v12.id};
+        std::vector<size_t> c3 = {v2.id, v5.id, v13.id, v7.id, v6.id, v10.id, v14.id, v11.id};
+        std::vector<size_t> c4 = {v3.id, v8.id, v11.id, v7.id, v9.id, v12.id, v14.id, v13.id};
+
         hexMesh.C.at(cid).Vids = c1;
         hexMesh.C.at(cid).id = cid++;
         hexMesh.C.at(cid).Vids = c2;

@@ -73,10 +73,14 @@ public:
     void WriteSheetFacesVTK(const char *filename, const size_t sheet_id) const;
     void WriteSheetEdgesVTK(const char *filename, const size_t sheet_id) const;
     void WriteSheetFacesAndEdgesVTK(const char *filename, const size_t sheet_id) const;
+    void WriteSheetCellsWithConnectedSingularitiesVTK(const char *filename, const size_t sheet_id) const;
+    void WriteSheetCellsConnectedSingularitiesVTK(const char *filename, const size_t sheet_id) const;
     void WriteAllSheetsCellsVTK(const char *filename_prefix) const;
     void WriteAllSheetsFacesVTK(const char *filename_prefix) const;
     void WriteAllSheetsEdgesVTK(const char *filename_prefix) const;
     void WriteAllSheetsFacesAndEdgesVTK(const char *filename_prefix) const;
+    void WriteAllSheetsCellsWithConnectedSingularitiesVTK(const char *filename_prefix) const;
+    void WriteAllSheetsCellsConnectedSingularitiesVTK(const char *filename_prefix) const;
     void WriteSheetCellsDualVTK(const char *filename, const size_t sheet_id) const;
     void WriteSheetCellsDualVTK(const char *filename, const size_t sheet_id, const RefinedDual& dual) const;
     void WriteSheetCellsDualVTK(const char *filename, const size_t sheet_id, const RefinedDual& dual, const std::unordered_set<size_t>& dualFaceIds) const;

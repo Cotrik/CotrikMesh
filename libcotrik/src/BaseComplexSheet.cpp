@@ -7,6 +7,7 @@
 
 #include "BaseComplexSheet.h"
 #include "MeshFileWriter.h"
+#include "UnstructuredVTKWriter.h"
 #include "Dual.h"
 #include "RefinedDual.h"
 #include <algorithm>
@@ -316,6 +317,13 @@ void BaseComplexSheet::ExtractSheetDecompositionsAll() {
     for (auto& bF : baseComplex.componentF)
         bF.isBoundary = componentFaceBoundary[bF.id];
     sheets_coverSheetIds = representativeSheetSets;
+    std::sort(sheets_coverSheetIds.begin(), sheets_coverSheetIds.end(), [&](const std::vector<size_t>& a, const std::vector<size_t>& b) {return a.size() < b.size();});
+//    std::cout << "****** SheetDecompositions before RemoveSheetSetsRedundancy******\n";
+//    for (auto& sheetIds : sheets_coverSheetIds) {
+//        for (auto sheetId : sheetIds) std::cout << sheetId << " ";
+//        std::cout << "\n";
+////        break;
+//    }
     RemoveSheetSetsRedundancy();
     std::sort(sheets_coverSheetIds.begin(), sheets_coverSheetIds.end(), [&](const std::vector<size_t>& a, const std::vector<size_t>& b) {return a.size() < b.size();});
     std::cout << "****** SheetDecompositions after RemoveSheetSetsRedundancy******\n";
@@ -871,6 +879,7 @@ std::vector<size_t> BaseComplexSheet::GetCoverSheetIdsBFS(size_t beginSheetId) c
                 auto sheetId = q.front();
                 q.pop();
                 if (isSheetIdExistedInResult(sheetId, res)) continue;
+                if (IsSheetRedundant(sheetId, componentCovered)) continue;
                 if (HasCoveredSheetComponents(sheetId, componentCovered)) continue;
                 res.push_back(sheetId);
                 resSet.insert(sheetId);
@@ -1090,18 +1099,15 @@ std::vector<size_t> BaseComplexSheet::GetParallelComponentEdgeIds(const Componen
     return res;
 }
 
-void BaseComplexSheet::WriteSheetsEdgesVTK(const char *filename) const
-{
+void BaseComplexSheet::WriteSheetsEdgesVTK(const char *filename) const {
 
 }
 
-void BaseComplexSheet::WriteSheetsFacesVTK(const char *filename) const
-{
+void BaseComplexSheet::WriteSheetsFacesVTK(const char *filename) const {
 
 }
 
-void BaseComplexSheet::WriteSheetsCellsVTK(const char *filename) const
-{
+void BaseComplexSheet::WriteSheetsCellsVTK(const char *filename) const {
     const auto& mesh = baseComplex.GetMesh();
     const auto& V = mesh.V;
     const auto& E = mesh.E;
@@ -1146,8 +1152,7 @@ void BaseComplexSheet::WriteSheetsCellsVTK(const char *filename) const
     }
 }
 
-void BaseComplexSheet::WriteAllSheetsCellsDualVTK(const char *filename_prefix) const
-{
+void BaseComplexSheet::WriteAllSheetsCellsDualVTK(const char *filename_prefix) const {
     RefinedDual dual(baseComplex.mesh);
     dual.Build();
 
@@ -1157,35 +1162,45 @@ void BaseComplexSheet::WriteAllSheetsCellsDualVTK(const char *filename_prefix) c
     }
 }
 
-void BaseComplexSheet::WriteAllSheetsCellsVTK(const char *filename_prefix) const
-{
+void BaseComplexSheet::WriteAllSheetsCellsVTK(const char *filename_prefix) const {
     for (int i = 0; i < sheets_componentCellIds.size(); ++i) {
         std::string filename = std::string(filename_prefix) + std::to_string(i) + ".vtk";
         WriteSheetCellsVTK(filename.c_str(), i);
     }
 }
 
-void BaseComplexSheet::WriteAllSheetsFacesVTK(const char *filename_prefix) const
-{
+void BaseComplexSheet::WriteAllSheetsFacesVTK(const char *filename_prefix) const {
     for (int i = 0; i < sheets_componentFaceIds.size(); ++i) {
         std::string filename = std::string(filename_prefix) + std::to_string(i) + ".vtk";
         WriteSheetFacesVTK(filename.c_str(), i);
     }
 }
 
-void BaseComplexSheet::WriteAllSheetsEdgesVTK(const char *filename_prefix) const
-{
+void BaseComplexSheet::WriteAllSheetsEdgesVTK(const char *filename_prefix) const {
     for (int i = 0; i < sheets_componentEdgeIds.size(); ++i) {
         std::string filename = std::string(filename_prefix) + std::to_string(i) + ".vtk";
         WriteSheetEdgesVTK(filename.c_str(), i);
     }
 }
 
-void BaseComplexSheet::WriteAllSheetsFacesAndEdgesVTK(const char *filename_prefix) const
-{
+void BaseComplexSheet::WriteAllSheetsFacesAndEdgesVTK(const char *filename_prefix) const {
     for (int i = 0; i < sheets_componentEdgeIds.size(); ++i) {
         std::string filename = std::string(filename_prefix) + std::to_string(i) + ".vtk";
         WriteSheetFacesAndEdgesVTK(filename.c_str(), i);
+    }
+}
+
+void BaseComplexSheet::WriteAllSheetsCellsWithConnectedSingularitiesVTK(const char *filename_prefix) const {
+    for (int i = 0; i < sheets_componentCellIds.size(); ++i) {
+        std::string filename = std::string(filename_prefix) + std::to_string(i) + ".vtk";
+        WriteSheetCellsWithConnectedSingularitiesVTK(filename.c_str(), i);
+    }
+}
+
+void BaseComplexSheet::WriteAllSheetsCellsConnectedSingularitiesVTK(const char *filename_prefix) const {
+    for (int i = 0; i < sheets_componentCellIds.size(); ++i) {
+        std::string filename = std::string(filename_prefix) + std::to_string(i) + ".vtk";
+        WriteSheetCellsConnectedSingularitiesVTK(filename.c_str(), i);
     }
 }
 
@@ -1234,8 +1249,7 @@ std::unordered_set<size_t> BaseComplexSheet::GetParallelSingularEdgeIds(const si
     return parallelSingularEdgeIds;
 }
 
-void BaseComplexSheet::WriteSheetCellsDualVTK(const char *filename, const size_t sheet_id) const
-{
+void BaseComplexSheet::WriteSheetCellsDualVTK(const char *filename, const size_t sheet_id) const {
     auto parallelEdgeIds = GetParallelEdgeIds(sheet_id);
     Dual dual(baseComplex.mesh);
     dual.Build();
@@ -1443,6 +1457,151 @@ void BaseComplexSheet::WriteSheetCellsVTK(const char *filename, const size_t she
     for (const auto componentid : sheets_componentCellIds.at(sheet_id))
         for (const auto cell_id : baseComplex.componentC.at(componentid).cids_patch)
             ofs << sheet_id << "\n";
+}
+
+void BaseComplexSheet::WriteSheetCellsWithConnectedSingularitiesVTK(const char *filename, const size_t sheet_id) const {
+    const auto& mesh = baseComplex.GetMesh();
+    const auto& V = mesh.V;
+    const auto& E = mesh.E;
+    std::ofstream ofs(filename);
+    ofs << "# vtk DataFile Version 2.0\n"
+        << filename << "\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs << "POINTS " << V.size() << " float" << "\n";
+    for (size_t i = 0; i < V.size(); i++)
+        ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << "\n";
+
+    size_t cells_num = 0;
+    for (const auto componentid : sheets_componentCellIds.at(sheet_id))
+        cells_num += baseComplex.componentC.at(componentid).cids_patch.size();
+
+    std::unordered_map<size_t, size_t> edgeid_singularityid;
+    size_t sid = 0;
+    for (auto& s : baseComplex.SingularityI.E) {
+    	for (auto edgeid : s.es_link)
+    		edgeid_singularityid[edgeid] = sid;
+    	++sid;
+    }
+
+    std::set<size_t> connectedSingularityids;
+    std::unordered_set<size_t> edgeids;
+    for (const auto componentid : sheets_componentCellIds.at(sheet_id)) {
+    	auto& cellids = baseComplex.componentC.at(componentid).cids_patch;
+    	for (auto cellid : cellids)  {
+    		auto& eids = baseComplex.mesh.C.at(cellid).Eids;
+    		edgeids.insert(eids.begin(), eids.end());
+    	}
+    }
+
+	for (const auto edge_id : edgeids) {
+		auto it = edgeid_singularityid.find(edge_id);
+		if (it != edgeid_singularityid.end() && connectedSingularityids.find(edge_id) == connectedSingularityids.end())
+			connectedSingularityids.insert(it->second);
+	}
+
+    size_t lines_num = connectedSingularityids.size();
+    size_t total_lines_num = 0;
+    for (auto sid : connectedSingularityids)
+    	total_lines_num += baseComplex.SingularityI.E.at(sid).vs_link.size() + 1;
+
+    ofs << "CELLS " << cells_num + lines_num << " " << 9 * cells_num + total_lines_num << "\n";
+    for (const auto componentid : sheets_componentCellIds.at(sheet_id))
+        for (const auto cell_id : baseComplex.componentC.at(componentid).cids_patch) {
+                const Cell& cell = mesh.C.at(cell_id);
+                ofs << cell.Vids.size();
+                for (auto vid : cell.Vids)
+                    ofs << " " << vid;
+                ofs << "\n";
+        }
+
+    for (auto sid : connectedSingularityids) {
+    	ofs << baseComplex.SingularityI.E.at(sid).vs_link.size();
+    	for (auto vid : baseComplex.SingularityI.E.at(sid).vs_link)
+            ofs << " " << vid;
+        ofs << "\n";
+    }
+
+
+    ofs << "CELL_TYPES " << cells_num + lines_num << "\n";
+    for (size_t i = 0; i < cells_num; i++)
+        ofs << "12\n";
+    for (auto sid : connectedSingularityids)
+    	ofs << "4\n";
+
+    ofs << "CELL_DATA " << cells_num + lines_num << "\n";
+    ofs << "SCALARS " << "component" << " int 1\n"
+        << "LOOKUP_TABLE default\n";
+    for (const auto componentid : sheets_componentCellIds.at(sheet_id))
+        for (const auto cell_id : baseComplex.componentC.at(componentid).cids_patch)
+            ofs << baseComplex.componentC.at(componentid).color % 8 << "\n";
+    for (auto sid : connectedSingularityids)
+    	ofs << 0 << "\n";
+    ofs << "SCALARS " << "raw_component_id" << " int 1\n"
+        << "LOOKUP_TABLE default\n";
+    for (const auto componentid : sheets_componentCellIds.at(sheet_id))
+        for (const auto cell_id : baseComplex.componentC.at(componentid).cids_patch)
+            ofs << componentid << "\n";
+    for (auto sid : connectedSingularityids)
+    	ofs << 0 << "\n";
+    ofs << "SCALARS " << "component_id" << " int 1\n"
+        << "LOOKUP_TABLE default\n";
+    int sheet_component_id = 0;
+    for (const auto componentid : sheets_componentCellIds.at(sheet_id)) {
+        for (const auto cell_id : baseComplex.componentC.at(componentid).cids_patch)
+            ofs << sheet_component_id << "\n";
+        ++sheet_component_id;
+    }
+    for (auto sid : connectedSingularityids)
+    	ofs << 0 << "\n";
+    ofs << "SCALARS " << "sheet" << " int 1\n"
+        << "LOOKUP_TABLE default\n";
+    for (const auto componentid : sheets_componentCellIds.at(sheet_id))
+        for (const auto cell_id : baseComplex.componentC.at(componentid).cids_patch)
+            ofs << sheet_id << "\n";
+    for (auto sid : connectedSingularityids)
+    	ofs << 0 << "\n";
+}
+
+void BaseComplexSheet::WriteSheetCellsConnectedSingularitiesVTK(const char *filename, const size_t sheet_id) const {
+    const auto& mesh = baseComplex.GetMesh();
+    const auto& V = mesh.V;
+    std::vector<Cell> C;
+    std::vector<size_t> cell_field;
+
+    std::unordered_map<size_t, size_t> edgeid_singularityid;
+    size_t sid = 0;
+    for (auto& s : baseComplex.SingularityI.E) {
+        for (auto edgeid : s.es_link)
+            edgeid_singularityid[edgeid] = sid;
+        ++sid;
+    }
+
+    std::set<size_t> connectedSingularityids;
+    std::unordered_set<size_t> edgeids;
+    for (const auto componentid : sheets_componentCellIds.at(sheet_id)) {
+        auto& cellids = baseComplex.componentC.at(componentid).cids_patch;
+        for (auto cellid : cellids) {
+            auto& eids = baseComplex.mesh.C.at(cellid).Eids;
+            edgeids.insert(eids.begin(), eids.end());
+        }
+    }
+    for (const auto edge_id : edgeids) {
+        auto it = edgeid_singularityid.find(edge_id);
+        if (it != edgeid_singularityid.end() && connectedSingularityids.find(edge_id) == connectedSingularityids.end()) connectedSingularityids.insert(it->second);
+    }
+
+    Cell cell;
+    cell.cellType = VTK_POLY_LINE;
+    for (const auto connectedSingularityid : connectedSingularityids) {
+        auto& s = baseComplex.SingularityI.E.at(connectedSingularityid);
+        cell.Vids = s.vs_link;
+        C.push_back(cell);
+        cell_field.push_back(baseComplex.mesh.E.at(s.es_link.front()).N_Cids.size());
+    }
+    UnstructuredVTKWriter writer(V, C, filename);
+    writer.AddCellScalarFields("valence", cell_field);
+    writer.WriteFile();
 }
 
 void BaseComplexSheet::WriteSheetFacesVTK(const char *filename, const size_t sheet_id) const

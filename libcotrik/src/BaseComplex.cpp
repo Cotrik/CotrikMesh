@@ -53,6 +53,19 @@ size_t BaseComplex::GetNextSingularEdgeId(const size_t vid, const size_t cur_edg
     }
     if (num1 == 1 && num2 == 0)
         return nextEdgeId;
+//
+//    const auto cur_vid = currentEdge.Vids[0] == vid ? currentEdge.Vids[1] : currentEdge.Vids[0];
+//    for (const size_t next_edge_id : mesh.V[cur_vid].N_Eids[i]) {
+//        if (next_edge_id == cur_edge_id) continue;
+//        const Edge& nextEdge = mesh.E.at(next_edge_id);
+//        if (nextEdge.N_Cids.size() == currentEdge.N_Cids.size()) {
+//            num1++;
+//            nextEdgeId = next_edge_id;
+//        }
+//        else if (nextEdge.isSingularity) num2++;
+//    }
+//    if (num1 == 1 && num2 == 0)
+//        return nextEdgeId;
 
     return MAXID;
 }
@@ -87,26 +100,32 @@ bool BaseComplex::TraceEdge(const size_t vid, const size_t eid, std::vector<size
 
     return false;
 }
-void BaseComplex::AddSingularV(const size_t current_vid, const size_t singularVid, size_t& ending_singular_vid)
+
+bool BaseComplex::AddSingularV(const size_t current_vid, const size_t singularVid, size_t& ending_singular_vid)
 {
     bool existed = false;
     for (size_t j = 0; j < SingularityI.V.size(); j++) {
         if (SingularityI.V[j].id_mesh == current_vid) {
             existed = true;
             ending_singular_vid = j;
+            break;
         }
     }
     if (!existed) {
         SingularV sv;
         sv.id = singularVid;
         sv.id_mesh = current_vid;
+        if (sv.id == 312) {
         sv.isBoundary = mesh.V[current_vid].isBoundary;
+        }
         SingularityI.V.push_back(sv);
         ending_singular_vid = sv.id;
     }
+
+    return !existed;
 }
 
-void BaseComplex::AddSingularE(const std::vector<size_t>& leftVids, const std::vector<size_t>& leftEids,
+bool BaseComplex::AddSingularE(const std::vector<size_t>& leftVids, const std::vector<size_t>& leftEids,
         const std::vector<size_t>& rightVids, const std::vector<size_t>& rightEids,
         const size_t left_singular_vid, const size_t right_singular_vid, const size_t singularEid)
 {
@@ -130,14 +149,15 @@ void BaseComplex::AddSingularE(const std::vector<size_t>& leftVids, const std::v
     se.id = singularEid;
     se.edge_type = EDGE_TYPE_REGULAR;
     SingularityI.E.push_back(se);
+    return true;
 }
 
 
 void BaseComplex::AddcircularSingularE(const std::vector<size_t>& leftVids, const std::vector<size_t>& leftEids, const size_t singularEid)
 {
     SingularE se;
-    se.startend_Vid[0] = leftVids.front();
-    se.startend_Vid[1] = leftVids.back();
+    se.startend_Vid[0] = MAXID;//leftVids.front();
+    se.startend_Vid[1] = MAXID;//leftVids.back();
     for (size_t j = 0; j < leftEids.size() - 1; j++) {
         se.es_link.push_back(leftEids[j]);
         mesh.E.at(leftEids[j]).singularEid = singularEid;
@@ -659,19 +679,20 @@ void BaseComplex::ExtractSingularVandE()
              bool is_circle = TraceEdge(current_vid, current_eid, leftVids, leftEids, is_edge_visited);
              current_vid = leftVids.back();
              if (is_circle) {
+                 std::cout << "AddcircularSingularE(leftVids, leftEids, singularEid++);\n";
                  AddcircularSingularE(leftVids, leftEids, singularEid++);
                  continue;
              }
 
              size_t left_singular_vid = MAXID;
-             AddSingularV(current_vid, singularVid++, left_singular_vid);
+             if (AddSingularV(current_vid, singularVid, left_singular_vid)) ++singularVid;
 
              std::vector<size_t> rightVids, rightEids;
              current_vid = mesh.E[current_eid].Vids[1];
              is_circle = TraceEdge(current_vid, i, rightVids, rightEids, is_edge_visited);
              current_vid = rightVids.back();
              size_t right_singular_vid = MAXID;
-             AddSingularV(current_vid, singularVid++, right_singular_vid);
+             if (AddSingularV(current_vid, singularVid, right_singular_vid)) ++singularVid;
 
              AddSingularE(leftVids, leftEids, rightVids, rightEids, left_singular_vid, right_singular_vid, singularEid++);
          }
@@ -2223,6 +2244,19 @@ void BaseComplex::WriteSingularV_VTK(const char* filename) const
     ofs << "VERTICES " << SingularityI.V.size() << " " << SingularityI.V.size() * 2 << std::endl;
     for (int i = 0; i < SingularityI.V.size(); i++)
         ofs << "1 " << SingularityI.V[i].id_mesh << std::endl;
+    ofs << "CELL_DATA " << SingularityI.V.size() << std::endl;
+    ofs << "SCALARS valence int" << std::endl;
+    ofs << "LOOKUP_TABLE valence" << std::endl;
+    for (auto& sv : SingularityI.V)
+        ofs << mesh.V.at(sv.id_mesh).N_Cids.size() << std::endl;
+    ofs << "SCALARS index double" << std::endl;
+    ofs << "LOOKUP_TABLE index" << std::endl;
+    for (auto& sv : SingularityI.V) {
+        const auto& v = mesh.V.at(sv.id_mesh);
+        const auto valence = v.N_Cids.size();
+        if (v.isBoundary) ofs << 0.5 - valence * 0.125 << std::endl;
+        else ofs << 1.0 - valence * 0.125 << std::endl;
+    }
 }
 
 void BaseComplex::WriteSingularE_VTK(const char *filename) const
@@ -2260,6 +2294,15 @@ void BaseComplex::WriteSingularE_VTK(const char *filename) const
     ofs << "SCALARS valence int" << std::endl;
     ofs << "LOOKUP_TABLE valence" << std::endl;
     for (int i = 0; i < SingularityI.E.size(); i++) ofs << mesh.E.at(SingularityI.E[i].es_link.front()).N_Cids.size() << std::endl;
+
+    ofs << "SCALARS index double" << std::endl;
+    ofs << "LOOKUP_TABLE index" << std::endl;
+    for (auto& se : SingularityI.E) {
+        const auto& e = mesh.E.at(se.es_link.front());
+        const auto valence = e.N_Cids.size();
+        if (e.isBoundary) ofs << 0.5 - valence * 0.25 << std::endl;
+        else ofs << 1.0 - valence * 0.25 << std::endl;
+    }
 }
 
 void BaseComplex::WriteSingularities_VTK(const char *filename) const
@@ -2297,6 +2340,26 @@ void BaseComplex::WriteSingularities_VTK(const char *filename) const
     ofs << "LOOKUP_TABLE SingularEdge" << std::endl;
     for (int i = 0; i < SingularityI.V.size(); i++) ofs << 0 << std::endl;
     for (int i = 0; i < SingularityI.E.size(); i++) ofs << i << std::endl;
+
+    ofs << "SCALARS valence int" << std::endl;
+    ofs << "LOOKUP_TABLE valence" << std::endl;
+    for (auto& sv : SingularityI.V) ofs << mesh.V.at(sv.id_mesh).N_Cids.size() << std::endl;
+    for (int i = 0; i < SingularityI.E.size(); i++) ofs << mesh.E.at(SingularityI.E[i].es_link.front()).N_Cids.size() << std::endl;
+
+    ofs << "SCALARS index float" << std::endl;
+    ofs << "LOOKUP_TABLE index" << std::endl;
+    for (auto& sv : SingularityI.V) {
+        const auto& v = mesh.V.at(sv.id_mesh);
+        const auto valence = v.N_Cids.size();
+        if (v.isBoundary) ofs << 0.5 - valence * 0.125 << std::endl;
+        else ofs << 1.0 - valence * 0.125 << std::endl;
+    }
+    for (auto& se : SingularityI.E) {
+        const auto& e = mesh.E.at(se.es_link.front());
+        const auto valence = e.N_Cids.size();
+        if (e.isBoundary) ofs << 0.5 - valence * 0.25 << std::endl;
+        else ofs << 1.0 - valence * 0.25 << std::endl;
+    }
 }
 
 void BaseComplex::WriteBaseComplex_ColorVerticesVTK(const char *filename) const

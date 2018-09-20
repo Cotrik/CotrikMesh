@@ -117,11 +117,14 @@ int main(int argc, char* argv[])
         const Patch& patch = patches.patches.at(i);
         std::copy(patch.edgeIds.begin(), patch.edgeIds.end(), back_inserter(edgeIds));
     }
-    patches.WriteMeshFile(output_filename.substr(0, output_filename.size() - 4).c_str());
+    //patches.WriteMeshFile(output_filename.substr(0, output_filename.size() - 4).c_str());
+    std::vector<size_t> faceids;
+    for (auto& f : mesh.F)
+        if (f.isBoundary) faceids.push_back(f.id);
     MeshFileWriter facesFileWriter(mesh, output_filename.c_str());
-    facesFileWriter.WriteFacesVtk();
-    MeshFileWriter edgesFileWriter(mesh, "PatchesEdges.vtk");
-    edgesFileWriter.WriteEdgesVtk(edgeIds);
+    facesFileWriter.WriteFacesVtk(faceids);
+//    MeshFileWriter edgesFileWriter(mesh, "PatchesEdges.vtk");
+//    edgesFileWriter.WriteEdgesVtk(edgeIds);
 }
 
 

@@ -11,6 +11,7 @@
 #include <vector>
 #include <string>
 #include <glm/glm.hpp>
+#include <vtkCellType.h>
 class FeatureLine;
 enum ElementType
 {
@@ -70,6 +71,7 @@ public:
     , isBoundary(false)
     , isSingularity(false)
     , isActive(true)
+    , cellType(VTK_HEXAHEDRON)
     {}
     GeoInfo(const GeoInfo& r)
     : id(r.id)
@@ -78,6 +80,7 @@ public:
     , isBoundary(r.isBoundary)
     , isSingularity(r.isSingularity)
     , isActive(r.isActive)
+    , cellType(r.cellType)
     {}
     GeoInfo& operator = (const GeoInfo& rhs)
     {
@@ -87,6 +90,7 @@ public:
         isBoundary = rhs.isBoundary;
         isSingularity = rhs.isSingularity;
         isActive = rhs.isActive;
+        cellType = rhs.cellType;
         return *this;
     }
     virtual ~GeoInfo()
@@ -98,6 +102,7 @@ public:
     bool isBoundary;
     bool isSingularity;
     bool isActive;
+    VTKCellType cellType;
 };
 
 enum SurfaceVertexType

@@ -33,6 +33,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/libigl/include
     ../
     #${PROJECT_SOURCE_DIR}/libgeodesic_heart/include
+    ${VTK_INCLUDE_DIRS}
 )
 
 set(ALL_LIBS
@@ -63,6 +64,8 @@ add_library(cotrik SHARED STATIC
     src/BaseComplexSheetQuad.h
     src/BaseComplexChord.cpp
     src/BaseComplexChord.h
+    src/BaseComplexCleaner.cpp
+    src/BaseComplexCleaner.h
     src/SingularityGraph.cpp
     src/SingularityGraph.h
     src/Component.cpp
@@ -119,6 +122,8 @@ add_library(cotrik SHARED STATIC
     src/SurfaceMeshOpt.h
     src/WeightedMeshOptFixBoundary.cpp
     src/WeightedMeshOptFixBoundary.h
+    src/UnstructuredVTKWriter.h
+    src/UnstructuredVTKWriter.cpp
 )
 target_link_libraries(cotrik ${ALL_LIBS})
 #install(FILES cotrik DESTINATION D:/Program\ Files/CotrikMesh/)

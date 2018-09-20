@@ -2801,7 +2801,7 @@ void Mesh::ExtractSingularities() {
         for (size_t i = 0; i < E.size(); i++) {
             Edge& edge = E.at(i);
             if (edge.isBoundary) {
-                if (edge.N_Cids.size() == 1 || edge.N_Cids.size() > 2) edge.isSingularity = true;
+                if (edge.N_Cids.size() != 2) edge.isSingularity = true;
             }
             else {
                 if (edge.N_Cids.size() != 4) edge.isSingularity = true;
@@ -2819,7 +2819,7 @@ void Mesh::ExtractSingularities() {
         for (size_t i = 0; i < V.size(); i++) {
             Vertex& v = V.at(i);
             if (v.isBoundary) {
-                if (v.N_Fids.size() == 1 || v.N_Fids.size() > 2) v.isSingularity = true;
+                if (v.N_Fids.size() != 2) v.isSingularity = true;
             } else {
                 if (v.N_Fids.size() != 4) v.isSingularity = true;
             }
