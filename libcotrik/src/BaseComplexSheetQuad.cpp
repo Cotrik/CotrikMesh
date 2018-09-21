@@ -403,7 +403,7 @@ std::vector<size_t> BaseComplexSheetQuad::GetCoverSheetIds(size_t beginSheetId) 
             }
             if (coveredAllComponent) break;
         }
-        if (!coveredAllComponent) {
+        if (!coveredAllComponent && !st.empty()) {
         	auto& t = st.top();
             auto target = GetMinComponentIntersectionNeighborSheetId(t.first, t.second, resSet);
             q.push(target);
@@ -433,6 +433,7 @@ std::vector<size_t> BaseComplexSheetQuad::GetCoverSheetIdsBFS(size_t beginSheetI
                 q.pop();
                 if (isSheetIdExistedInResult(sheetId, res)) continue;
                 if (IsSheetRedundant(sheetId, componentCovered)) continue;
+                if (HasCoveredSheetComponents(sheetId, componentCovered)) continue;
                 res.push_back(sheetId);
                 resSet.insert(sheetId);
 
@@ -451,7 +452,7 @@ std::vector<size_t> BaseComplexSheetQuad::GetCoverSheetIdsBFS(size_t beginSheetI
                 if (!neighborSheetIds.empty())
                 	st.push(std::make_pair(sheetId, neighborSheetIds));
             }
-            if (!coveredAllComponent) {
+            if (!coveredAllComponent && !st.empty()) {
             	auto& t = st.top();
                 std::unordered_set<size_t>& neighborSheetIds = t.second;
                 auto candidateSheetIds = GetMinComponentIntersectionNeighborSheetIds(t.first, neighborSheetIds, resSet);

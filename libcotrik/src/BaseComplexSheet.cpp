@@ -850,7 +850,7 @@ std::vector<size_t> BaseComplexSheet::GetCoverSheetIds(size_t beginSheetId) cons
             }
             if (coveredAllComponent) break;
         }
-        if (!coveredAllComponent) {
+        if (!coveredAllComponent && !st.empty()) {
         	auto& t = st.top();
             auto target = GetMinComponentIntersectionNeighborSheetId(t.first, t.second, resSet);
             q.push(target);
@@ -899,7 +899,7 @@ std::vector<size_t> BaseComplexSheet::GetCoverSheetIdsBFS(size_t beginSheetId) c
                 if (!neighborSheetIds.empty())
                 	st.push(std::make_pair(sheetId, neighborSheetIds));
             }
-            if (!coveredAllComponent) {
+            if (!coveredAllComponent && !st.empty()) {
             	auto& t = st.top();
                 std::unordered_set<size_t>& neighborSheetIds = t.second;
                 auto candidateSheetIds = GetMinComponentIntersectionNeighborSheetIds(t.first, neighborSheetIds, resSet);
