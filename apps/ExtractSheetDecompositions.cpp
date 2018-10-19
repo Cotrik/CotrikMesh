@@ -132,11 +132,16 @@ int main(int argc, char* argv[]) {
 			  }
     	  }
     	  baseComplexSheets.sheets_coverSheetIds.clear();
-    	  for (auto it = vs.rbegin(); it != vs.rend(); ++it) {
-    		  std::vector<size_t> x;
-    		  for (auto xx : it->sheetIds) x.push_back(xx);
-    		  baseComplexSheets.sheets_coverSheetIds.push_back(x);
-    	  }
+//    	  for (auto it = vs.rbegin(); it != vs.rend(); ++it) {
+//    		  std::vector<size_t> x;
+//    		  for (auto xx : it->sheetIds) x.push_back(xx);
+//    		  baseComplexSheets.sheets_coverSheetIds.push_back(x);
+//    	  }
+          for (auto it = vs.rbegin(); it != vs.rend(); ++it) {
+              std::vector<size_t> x;
+              for (auto xx : it->sorted_sheetIds) x.push_back(xx);
+              baseComplexSheets.sheets_coverSheetIds.push_back(x);
+          }
         {
             std::ofstream ofs("sheet_decompositions.txt");
             for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds) {
@@ -149,7 +154,7 @@ int main(int argc, char* argv[]) {
     	  sheet_id = 0;
 		  for (auto& sheetIds : baseComplexSheets.sheets_coverSheetIds){
 			  baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
-			  baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id++);
+			  baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id++, true);
 		  }
     }
 

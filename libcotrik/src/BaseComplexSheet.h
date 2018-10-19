@@ -33,6 +33,7 @@ enum Relation {
 
 struct sheetIds_overlaps_complexity {
 	std::set<size_t> sheetIds;
+	std::vector<size_t> sorted_sheetIds;
 	size_t overlaps;
 	float complexity;
 };
@@ -62,7 +63,7 @@ public:
     void ExtractMainSheetConnectivities(int main_sheets_id = 0);
     void ComputeComplexity();
     void ComputeComplexityDrChen(int sheetid = 0);
-    void ComputeComplexityUnbalancedMatrix(int mainsheetid = 0);
+    void ComputeComplexityUnbalancedMatrix(int mainsheetid = 0, bool write_mat = false);
     void ComputeImportance();
     void WriteSheetDecompositionsFile(const char *filename) const;
     void WriteSheetDecompositionsVTK(const char *filename) const;

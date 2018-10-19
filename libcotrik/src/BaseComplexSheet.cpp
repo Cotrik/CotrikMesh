@@ -2188,7 +2188,7 @@ void BaseComplexSheet::ComputeComplexityDrChen(int sheetid) {
     }
 }
 
-void BaseComplexSheet::ComputeComplexityUnbalancedMatrix(int sheetid) {
+void BaseComplexSheet::ComputeComplexityUnbalancedMatrix(int sheetid, bool write_mat/* = false*/) {
 
     size_t max_num_of_intersections = 1;
     float max_num_of_hybrid = 1;
@@ -2331,11 +2331,13 @@ void BaseComplexSheet::ComputeComplexityUnbalancedMatrix(int sheetid) {
         for (auto& row : ss)
             sheets_coverSheetIds.at(sheetid).at(i++) = sorted_main_sheet_ids[row.s];
     }
-    WriteComplexityMat(sheets_connectivities_real, ("complexity" + std::to_string(sheetid) + ".mat").c_str());
-    WriteDiagonalMat(sheets_connectivities_float, ("diagonal" + std::to_string(sheetid) + ".mat").c_str());
-    WriteAdjacentMat(sheets_connectivities_float, ("adjacent" + std::to_string(sheetid) + ".mat").c_str());
-    WriteIntersectingMat(sheets_connectivities_float, ("intersecting" + std::to_string(sheetid) + ".mat").c_str());
-    WriteHybridMat(sheets_connectivities_float, ("hybrid" + std::to_string(sheetid) + ".mat").c_str());
+    if (write_mat) {
+        WriteComplexityMat(sheets_connectivities_real, ("complexity" + std::to_string(sheetid) + ".mat").c_str());
+        WriteDiagonalMat(sheets_connectivities_float, ("diagonal" + std::to_string(sheetid) + ".mat").c_str());
+        WriteAdjacentMat(sheets_connectivities_float, ("adjacent" + std::to_string(sheetid) + ".mat").c_str());
+        WriteIntersectingMat(sheets_connectivities_float, ("intersecting" + std::to_string(sheetid) + ".mat").c_str());
+        WriteHybridMat(sheets_connectivities_float, ("hybrid" + std::to_string(sheetid) + ".mat").c_str());
+    }
 
     {
         Eigen::MatrixXf m(n,n);
@@ -2351,6 +2353,7 @@ void BaseComplexSheet::ComputeComplexityUnbalancedMatrix(int sheetid) {
 		for (auto& row : ss) {
 			auto sheetid = sorted_main_sheet_ids[row.s];
 			soc.sheetIds.insert(sheetid);
+			soc.sorted_sheetIds.push_back(sheetid);
 			overlaps += sheets_componentCellIds.at(sheetid).size();
 		}
 		soc.overlaps = overlaps - baseComplex.componentC.size();
