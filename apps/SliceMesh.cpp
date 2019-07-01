@@ -22,7 +22,7 @@
 #include <vtkClipDataSet.h>
 #include <vtkCutter.h>
 
-void getMeshSizeInfo(const Mesh& mesh, glm::vec3& mn, glm::vec3& mx, glm::vec3& s) {
+void getMeshSizeInfo(const Mesh& mesh, glm::dvec3& mn, glm::dvec3& mx, glm::dvec3& s) {
     for (const auto& v : mesh.V) {
         if (v.x < mn.x) mn.x = v.x;
         if (v.y < mn.y) mn.y = v.y;
@@ -39,8 +39,8 @@ void getMeshSizeInfo(const Mesh& mesh, glm::vec3& mn, glm::vec3& mx, glm::vec3& 
     std::cout << "z : " << mn.z << " ~ " << mx.z << " size : " << s.z << "\n";
 }
 
-void getProj(const glm::vec3& mn, const glm::vec3& mx, const glm::vec3& s,
-        const glm::vec3& proj_mn, const glm::vec3& proj_mx, const glm::vec3& proj_s, glm::vec3& normal) {
+void getProj(const glm::dvec3& mn, const glm::dvec3& mx, const glm::dvec3& s,
+        const glm::dvec3& proj_mn, const glm::dvec3& proj_mx, const glm::dvec3& proj_s, glm::dvec3& normal) {
 }
 int main(int argc, char* argv[]) {
     if (argc < 3) {
@@ -48,21 +48,21 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     ArgumentManager am(argc, argv);
-    glm::vec3 orig(0.0, 0.0, 0.0);
-    glm::vec3 normal(1.0, 0.0, 0.0);
+    glm::dvec3 orig(0.0, 0.0, 0.0);
+    glm::dvec3 normal(1.0, 0.0, 0.0);
     int slice = 1;
     {
-        string strorig = am.get("orig");
+        std::string strorig = am.get("orig");
         if (!strorig.empty()) {
             std::stringstream ss(strorig);
             ss >> orig.x >> orig.y >> orig.z;
         }
-        string strnormal = am.get("normal");
+        std::string strnormal = am.get("normal");
         if (!strnormal.empty()) {
             std::stringstream ss(strnormal);
             ss >> normal.x >> normal.y >> normal.z;
         }
-        string strslice = am.get("slice");
+        std::string strslice = am.get("slice");
         if (!strslice.empty()) slice = std::stoi(strslice);
 
         std::cout << "input = " << argv[1] << "\n";
@@ -96,17 +96,17 @@ int main(int argc, char* argv[]) {
         writer->SetInputData(clipDataSet->GetOutput());
         writer->Update();
     } else {
-        glm::vec3 mn(INT_MAX, INT_MAX, INT_MAX);
-        glm::vec3 mx(INT_MIN, INT_MIN, INT_MIN);
-        glm::vec3 s;
+        glm::dvec3 mn(INT_MAX, INT_MAX, INT_MAX);
+        glm::dvec3 mx(INT_MIN, INT_MIN, INT_MIN);
+        glm::dvec3 s;
         {
             MeshFileReader reader(argv[1]);
             Mesh& mesh = (Mesh&) reader.GetMesh();
             getMeshSizeInfo(mesh, mn, mx, s);
         }
-        glm::vec3 proj_mn(INT_MAX, INT_MAX, INT_MAX);
-        glm::vec3 proj_mx(INT_MIN, INT_MIN, INT_MIN);
-        glm::vec3 proj_s;
+        glm::dvec3 proj_mn(INT_MAX, INT_MAX, INT_MAX);
+        glm::dvec3 proj_mx(INT_MIN, INT_MIN, INT_MIN);
+        glm::dvec3 proj_s;
         //getProj_s(proj_mn, proj_mx, proj_s);
 
         vtkSmartPointer<vtkUnstructuredGridReader> reader = vtkSmartPointer<vtkUnstructuredGridReader>::New();

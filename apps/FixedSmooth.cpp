@@ -13,7 +13,7 @@
 
 struct Id_Coordinate {
     size_t id = MAXID;
-    glm::vec3 xyz;
+    glm::dvec3 xyz;
     bool operator == (const Id_Coordinate& rhs) const {
         return id == rhs.id;
     }
@@ -38,10 +38,10 @@ void Smooth(Mesh& mesh, const std::vector<Id_Coordinate>& idCoordinates) {
 
     for (auto& v: mesh.V) {
         if (!v.isActive) continue;
-        glm::vec3 sum(0.0, 0.0, 0.0);
+        glm::dvec3 sum(0.0, 0.0, 0.0);
         for (auto vid : v.N_Vids)
             sum += mesh.V.at(vid).xyz();
-        v = sum / float(v.N_Vids.size());
+        v = sum / double(v.N_Vids.size());
     }
 }
 

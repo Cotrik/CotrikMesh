@@ -13,10 +13,10 @@
 void Smooth(Mesh& mesh) {
     for (auto& v: mesh.V) {
         if (v.isBoundary) continue;
-        glm::vec3 sum(0.0, 0.0, 0.0);
+        glm::dvec3 sum(0.0, 0.0, 0.0);
         for (auto vid : v.N_Vids)
             sum += mesh.V.at(vid).xyz();
-        v = sum / float(v.N_Vids.size());
+        v = sum / double(v.N_Vids.size());
     }
 }
 

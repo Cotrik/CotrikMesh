@@ -37,21 +37,21 @@ Mesh GetRefineMesh(const Mesh& hex_mesh, int clockwise = 0)
         const Edge& e = new_mesh.E.at(i);
         const Vertex& v0 = new_mesh.V.at(e.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(e.Vids[1]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size();
     for (size_t i = 0; i < new_mesh.F.size(); i++) {
         const Face& f = new_mesh.F.at(i);
         const Vertex& v0 = new_mesh.V.at(f.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(f.Vids[2]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size() + new_mesh.F.size();
     for (size_t i = 0; i < new_mesh.C.size(); i++) {
         const Cell& c = new_mesh.C.at(i);
         const Vertex& v0 = new_mesh.V.at(c.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(c.Vids[6]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     //new_mesh.V = new_vertex;
     /////////////////////////////////////////////////////////////////
@@ -378,25 +378,6 @@ void BaseComplexSheet::ExtractSheetDecompositions(const bool bfs) {
     WriteSheetNeighborsSheetIdsJS("sheet_neighborsheetids.js");
 }
 
-static void combine(std::vector<size_t>& com, std::vector<std::vector<size_t> > &res, int n, int k, int start) {
-    if (k == com.size()) {
-        res.push_back(com);
-        return;
-    }
-    for (int i = start; i < n; ++i) {
-        com.push_back(i);
-        combine(com, res, n, k, i + 1);
-        com.pop_back();
-    }
-}
-
-static std::vector<std::vector<size_t>> combine(int n, int k) {
-    std::vector<std::vector<size_t>> res;
-    std::vector<size_t> com;
-    combine(com, res, n, k, 0);
-    return res;
-}
-
 void BaseComplexSheet::ExtractSheetConnectivities() {
     size_t n = sheets_componentCellIds.size();
     sheets_connectivities.resize(n, std::vector<size_t>(n, 0));
@@ -423,7 +404,7 @@ void BaseComplexSheet::ExtractSheetConnectivities() {
 //            auto& neighborComponentCellIds = baseComplex.componentF.at(sheetBoundaryFaceComponentId).N_Cids;
 //            auto id1 = neighborComponentCellIds[0];
 //            auto id2 = neighborComponentCellIds[1];
-//            auto combinations = combine(sheetIds.size(), 2);
+//            auto combinations = Util::combine(sheetIds.size(), 2);
 //            for (auto combination : combinations) {
 //                auto sheetId1 = combination[0];
 //                auto sheetId2 = combination[1];
@@ -440,7 +421,7 @@ void BaseComplexSheet::ExtractSheetConnectivities() {
     // Get intersections
     for (const auto& sheetIds : cellComponent_sheetIds)
         if (sheetIds.size() > 1) {
-            auto combinations = combine(sheetIds.size(), 2);
+            auto combinations = Util::combine(sheetIds.size(), 2);
             std::vector<size_t> sheet_ids(sheetIds.begin(), sheetIds.end());
             for (auto combination : combinations) {
                 auto sheetid1 = sheet_ids[combination[0]];
@@ -501,7 +482,7 @@ void BaseComplexSheet::ExtractSheetConnectivities() {
 //            if (baseComplex.componentF.at(sheetBoundaryFaceComponentId).isBoundary) {
 ////                const auto & sheetIds = faceComponent_neighborSheetIds[sheetBoundaryFaceComponentId];
 ////                if (sheetIds.size() > 1) {
-////                    auto combinations = combine(sheetIds.size(), 2);
+////                    auto combinations = Util::combine(sheetIds.size(), 2);
 ////                    for (auto combination : combinations)
 ////                        if (sheets_connectivities[combination[0]][combination[1]] == 0) {
 ////                            sheets_connectivities[combination[0]][combination[1]] = SheetsConnectivity_INTERSECT;
@@ -523,7 +504,7 @@ void BaseComplexSheet::ExtractSheetConnectivities() {
 //    // Get intersections
 //    for (const auto& sheetIds : cellComponent_sheetIds)
 //        if (sheetIds.size() > 1) {
-//            auto combinations = combine(sheetIds.size(), 2);
+//            auto combinations = Util::combine(sheetIds.size(), 2);
 //            for (auto combination : combinations) {
 //                if (sheets_connectivities[combination[0]][combination[1]] == SheetsConnectivity_UNKNOWN) {
 //                    sheets_connectivities[combination[0]][combination[1]] = SheetsConnectivity_INTERSECT;
@@ -1748,7 +1729,7 @@ const size_t BaseComplexSheet::GetNumOfSheets() const {
 void BaseComplexSheet::ComputeComplexity() {
     {
     const auto& main_sheet_ids = sheets_coverSheetIds.front();
-    auto combinations = combine(main_sheet_ids.size(), 2);
+    auto combinations = Util::combine(main_sheet_ids.size(), 2);
     size_t complexity = 0;
     for (auto& p : combinations) {
         auto sheetid1 = main_sheet_ids[p[0]];
@@ -1797,7 +1778,7 @@ void BaseComplexSheet::ComputeComplexity() {
     }
     {
         const auto& main_sheet_ids = sheets_coverSheetIds.front();
-        auto combinations = combine(main_sheet_ids.size(), 2);
+        auto combinations = Util::combine(main_sheet_ids.size(), 2);
         size_t complexity = 0;
         for (auto& row : all_sheets_connectivities)
             for (auto& ele : row)
@@ -1967,7 +1948,7 @@ std::vector<std::unordered_set<size_t>> findCircleGroups(std::vector<std::vector
 //    auto relation_float = common_component_cell_ids.size();
 //    if (common_component_cell_ids_size > 1) {
 //        std::vector<size_t> common_component_cell_ids_array(common_component_cell_ids.begin(), common_component_cell_ids.end());
-//        auto combs = combine(common_component_cell_ids_size, 2);
+//        auto combs = Util::combine(common_component_cell_ids_size, 2);
 //        for (auto& comb : combs) {
 //            auto component_id1 = common_component_cell_ids_array[comb[0]];
 //            auto component_id2 = common_component_cell_ids_array[comb[1]];
@@ -1983,7 +1964,7 @@ size_t BaseComplexSheet::GetNumOfIntersections(const std::unordered_set<size_t>&
     std::vector<std::vector<int>> M(n, std::vector<int>(n, 0));
     size_t common_component_cell_ids_size = common_component_cell_ids.size();
     std::vector<size_t> common_component_cell_ids_array(common_component_cell_ids.begin(), common_component_cell_ids.end());
-    auto combs = combine(common_component_cell_ids_size, 2);
+    auto combs = Util::combine(common_component_cell_ids_size, 2);
     for (auto& comb : combs) {
         auto component_id1 = common_component_cell_ids_array[comb[0]];
         auto component_id2 = common_component_cell_ids_array[comb[1]];
@@ -2004,7 +1985,7 @@ void BaseComplexSheet::ComputeComplexityDrChen(int sheetid) {
     size_t n = sheets_connectivities.size();
     sheets_connectivities_float.clear();
     sheets_connectivities_float.resize(n,std::vector<float>(n, 0));
-    auto combinations = combine(n, 2);
+    auto combinations = Util::combine(n, 2);
     for (auto& p : combinations) {
         auto sheetid1 = sorted_main_sheet_ids[p[0]];
         auto sheetid2 = sorted_main_sheet_ids[p[1]];
@@ -2199,7 +2180,7 @@ void BaseComplexSheet::ComputeComplexityUnbalancedMatrix(int sheetid, bool write
     size_t n = sheets_connectivities.size();
     sheets_connectivities_float.clear();
     sheets_connectivities_float.resize(n,std::vector<float>(n, 0));
-    auto combinations = combine(n, 2);
+    auto combinations = Util::combine(n, 2);
     for (auto& p : combinations) {
         auto sheetid1 = sorted_main_sheet_ids[p[0]];
         auto sheetid2 = sorted_main_sheet_ids[p[1]];
@@ -2432,7 +2413,7 @@ std::vector<std::unordered_set<size_t>> BaseComplexSheet::GetIntersectionGroups(
     std::vector<std::vector<size_t>> M(n, std::vector<size_t>(n, 0));
     size_t common_component_cell_ids_size = common_component_cell_ids.size();
     std::vector<size_t> common_component_cell_ids_array(common_component_cell_ids.begin(), common_component_cell_ids.end());
-    auto combs = combine(common_component_cell_ids_size, 2);
+    auto combs = Util::combine(common_component_cell_ids_size, 2);
     for (auto& comb : combs) {
         auto component_id1 = common_component_cell_ids_array[comb[0]];
         auto component_id2 = common_component_cell_ids_array[comb[1]];
@@ -2507,7 +2488,7 @@ bool BaseComplexSheet::Verify() {
 	std::vector<std::vector<size_t>> combinations;
 	for (int i = 1; i <= n; ++i) {
 		for (int j = 1; j <= i; ++j) {
-			auto combs = combine(i, j);
+			auto combs = Util::combine(i, j);
 //			for (auto& comb : combs) {
 //				for (auto c : comb)
 //					ofs << " " << c;

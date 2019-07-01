@@ -50,7 +50,7 @@ Frame::~Frame()
 //        for (size_t i = 0; i < facesSize; i++)
 //        {
 //            const Face& face = mesh.F.at(cell.N_Fids.at(i));
-//            glm::vec3 faceCenter(0.0, 0.0, 0.0);
+//            glm::dvec3 faceCenter(0.0, 0.0, 0.0);
 //            const size_t faceVidsSize = face.Vids.size();
 //            for (size_t j = 0; j < faceVidsSize; j++)
 //            {
@@ -88,7 +88,7 @@ Frame::~Frame()
 //            if (mesh.F.at(i).isBoundary){
 //                if (surfaceId == cellId){
 //                    const Face& face = mesh.F.at(i);
-//                    glm::vec3 faceCenter(0.0, 0.0, 0.0);
+//                    glm::dvec3 faceCenter(0.0, 0.0, 0.0);
 //                    const size_t faceVidsSize = face.Vids.size();
 //                    for (size_t j = 0; j < faceVidsSize; j++)
 //                    {
@@ -122,7 +122,7 @@ void Frame::BuildFrom(const Mesh& mesh, const size_t cellId, bool isBoundary, si
         for (size_t i = 0; i < facesSize; i++)
         {
             const Face& face = mesh.F.at(cell.N_Fids.at(i));
-            glm::vec3 faceCenter(0.0, 0.0, 0.0);
+            glm::dvec3 faceCenter(0.0, 0.0, 0.0);
             const size_t faceVidsSize = face.Vids.size();
             for (size_t j = 0; j < faceVidsSize; j++)
             {
@@ -166,7 +166,7 @@ void Frame::BuildFrom(const Mesh& mesh, const size_t cellId, bool isBoundary, si
     }
     else{
         const Face& face = mesh.F.at(surfaceId);
-        glm::vec3 faceCenter(0.0, 0.0, 0.0);
+        glm::dvec3 faceCenter(0.0, 0.0, 0.0);
         const size_t faceVidsSize = face.Vids.size();
         for (size_t j = 0; j < faceVidsSize; j++)
         {

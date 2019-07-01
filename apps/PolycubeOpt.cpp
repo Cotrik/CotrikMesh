@@ -313,6 +313,7 @@ int Slim(int argc, char* argv[])
             WriteVtk(sData, TETRAHEDRA, result.c_str());
         }
     }
+    return 0;
 }
 
 void WriteSharpEdgesVtk(const char* filename, const Mesh& m_mesh, const std::vector<FeatureLine>& featureLines);
@@ -350,7 +351,7 @@ int main(int argc, char* argv[]) {
     orig_mesh.BuildAllConnectivities();
     orig_mesh.ExtractBoundary();
     orig_mesh.ExtractSingularities();
-    orig_mesh.SetCosAngleThreshold(cosangle); // 10°
+    orig_mesh.SetCosAngleThreshold(cosangle); // 10ï¿½
     orig_mesh.LabelSurface();
     orig_mesh.LabelSharpEdges(true);
     orig_mesh.ExtractSingularities();
@@ -367,7 +368,7 @@ int main(int argc, char* argv[]) {
     polycube_mesh.BuildAllConnectivities();
     polycube_mesh.ExtractBoundary();
     polycube_mesh.ExtractSingularities();
-    polycube_mesh.SetCosAngleThreshold(cosangle); // 10°
+    polycube_mesh.SetCosAngleThreshold(cosangle); // 10ï¿½
     polycube_mesh.LabelSurface();
     polycube_mesh.LabelSharpEdges(true);
     polycube_mesh.ExtractSingularities();
@@ -407,7 +408,6 @@ void WriteSharpEdgesVtk(const char* filename, const Mesh& m_mesh, const std::vec
         << "ASCII" << std::endl << std::endl
         << "DATASET POLYDATA" << std::endl;
     ofs << "POINTS " << V.size() << " float" << std::endl;
-    ofs << std::fixed << setprecision(7);
     for (size_t i = 0; i < V.size(); i++)
         ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << std::endl;
     size_t numOfSharpVertices = 0;

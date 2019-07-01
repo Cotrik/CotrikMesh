@@ -72,10 +72,10 @@ int main(int argc, char* argv[]){
     baseComplex.WriteBaseComplexSeparatedFacePatchesVTK("BaseComplexSeparatedFacePatches.vtk");
     baseComplex.WriteComponentEdge_NeighborComponentFaces_VTK("ComponentEdge_NeighborComponentFaces.vtk");
     baseComplex.WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK("SingularEdge_NeighborSeparatedComponentFacePatches.vtk");
-//    baseComplex.WriteAllSingularEdge_NeighborSeparatedComponentFacePatches_VTK("SingularFaces");
+    baseComplex.WriteAllSingularEdge_NeighborSeparatedComponentFacePatches_VTK("SingularFaces");
     baseComplex.WriteBaseComplexComponentsWithoutSingularitiesVTK("BaseComplexComponentsWithoutSingularities.vtk");
     baseComplex.WriteBaseComplexComponentsWithSingularitiesVTK("BaseComplexComponentsWithSingularities.vtk");
-//    baseComplex.WriteBaseComplexAllComponentsVTK("ComponentCells");
+    baseComplex.WriteBaseComplexAllComponentsVTK("ComponentCells");
 //    baseComplex.WriteBaseComplexAllComponentsEdgesAndFacesVTK("ComponentEdgesAndFaces");
     baseComplex.WriteBaseComplexComponentsVTK("BaseComplexComponents.vtk");
     baseComplex.WriteBaseComplex_ColorFacesVTK("BaseComplexColorFaces.vtk");
@@ -198,7 +198,7 @@ void OutputSheetDecompositonsDual_New(const char* mesh_filename, const char* dua
     int sheet_id = 0;
     float min_complexity = INT_MAX;
     int min_complexity_id = 0;
-    std::vector<pair<int, float>> representativeSheetId_complexities(baseComplexSheets.Get_sheets_coverSheetIds().size());
+    std::vector<std::pair<int, float>> representativeSheetId_complexities(baseComplexSheets.Get_sheets_coverSheetIds().size());
     for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()) {
         baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
         float complexity = baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id);

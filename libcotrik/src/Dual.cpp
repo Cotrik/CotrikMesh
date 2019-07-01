@@ -24,21 +24,21 @@ Mesh GetRefineMesh1(const Mesh& hex_mesh, int clockwise = 0)
         const Edge& e = new_mesh.E.at(i);
         const Vertex& v0 = new_mesh.V.at(e.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(e.Vids[1]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size();
     for (size_t i = 0; i < new_mesh.F.size(); i++) {
         const Face& f = new_mesh.F.at(i);
         const Vertex& v0 = new_mesh.V.at(f.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(f.Vids[2]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size() + new_mesh.F.size();
     for (size_t i = 0; i < new_mesh.C.size(); i++) {
         const Cell& c = new_mesh.C.at(i);
         const Vertex& v0 = new_mesh.V.at(c.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(c.Vids[6]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     //new_mesh.V = new_vertex;
     /////////////////////////////////////////////////////////////////
@@ -128,7 +128,7 @@ void Dual::BuildV() {
     for (auto& e : mesh.E) {
         const auto& v1 = mesh.V.at(e.Vids[0]);
         const auto& v2 = mesh.V.at(e.Vids[1]);
-        auto v = DualVertex((v1 + v2) * 0.5f);
+        auto v = DualVertex((v1 + v2) * 0.5);
         v.id = id;
         V[id++] = v;
     }

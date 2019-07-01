@@ -22,7 +22,8 @@ include(${VTK_USE_FILE})
 include_directories(
     ${PROJECT_SOURCE_DIR}/libcotrik/src/ 
     ${PROJECT_SOURCE_DIR}/eigen3
-    ${PROJECT_SOURCE_DIR}/libigl/include
+    ${PROJECT_SOURCE_DIR}/../libigl/include
+    ${PROJECT_SOURCE_DIR}/../libigl/external
     ../
     )
     
@@ -39,6 +40,7 @@ foreach(app
     VerifyHexMesh
     CheckManifold
     CleanStructure
+    ColorHexMesh
     ConvertQuadToTriangle
     #CotrikClustering
     DisplayFrameField
@@ -54,8 +56,11 @@ foreach(app
     ExtractGaussianCurvature
     ExtractLayers
     ExtractPatches
+    ExtractQuadMesh
     ExtractSharpEdges
+    ExtractSurface
     ExtractSingularities
+    ExtractSingularitiesGraphs
     HexRefine
     HexSmooth
     #HexGen
@@ -67,14 +72,16 @@ foreach(app
     #MeshFix
     MeshOpt
     MeshOptFixBoundary
+    OpenQuadMeshOpt
     MeshProject
     MeshQuality
     MeshScale
     MeshShrink
+    #MIQ
     PerturbInnerVertices
     #QuadGen
     ReadMesh
-    Slim
+    #Slim
     #SLIM
     SlimHex
     SlimTet
@@ -91,10 +98,43 @@ foreach(app
     Rotate
     FixedSmooth
     PolycubeOpt
+    PolycubeProcess
+    QuadTriMeshRefine
+    QuadMeshSimplify
+    QuadMeshLocalSimplify
+	QuadMeshLocalSimplify2
+	QuadMeshLocalSimplify3
+	QuadPatchSimplify
+	QuadPatchSimplify_refine
+	ClosedQuadMeshSimplify
+    Vol2Vtk
+    ExtractLocalRegion
+	HexMeshLocalSimplify
+	ExtractBaseComplexSeparatedSurfaces
+    KillHighValenceSingularities
+	m2vtk
+	vtk2m
+	Quad2Tri
+	Tri2Quad
+	MapLoops
+	ExtractMinSpanTree
+	ExtractDualMesh
+	ExtractLoops
+	ExtractBaseHomology
+	ExtractBaseHomologyQuad
+	ExtractSurfaceFeature
+	ExtractCoverSpace
+	ExtractCoverSpace2
+	ExtractCoverSpace3
+	ExtractCutGraph
+	ExtractHomotopyLoops
+	ExtractHomotopyBases3
+	ConvexCut
 )
     add_executable(${app} ${app}.cpp)
-    target_link_libraries(${app} cotrik )
-	#install(FILES ${app} DESTINATION D:/Program\ Files/CotrikMesh/)
+    target_link_libraries(${app} cotrik
+    #CoMISo pthread
+    )	#install(FILES ${app} DESTINATION D:/Program\ Files/CotrikMesh/)
 endforeach()
 
 #option(LIBIGL_WITH_COMISO           "Use CoMiso"         ON)

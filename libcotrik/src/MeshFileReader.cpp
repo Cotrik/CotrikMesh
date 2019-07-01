@@ -130,13 +130,8 @@ void MeshFileReader::ReadVtkFile()
             else c.cellType = VTK_POLYGON;
             C.push_back(c);
         }
-        bool hasTriangle = false;
-        bool hasQuad = false;
-        for (auto& c : C) {
-            if (!hasTriangle && c.Vids.size() == 3) hasTriangle = true;
-            if (!hasQuad && c.Vids.size() == 4) hasQuad = true;
-            if (hasTriangle && hasQuad) break;
-        }
+        bool hasTriangle = HasCellType(VTK_TRIANGLE);
+        bool hasQuad = HasCellType(VTK_QUAD);
         if (hasTriangle && !hasQuad) m_mesh.m_cellType = TRIANGLE;
         if (!hasTriangle && hasQuad) m_mesh.m_cellType = QUAD;
         C.resize(C.size());
@@ -160,19 +155,6 @@ void MeshFileReader::ReadVtkFile()
             V.at(i).id = i;
             V.at(i).cellType = VTK_VERTEX;
         }
-        // Read CellType
-        const vtkIdType cellType = output->GetCellType(0);
-        if (cellType == VTK_TRIANGLE) m_mesh.m_cellType = TRIANGLE;
-        else if (cellType == VTK_QUAD) m_mesh.m_cellType = QUAD;
-        else if (cellType == VTK_TETRA) m_mesh.m_cellType = TETRAHEDRA;
-        else if (cellType == VTK_HEXAHEDRON) m_mesh.m_cellType = HEXAHEDRA;
-        for (vtkIdType i = 0; i < cnum; i++)
-            m_mesh.m_cellTypes[i] = output->GetCellType(i);
-        for (vtkIdType i = 0; i < cnum; i++)
-            if (output->GetCellType(i) != cellType) {
-                m_mesh.m_cellType = POLYHEDRA;
-                break;
-            }
         // Read C
         std::vector<Cell>& C = m_mesh.C;
         for (vtkIdType i = 0; i < cnum; i++) {
@@ -182,14 +164,31 @@ void MeshFileReader::ReadVtkFile()
             Cell c(csize);
             c.id = i;
             if (csize == 4) c.cellType = VTK_TETRA;
+			else if (csize == 6) c.cellType = VTK_WEDGE;
             else if (csize == 8) c.cellType = VTK_HEXAHEDRON;
+			else if (csize == 10) c.cellType = VTK_PENTAGONAL_PRISM;
+			else if (csize == 12) c.cellType = VTK_HEXAGONAL_PRISM;
             else c.cellType = VTK_POLYHEDRON;
             for (vtkIdType j = 0; j < csize; j++)
                 c.Vids.at(j) = idList->GetId(j);
             C.push_back(c);
         }
         C.resize(C.size());
-
+        // Read CellType
+        const vtkIdType cellType = output->GetCellType(0);
+        if (cellType == VTK_TRIANGLE) m_mesh.m_cellType = TRIANGLE;
+        else if (cellType == VTK_QUAD) m_mesh.m_cellType = QUAD;
+        else if (cellType == VTK_TETRA) m_mesh.m_cellType = TETRAHEDRA;
+        else if (cellType == VTK_HEXAHEDRON) m_mesh.m_cellType = HEXAHEDRA;
+		for (vtkIdType i = 0; i < cnum; i++) {
+			m_mesh.m_cellTypes[i] = output->GetCellType(i);
+			m_mesh.C[i].cellType = (VTKCellType)output->GetCellType(i);
+		}
+        for (vtkIdType i = 0; i < cnum; i++)
+            if (output->GetCellType(i) != cellType) {
+                m_mesh.m_cellType = POLYHEDRA;
+                break;
+            }
         if (m_mesh.m_cellType == TRIANGLE || m_mesh.m_cellType == QUAD) {
             m_mesh.F.resize(C.size());
             for (vtkIdType i = 0; i < cnum; i++)
@@ -307,8 +306,7 @@ void MeshFileReader::ReadOffFile()
     std::vector<Cell>& C = m_mesh.C;
     V.resize(vnum);
     getline(ifs, str);
-    for (long long i = 0; i < vnum; i++)
-    {
+    for (long long i = 0; i < vnum; i++) {
         getline(ifs, str);
         stringstream ss(str.c_str());
         ss >> V.at(i).x >> V.at(i).y >> V.at(i).z;
@@ -317,26 +315,30 @@ void MeshFileReader::ReadOffFile()
 //    for (long long i = 0; i < vnum; i++)
 //        ifs >> V.at(i).x >> V.at(i).y >> V.at(i).z;
     int a, b;
-    for (long long i = 0; i < cnum; i++)
-    {
+    for (long long i = 0; i < cnum; i++) {
         int csize;
         ifs >> csize;
         // Read CellType
-        if (csize == 3) m_mesh.m_cellType = TRIANGLE;
-        else if (csize == 4) m_mesh.m_cellType = QUAD;
-        else if (csize == 5) {m_mesh.m_cellType = TETRAHEDRA; csize = 4;}
-        else if (csize == 10) {m_mesh.m_cellType = HEXAHEDRA; csize = 8;}
-
         Cell c(csize);
-        for (int j = 0; j < csize; j++)
-        {
-            ifs >> c.Vids.at(j);
-        }
-        if (m_mesh.m_cellType == TETRAHEDRA) ifs >> a;
-        else if (m_mesh.m_cellType == HEXAHEDRA) ifs >> a >> b;
+        if (csize == 3) c.cellType = VTK_TRIANGLE;
+        else if (csize == 4) c.cellType = VTK_QUAD;
+        else if (csize == 5) {c.cellType = VTK_TETRA; csize = 4;}
+        else if (csize == 10) {c.cellType = VTK_HEXAHEDRON; csize = 8;}
+
+        for (auto& vid : c.Vids)
+            ifs >> vid;
+        if (c.cellType == VTK_TETRA) ifs >> a;
+        else if (c.cellType == VTK_HEXAHEDRON) ifs >> a >> b;
         C.push_back(c);
     }
     C.resize(C.size());
+
+    m_mesh.m_cellType = POLYGON;
+    bool hasTriangle = HasCellType(VTK_TRIANGLE);
+    bool hasQuad = HasCellType(VTK_QUAD);
+    if (hasTriangle && !hasQuad) m_mesh.m_cellType = TRIANGLE;
+    else if (!hasTriangle && hasQuad) m_mesh.m_cellType = QUAD;
+    else if (!hasTriangle && !hasQuad) m_mesh.m_cellType = POLYHEDRA;
 
     if (m_mesh.m_cellType == TRIANGLE || m_mesh.m_cellType == QUAD) {
         m_mesh.F.resize(C.size());
@@ -479,4 +481,10 @@ void MeshFileReader::GetPointsScalarFields()
 //			scalarField.at(i) = scalarDataFloat->GetValue(i);
 //		m_mesh.cellScalarFields.push_back(scalarField);
 //	}
+}
+
+bool MeshFileReader::HasCellType(const VTKCellType cellType) const {
+    for (auto& c : m_mesh.C)
+        if (c.cellType == cellType) return true;
+    return false;
 }

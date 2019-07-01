@@ -650,21 +650,21 @@ std::vector<size_t> BaseComplexChord::GetLinkedChordComponentFaceIds(const std::
     return res;
 }
 
-glm::vec3 BaseComplexChord::GetCenter(const ComponentFace& c) const {
-    glm::vec3 sum;
+glm::dvec3 BaseComplexChord::GetCenter(const ComponentFace& c) const {
+    glm::dvec3 sum;
     for (auto vid : c.Vids)
         sum += baseComplex.V.at(vid).xyz();
-    return sum / float(c.Vids.size());
+    return sum / double(c.Vids.size());
 }
 
-glm::vec3 BaseComplexChord::GetCenter(const ComponentCell& c) const {
-    glm::vec3 sum;
+glm::dvec3 BaseComplexChord::GetCenter(const ComponentCell& c) const {
+    glm::dvec3 sum;
     for (auto vid : c.Vids)
         sum += baseComplex.V.at(vid).xyz();
-    return sum / float(c.Vids.size());
+    return sum / double(c.Vids.size());
 }
-std::vector<glm::vec3> BaseComplexChord::GetLinkedChordCurveVertices(const std::vector<size_t>& linkedChordComponentFaceIds, const std::vector<size_t>& linkedChordComponentCellIds) const {
-    std::vector<glm::vec3> centers;
+std::vector<glm::dvec3> BaseComplexChord::GetLinkedChordCurveVertices(const std::vector<size_t>& linkedChordComponentFaceIds, const std::vector<size_t>& linkedChordComponentCellIds) const {
+    std::vector<glm::dvec3> centers;
     for (auto i = 0; i < linkedChordComponentCellIds.size(); ++i) {
         centers.push_back(GetCenter(baseComplex.componentF.at(linkedChordComponentFaceIds.at(i))));
         centers.push_back(GetCenter(baseComplex.componentC.at(linkedChordComponentCellIds.at(i))));

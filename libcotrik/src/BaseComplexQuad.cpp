@@ -155,14 +155,14 @@ void BaseComplexQuad::Build()
 {
     ExtractSingularVandE();
     BuildE();
-    std::cout << "Finished extracting BaseComplex Edges --> " << Eids.size() << " edges\n";
+    //std::cout << "Finished extracting BaseComplex Edges --> " << Eids.size() << " edges\n";
     BuildV();
-    std::cout << "Finished extracting BaseComplex Vertices --> " << Vids.size() << " vertices\n";
+    //std::cout << "Finished extracting BaseComplex Vertices --> " << Vids.size() << " vertices\n";
     BuildF();
-    std::cout << "Finished extracting Component Cells --> " << componentC.size() << " component cells\n";
-    std::cout << "Finished extracting Component Faces --> " << componentF.size() << " component faces\n";
-    std::cout << "Finished extracting Component Edges --> " << componentE.size() << " component edges\n";
-    std::cout << "Finished extracting Component Vertices --> " << Vids.size() << " component vertices\n";
+    //std::cout << "Finished extracting Component Cells --> " << componentC.size() << " component cells\n";
+    //std::cout << "Finished extracting Component Faces --> " << componentF.size() << " component faces\n";
+    //std::cout << "Finished extracting Component Edges --> " << componentE.size() << " component edges\n";
+    //std::cout << "Finished extracting Component Vertices --> " << Vids.size() << " component vertices\n";
 
     BuildComponentConnectivities();
     BuildSigularEdge_separatedPatches();
@@ -297,6 +297,10 @@ void BaseComplexQuad::BuildComponentConnectivities()
         component.Vids = (component.vids_link.front() == component.vids_link.back()) ? std::vector<size_t>() :
                 std::vector<size_t>{mesh.V.at(component.vids_link.front()).component_id, mesh.V.at(component.vids_link.back()).component_id};
         component.N_Fids = GetNeighborComponentFids(component);
+    }
+    for (auto& component : componentV) {
+        for (auto& n_fid : mesh.V.at(Vids.at(component.id)).N_Fids)
+            component.N_Fids.push_back(mesh.F.at(n_fid).component_id);
     }
     for (auto& component : componentF)
         component.Vids = GetComponentVids(component);
@@ -1978,6 +1982,7 @@ size_t BaseComplexQuad::RegionGrowEdge(const Edge& start_edge, std::vector<bool>
         const Vertex& vertex = mesh.V.at(vertex_id);
         if (!IsOnBaseComplex(vertex)) {
             Edge* nextEdge = GetNextEdge(vertex, start_edge);
+            if (nextEdge == NULL) break;
             //const size_t nextEdgeId = vertex.N_Eids[0] == start_edge.id ? vertex.N_Eids[1] : vertex.N_Eids[0];
             if (!is_edge_visited[nextEdge->id]) {
                 //const Edge& nextEdge = mesh.E.at(nextEdgeId);
@@ -2306,7 +2311,7 @@ void BaseComplexQuad::WriteBaseComplexComponentsVTK(const char *filename_prefix,
             ofs << cellPatch.color % 8 << std::endl;
 }
 
-void BaseComplexQuad::WriteBaseComplexHexVTK(const char *filename) const
+void BaseComplexQuad::WriteBaseComplexQuadVTK(const char *filename) const
 {
 //    const std::vector<Vertex>& V = mesh.V;
 //    const std::vector<Edge>& E = mesh.E;
@@ -2318,30 +2323,30 @@ void BaseComplexQuad::WriteBaseComplexHexVTK(const char *filename) const
         << "ASCII" << std::endl << std::endl
         << "DATASET UNSTRUCTURED_GRID" << std::endl;
 
-    ofs << "POINTS " << V.size() << " double" << std::endl;
-    for (auto& v : V)
+    ofs << "POINTS " << componentV.size() << " double" << std::endl;
+    for (auto& v : componentV)
         ofs << v.x << " " << v.y << " " << v.z << std::endl;
 
-    ofs << "CELLS " << componentC.size() << " " << 9 * componentC.size() << std::endl;
-    for (const auto& component : componentC) {
+    ofs << "CELLS " << componentF.size() << " " << 5 * componentF.size() << std::endl;
+    for (const auto& component : componentF) {
         ofs << component.Vids.size();
         for (auto vid : component.Vids)
             ofs << " " << vid;
         ofs << "\n";
     }
 
-    ofs << "CELL_TYPES " << componentC.size() << std::endl;
-    for (const auto& id : componentC)
-        ofs << "12\n";
-    ofs << "CELL_DATA " << componentC.size() << std::endl
+    ofs << "CELL_TYPES " << componentF.size() << std::endl;
+    for (const auto& id : componentF)
+        ofs << "9\n";
+    ofs << "CELL_DATA " << componentF.size() << std::endl
         << "SCALARS " << " componentid" << " int 1" << std::endl
         << "LOOKUP_TABLE default" << std::endl;
-    for (const auto& component : componentC)
+    for (const auto& component : componentF)
             ofs << component.id << std::endl;
     ofs << "SCALARS " << " color" << " int 1" << std::endl
         << "LOOKUP_TABLE default" << std::endl;
-    for (const auto& component : componentC)
-            ofs << component.color % 8 << std::endl;
+    for (const auto& component : componentF)
+            ofs << component.id % 8 << std::endl;
 }
 
 void BaseComplexQuad::WriteBaseComplexComponentsWithoutSingularitiesVTK(const char *filename) const
@@ -2484,14 +2489,14 @@ void BaseComplexQuad::WriteBaseComplexComponentsWithSingularitiesVTK(const char 
                 ofs << cellPatch.color % 8 << std::endl;
 }
 
-void BaseComplexQuad::WriteBaseComplexSeparatedFacePatchesVTK(const char *filename) const
+void BaseComplexQuad::WriteBaseComplexSeparatedEdgeLinksVTK(const char *filename) const
 {
     const std::vector<Vertex>& V = mesh.V;
     const std::vector<Edge>& E = mesh.E;
-    const std::vector<Face>& F = F;
+    //const std::vector<Face>& F = F;
 
     std::ofstream ofs(filename);
-    ofs << "# vtk DataFile Version 2.0" << std::endl
+    ofs << "# vtk DataFile Version 3.0" << std::endl
         << filename << std::endl
         << "ASCII" << std::endl << std::endl
         << "DATASET POLYDATA" << std::endl;
@@ -2500,52 +2505,53 @@ void BaseComplexQuad::WriteBaseComplexSeparatedFacePatchesVTK(const char *filena
     for (size_t i = 0; i < V.size(); i++)
         ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << std::endl;
 
-    ofs << "VERTICES " << Vids.size() << " " << 2 * Vids.size() << std::endl;
-    for (size_t i = 0; i < Vids.size(); i++)
-        ofs << "1 " << V.at(Vids.at(i)).id << std::endl;
+//    ofs << "VERTICES " << Vids.size() << " " << 2 * Vids.size() << std::endl;
+//    for (size_t i = 0; i < Vids.size(); i++)
+//        ofs << "1 " << V.at(Vids.at(i)).id << std::endl;
 
-    ofs << "LINES " << Eids.size() << " " << 3 * Eids.size() << std::endl;
-    for (size_t i = 0; i < Eids.size(); i++)
-        ofs << "2 " << E.at(Eids.at(i)).Vids[0] << " " << E.at(Eids.at(i)).Vids[1] << std::endl;
+//    ofs << "LINES " << Eids.size() << " " << 3 * Eids.size() << std::endl;
+//    for (size_t i = 0; i < Eids.size(); i++)
+//        ofs << "2 " << E.at(Eids.at(i)).Vids[0] << " " << E.at(Eids.at(i)).Vids[1] << std::endl;
 
-    ofs << "POLYGONS " << Fids.size() << " " << 5 * Fids.size() << std::endl;
-    for (const auto& patch : separatedFacePatches) {
-        for (const auto& faceid : patch) {
-            const Face& face = mesh.F.at(faceid);
-            ofs << face.Vids.size();
-            for (size_t j = 0; j < face.Vids.size(); j++)
-                ofs << " " << face.Vids.at(j);
-            ofs << "\n";
-        }
+    size_t line_vertex_num = 0;
+    for (auto& link : separatedVertexIdsLink)
+        line_vertex_num += 1 + link.size();
+    ofs << "LINES " << separatedVertexIdsLink.size() << " " << line_vertex_num << std::endl;
+    for (const auto& link : separatedVertexIdsLink) {
+        ofs << link.size();
+        for (auto vid : link)
+            ofs << " " << vid;
+        ofs << "\n";
     }
 
-    ofs << "CELL_DATA " << Vids.size() + Eids.size() + Fids.size() << std::endl
-        << "SCALARS " << " patch" << " int 1" << std::endl
+//    ofs << "POLYGONS " << Fids.size() << " " << 5 * Fids.size() << std::endl;
+//    for (const auto& patch : separatedFacePatches) {
+//        for (const auto& faceid : patch) {
+//            const Face& face = mesh.F.at(faceid);
+//            ofs << face.Vids.size();
+//            for (size_t j = 0; j < face.Vids.size(); j++)
+//                ofs << " " << face.Vids.at(j);
+//            ofs << "\n";
+//        }
+//    }
+
+    ofs << "CELL_DATA " << separatedVertexIdsLink.size() << std::endl;
+    ofs << "SCALARS " << " type" << " int 1" << std::endl
         << "LOOKUP_TABLE default" << std::endl;
-    for (size_t i = 0; i < Vids.size(); i++)
-        ofs << (V.at(Vids.at(i)).isSingularity ? separatedFacePatches.size() : 0) << std::endl;
-    for (size_t i = 0; i < Eids.size(); i++)
-        ofs << (E.at(Eids.at(i)).isSingularity ? separatedFacePatches.size() : 0) << std::endl;
+    for (const auto& link : separatedVertexIdsLink) {
+        auto& v_front = mesh.V.at(link.front());
+        auto& v_back = mesh.V.at(link.back());
+        if ((v_front.N_Fids.size() <= 5 && v_back.N_Fids.size() <= 5) &&
+                v_front.N_Fids.size() != v_back.N_Fids.size()) ofs << 0 << std::endl;
+        else if (v_front.N_Fids.size() == 3 && v_back.N_Fids.size() == 3) ofs << 1 << std::endl;
+        else if (v_front.N_Fids.size() == 5 && v_back.N_Fids.size() == 5) ofs << 2 << std::endl;
+        else ofs << 3 << std::endl;
+    }
+    ofs << "SCALARS " << " link" << " int 1" << std::endl
+        << "LOOKUP_TABLE default" << std::endl;
     int id = 0;
-    for (const auto& patch : separatedFacePatches) {
-        for (const auto& faceid : patch)
-            ofs << id << "\n";
-        ++id;
-    }
-
-
-    ofs << "SCALARS " << " color" << " int 1" << std::endl
-        << "LOOKUP_TABLE default" << std::endl;
-    for (size_t i = 0; i < Vids.size(); i++)
-        ofs << (V.at(Vids.at(i)).isSingularity ? 8 : 0) << std::endl;
-    for (size_t i = 0; i < Eids.size(); i++)
-        ofs << (E.at(Eids.at(i)).isSingularity ? 8 : 0) << std::endl;
-    id = 0;
-    for (const auto& patch : separatedFacePatches) {
-        for (const auto& faceid : patch)
-            ofs << id % 8 << "\n";
-        ++id;
-    }
+    for (const auto& link : separatedVertexIdsLink)
+        ofs << id++ << "\n";
 
 }
 

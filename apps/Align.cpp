@@ -23,7 +23,7 @@
 void align(const Mesh& orig_mesh, const Mesh& polycube_mesh, Mesh& aligned_polycube_mesh);
 void align(const Mesh& orig_mesh, Mesh& polycube_mesh, const int smoothIters = 100);
 
-void WriteVtkFile(const Mesh& m_mesh, const string&  m_strFileName);
+void WriteVtkFile(const Mesh& m_mesh, const std::string&  m_strFileName);
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -31,9 +31,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     ArgumentManager argumentManager(argc, argv);
-    string orig = "orig.tet.vtk";
-    string polycube = "polycube.tet.vtk";
-    string output = "polycube.aligned.tet.vtk";
+    std::string orig = "orig.tet.vtk";
+    std::string polycube = "polycube.tet.vtk";
+    std::string output = "polycube.aligned.tet.vtk";
     int smoothIters = 100;
     double angle = 10.0;
     {
@@ -155,7 +155,7 @@ void align(const Mesh& orig_mesh, const Mesh& polycube_mesh, Mesh& aligned_polyc
                 if (orig_sharp_vids.find(neighborVid) != orig_sharp_vids.end()) neighborVids[count++] = neighborVid;
             auto& v1 = aligned_polycube_mesh.V.at(neighborVids[0]);
             auto& v2 = aligned_polycube_mesh.V.at(neighborVids[1]);
-            v = (v1.xyz() + v2.xyz()) * 0.5f;
+            v = (v1.xyz() + v2.xyz()) * 0.5;
         }
     }
     // Align Surface;
@@ -200,7 +200,7 @@ void align(const Mesh& orig_mesh, Mesh& polycube_mesh, const int smoothIters) {
                 if (v.isCorner) continue;
                 auto& v1 = aligned_polycube_mesh.V.at(featureLine.Vids.at(i - 1));
                 auto& v2 = aligned_polycube_mesh.V.at(featureLine.Vids.at(i + 1));
-                v = (v1.xyz() + v2.xyz()) * 0.5f;
+                v = (v1.xyz() + v2.xyz()) * 0.5;
             }
             else
                 for (auto i = 0; i < featureLine.Vids.size(); ++i) {
@@ -209,7 +209,7 @@ void align(const Mesh& orig_mesh, Mesh& polycube_mesh, const int smoothIters) {
                     if (v.isCorner) continue;
                     auto& v1 = i == 0 ? aligned_polycube_mesh.V.at(featureLine.Vids.back()) : aligned_polycube_mesh.V.at(featureLine.Vids.at(i - 1));
                     auto& v2 = aligned_polycube_mesh.V.at(featureLine.Vids.at((i + 1) % featureLine.Vids.size()));
-                    v = (v1.xyz() + v2.xyz()) * 0.5f;
+                    v = (v1.xyz() + v2.xyz()) * 0.5;
                 }
         }
     }
@@ -232,7 +232,7 @@ void align(const Mesh& orig_mesh, Mesh& polycube_mesh, const int smoothIters) {
     // Align Surface;
 }
 
-void WriteVtkFile(const Mesh& m_mesh, const string&  m_strFileName)
+void WriteVtkFile(const Mesh& m_mesh, const std::string&  m_strFileName)
 {
     const std::vector<Vertex>& V = m_mesh.V;
     const std::vector<Cell>& C = m_mesh.C;
@@ -240,13 +240,13 @@ void WriteVtkFile(const Mesh& m_mesh, const string&  m_strFileName)
     const size_t cnum = C.size();
 
     std::ofstream ofs(m_strFileName.c_str());
-    ofs << "# vtk DataFile Version 3.0" << endl
-        << m_strFileName.c_str() << endl
-        << "ASCII" << endl << endl
-        << "DATASET UNSTRUCTURED_GRID" << endl;
-    ofs << "POINTS " << vnum << " double" << endl;
+    ofs << "# vtk DataFile Version 3.0" << std::endl
+        << m_strFileName.c_str() << std::endl
+        << "ASCII" << std::endl << std::endl
+        << "DATASET UNSTRUCTURED_GRID" << std::endl;
+    ofs << "POINTS " << vnum << " double" << std::endl;
     for (size_t i = 0; i < vnum; i++)
-        ofs << std::fixed << setprecision(7) << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << endl;
+        ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << std::endl;
     ofs << "CELLS " << cnum << " " << 5*cnum << std::endl;
 
     for (size_t i = 0; i < cnum; i++){
@@ -255,7 +255,7 @@ void WriteVtkFile(const Mesh& m_mesh, const string&  m_strFileName)
             ofs << " " << C.at(i).Vids.at(j);
         ofs << std::endl;
     }
-    ofs << "CELL_TYPES " << cnum << endl;
+    ofs << "CELL_TYPES " << cnum << std::endl;
     for (size_t i = 0; i < cnum; i++)
         ofs << 10 << std::endl;
 }

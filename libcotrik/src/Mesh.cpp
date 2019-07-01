@@ -156,40 +156,63 @@ void Mesh::BuildE() {
     else if (m_cellType == TETRAHEDRA) Es.reserve(C.size() * 6);
     else if (m_cellType == QUAD) Es.reserve(C.size() * 4);
     else if (m_cellType == TRIANGLE) Es.reserve(C.size() * 3);
+	else if (m_cellType == POLYGON) Es.reserve(C.size() * 4);
+	else if (m_cellType == POLYHEDRA) Es.reserve(C.size() * 12);
 
-    for (size_t i = 0; i < C.size(); i++) {
+    for (auto& c : C) {
         Edge e(2);
-        if (m_cellType == HEXAHEDRA) for (size_t j = 0; j < 12; j++)  // there are 12 edges in hex
-                {
-            e.Vids[0] = C[i].Vids[HexEdge[j][0]];
-            e.Vids[1] = C[i].Vids[HexEdge[j][1]];
+        if (c.cellType == VTK_HEXAHEDRON) for (size_t j = 0; j < 12; j++) { // there are 12 edges in hex
+            e.Vids[0] = c.Vids[HexEdge[j][0]];
+            e.Vids[1] = c.Vids[HexEdge[j][1]];
             Es.push_back(e);
-        }
-        else if (m_cellType == QUAD) for (size_t j = 0; j < 4; j++)  // there are 3 edges in tri
-                {
-            e.Vids[0] = C[i].Vids[QuadEdge[j][0]];
-            e.Vids[1] = C[i].Vids[QuadEdge[j][1]];
+        } else if (c.cellType == VTK_QUAD) for (size_t j = 0; j < 4; j++) {// there are 3 edges in tri 
+            e.Vids[0] = c.Vids[QuadEdge[j][0]];
+            e.Vids[1] = c.Vids[QuadEdge[j][1]];
             Es.push_back(e);
-        }
-        else if (m_cellType == TRIANGLE) for (size_t j = 0; j < 3; j++)  // there are 3 edges in tri
-                {
-            e.Vids[0] = C[i].Vids[TriEdge[j][0]];
-            e.Vids[1] = C[i].Vids[TriEdge[j][1]];
+        } else if (c.cellType == VTK_TRIANGLE) for (size_t j = 0; j < 3; j++) { // there are 3 edges in tri
+            e.Vids[0] = c.Vids[TriEdge[j][0]];
+            e.Vids[1] = c.Vids[TriEdge[j][1]];
             Es.push_back(e);
-        }
-        else if (m_cellType == TETRAHEDRA) for (size_t j = 0; j < 6; j++)  // there are 6 edges in tet
-                {
-            e.Vids[0] = C[i].Vids[TetEdge[j][0]];
-            e.Vids[1] = C[i].Vids[TetEdge[j][1]];
+        } else if (c.cellType == VTK_TETRA) for (size_t j = 0; j < 6; j++) { // there are 6 edges in tet
+            e.Vids[0] = c.Vids[TetEdge[j][0]];
+            e.Vids[1] = c.Vids[TetEdge[j][1]];
             Es.push_back(e);
+        } else if (c.cellType == VTK_WEDGE) for (size_t j = 0; j < 9; j++) { // there are 9 edges in wedge
+			e.Vids[0] = c.Vids[WedgeEdge[j][0]];
+			e.Vids[1] = c.Vids[WedgeEdge[j][1]];
+			Es.push_back(e);
+		} else if (c.cellType == VTK_PENTAGONAL_PRISM) for (size_t j = 0; j < 15; j++) { // there are 15 edges in pentahedral
+			e.Vids[0] = c.Vids[PentaEdge[j][0]];
+			e.Vids[1] = c.Vids[PentaEdge[j][1]];
+			Es.push_back(e);
+		} else if (c.cellType == VTK_POLYGON) {
+            if (c.Vids.size() == 3) {
+                for (size_t j = 0; j < 3; j++) {
+                    e.Vids[0] = c.Vids[TriEdge[j][0]];
+                    e.Vids[1] = c.Vids[TriEdge[j][1]];
+                    Es.push_back(e);
+                }
+            } else if (c.Vids.size() == 4) {
+                for (size_t j = 0; j < 4; j++) {
+                    e.Vids[0] = c.Vids[QuadEdge[j][0]];
+                    e.Vids[1] = c.Vids[QuadEdge[j][1]];
+                    Es.push_back(e);
+                }
+			} else {
+				for (size_t j = 0; j < c.Vids.size(); j++) {
+					e.Vids[0] = c.Vids[j % c.Vids.size()];
+					e.Vids[1] = c.Vids[(j + 1) % c.Vids.size()];
+					Es.push_back(e);
+				}
+			}
         }
     }
 
     size_t E_N = 0;
-    for (size_t i = 0; i < Es.size(); i++) {
+    for (auto& e : Es) {
         bool havesame = false;
-        const size_t id1 = Es[i].Vids[0];
-        const size_t id2 = Es[i].Vids[1];
+        const size_t id1 = e.Vids[0];
+        const size_t id2 = e.Vids[1];
 
         for (size_t j = 0; j < V[id1].N_Vids.size(); j++)
             if (V[id1].N_Vids[j] == id2) {
@@ -197,55 +220,29 @@ void Mesh::BuildE() {
                 break;
             }
         if (!havesame) {
-            Es[i].id = E_N++;
-            Es[i].isBoundary = false;
+            e.id = E_N++;
+            e.isBoundary = false;
 
-            for (size_t j = 0; j < V[Es[i].Vids[0]].N_Cids.size(); j++) {
-                size_t h1 = V[Es[i].Vids[0]].N_Cids[j];
-                for (size_t k = 0; k < V[Es[i].Vids[1]].N_Cids.size(); k++) {
-                    size_t h2 = V[Es[i].Vids[1]].N_Cids[k];
-                    if (h1 == h2) Es[i].N_Cids.push_back(h1);
-                }
-            }
+            for (auto cid0 : V[e.Vids[0]].N_Cids)
+                for (auto cid1 : V[e.Vids[1]].N_Cids)
+                    if (cid0 == cid1) e.N_Cids.push_back(cid0);
 
-            E.push_back(Es[i]);
-            V[id1].N_Eids.push_back(Es[i].id);
+            E.push_back(e);
+            V[id1].N_Eids.push_back(e.id);
             V[id1].N_Vids.push_back(id2);
 
-            V[id2].N_Eids.push_back(Es[i].id);
+            V[id2].N_Eids.push_back(e.id);
             V[id2].N_Vids.push_back(id1);
         }
     }
 
-    for (size_t i = 0; i < E.size(); i++)
-        for (size_t j = 0; j < V[E[i].Vids[0]].N_Cids.size(); j++) {
-            size_t nh = V[E[i].Vids[0]].N_Cids[j];
-            for (size_t k = 0; k < V[E[i].Vids[1]].N_Cids.size(); k++)
-                if (nh == V[E[i].Vids[1]].N_Cids[k]) E[i].N_Cids.push_back(nh);
-        }
+	BuildE_C();
 
-    for (size_t i = 0; i < E.size(); i++) {
-        std::vector<size_t> N_Cids;
-        for (size_t j = 0; j < E[i].N_Cids.size(); j++) {
-            bool have = false;
-            for (size_t k = 0; k < N_Cids.size(); k++)
-                if (E[i].N_Cids[j] == N_Cids[k]) have = true;
-            if (!have) N_Cids.push_back(E[i].N_Cids[j]);
-        }
-        E[i].N_Cids.clear();
-        E[i].N_Cids = N_Cids;
-    }
-
-    for (size_t i = 0; i < V.size(); i++) {
-        std::vector<size_t> N_Vids;
-        for (int j = 0; j < V[i].N_Vids.size(); j++) {
-            bool have = false;
-            for (int k = 0; k < N_Vids.size(); k++)
-                if (V[i].N_Vids[j] == N_Vids[k]) have = true;
-            if (!have) N_Vids.push_back(V[i].N_Vids[j]);
-        }
-        V[i].N_Vids.clear();
-        V[i].N_Vids = N_Vids;
+    for (auto& v : V) {
+		std::set<size_t> N_Vids(v.N_Vids.begin(), v.N_Vids.end());
+		v.N_Vids.clear();
+		for (auto nvid : N_Vids)
+			v.N_Vids.push_back(nvid);
     }
 }
 
@@ -292,9 +289,11 @@ void Mesh::BuildParallelE() {
 
         for (size_t i = 0; i < E.size(); i++)
             set_redundent_clearn(E[i].parallelEids);
-    } else if (m_cellType == QUAD) {
+    } else //if (m_cellType == QUAD) 
+	{
         for (auto& e : E) {
             for (auto& fid : e.N_Fids)
+				if (F.at(fid).Eids.size() == 4)
                 for (auto& edgeid : F.at(fid).Eids) {
                     auto& edge = E.at(edgeid);
                     if (edge.Vids[0] != e.Vids[0] && edge.Vids[1] != e.Vids[1] && edge.Vids[0] != e.Vids[1] && edge.Vids[1] != e.Vids[0]) e.parallelEids.push_back(edgeid);
@@ -304,22 +303,63 @@ void Mesh::BuildParallelE() {
 }
 
 void Mesh::BuildConsecutiveE() {
-    for (size_t i = 0; i < E.size(); i++) {
-        std::vector<size_t> fes;
-        for (size_t j = 0; j < E[i].N_Fids.size(); j++) {
-            size_t fid = E[i].N_Fids[j];
-            for (size_t k = 0; k < 4; k++)
-                fes.push_back(F[fid].Eids[k]);
-        }
-        set_redundent_clearn(fes);
-        for (size_t j = 0; j < 2; j++) {
-            int vid = E[i].Vids[j];
-            std::vector<size_t> leftes;
-            set_exclusion(V[vid].N_Eids, fes, leftes);
-            std::copy(leftes.begin(), leftes.end(), back_inserter(E[i].consecutiveEids));
-        }
-        set_redundent_clearn(E[i].consecutiveEids);
-    }
+	if (m_cellType == HEXAHEDRA) {
+		for (size_t i = 0; i < E.size(); i++) {
+			std::vector<size_t> fes;
+			for (size_t j = 0; j < E[i].N_Fids.size(); j++) {
+				size_t fid = E[i].N_Fids[j];
+				for (size_t k = 0; k < 4; k++)
+					fes.push_back(F[fid].Eids[k]);
+			}
+			set_redundent_clearn(fes);
+			for (size_t j = 0; j < 2; j++) {
+				int vid = E[i].Vids[j];
+				std::vector<size_t> leftes;
+				set_exclusion(V[vid].N_Eids, fes, leftes);
+				std::copy(leftes.begin(), leftes.end(), back_inserter(E[i].consecutiveEids));
+			}
+			set_redundent_clearn(E[i].consecutiveEids);
+		}
+	} else //if (m_cellType == QUAD) 
+	{
+		for (auto& e : E) {
+			std::set<size_t> fids;
+			for (auto vid : e.Vids)
+				if (!V[vid].isSingularity) fids.insert(V[vid].N_Fids.begin(), V[vid].N_Fids.end());
+			for (auto fid : e.N_Fids)
+				fids.erase(fid);
+
+			std::set<size_t> consecutive_eids;
+			for (auto fid : fids) {
+				//if (F.at(fid).Eids.size() != 4) break;
+				int count = 0;
+				for (auto vid : F.at(fid).Vids)
+					if (vid == e.Vids[0] || vid == e.Vids[1]) ++count;
+				if (count > 1) continue;
+				for (auto edgeid : F.at(fid).Eids) {
+					auto& edge = E.at(edgeid);
+					//if (edge.N_Fids[0] != e.N_Fids[0] && edge.N_Fids[1] != e.N_Fids[1] && edge.N_Fids[0] != e.Vids[1] && edge.N_Fids[1] != e.N_Fids[0])
+					//	consecutive_eids.insert(edgeid);
+					if (edge.Vids[0] == e.Vids[0] || edge.Vids[1] == e.Vids[1] || edge.Vids[0] == e.Vids[1] || edge.Vids[1] == e.Vids[0]) {
+						bool found = true;
+						for (auto nfid : edge.N_Fids) {
+							for (auto nnfid : e.N_Fids)
+								if (nnfid == nfid) {
+									found = false;
+									break;
+								}
+							if (!found)
+								break;
+						}
+						if (!found) continue;
+						consecutive_eids.insert(edgeid);
+					}
+				}
+			}
+			for (auto eid : consecutive_eids)
+				e.consecutiveEids.push_back(eid);
+		}
+	}
 }
 
 void Mesh::BuildOrthogonalE() {
@@ -354,9 +394,9 @@ void Mesh::GetNormalOfSurfaceFaces() {
         const Vertex& v1 = V[face.Vids[1]];
         const Vertex& v2 = V[face.Vids[2]];
 
-        const glm::vec3 v10 = v0.xyz() - v1.xyz();
-        const glm::vec3 v12 = v2.xyz() - v1.xyz();
-        const glm::vec3 n = glm::normalize(glm::cross(v12, v10));
+        const glm::dvec3 v10 = v0.xyz() - v1.xyz();
+        const glm::dvec3 v12 = v2.xyz() - v1.xyz();
+        const glm::dvec3 n = glm::normalize(glm::cross(v12, v10));
         face.normal = n;
     }
 }
@@ -365,10 +405,10 @@ void Mesh::GetNormalOfSurfaceVertices()
 {
     for (size_t i = 0; i < V.size(); i++) {
         Vertex& v = V.at(i);
-        v.normal = glm::vec3(0.0, 0.0, 0.0);
+        v.normal = glm::dvec3(0.0, 0.0, 0.0);
         if (!v.isBoundary)
             continue;
-        glm::vec3 sumNormal(0.0, 0.0, 0.0);
+        glm::dvec3 sumNormal(0.0, 0.0, 0.0);
         size_t faceCount = 0;
         for (size_t j = 0; j < v.N_Fids.size(); j++) {
             const Face& face = F.at(v.N_Fids.at(j));
@@ -421,7 +461,7 @@ void Mesh::ClassifyVertexTypes() {
             edge2vector2[j] = V[V2s[2]][j] - V[V2s[0]][j];
         }
 
-        glm::vec3 normal1, normal2;
+        glm::dvec3 normal1, normal2;
         CROSSVECTOR3(normal1, edge1vector1, edge2vector1);
         CROSSVECTOR3(normal2, edge2vector2, edge1vector2);
         normal1 = glm::normalize(normal1);
@@ -478,9 +518,9 @@ void Mesh::ClassifyVertexTypes() {
             }
             float length_all = 0;
             for (size_t j = 1; j < vs_order.size(); j++) {
-                const glm::vec3 dir = V[vs_order[j - 1]] - V[vs_order[j]];
+                const glm::dvec3 dir = V[vs_order[j - 1]] - V[vs_order[j]];
                 const float dis = glm::length(dir);
-                V[i].tangent += glm::vec3(dis * dir.x, dis * dir.y, dis * dir.z);
+                V[i].tangent += glm::dvec3(dis * dir.x, dis * dir.y, dis * dir.z);
             }
             //vector_normalization(tmi_sur.Vs[i].tangent);
         } else if (flags[i].size() > 2) V[i].type = 2; //tmi_sur.Vs[i].type=1;//
@@ -499,7 +539,7 @@ void Mesh::ClearLabelOfSurface() {
         Vertex& v = V.at(i);
         v.type = MAXID;
         v.isCorner = false;
-        v.tangent = glm::vec3(0.0, 0.0, 0.0);
+        v.tangent = glm::dvec3(0.0, 0.0, 0.0);
     }
 }
 void Mesh::LabelSurface() {
@@ -542,7 +582,7 @@ void Mesh::LabelSurface() {
         const double cos_angle = GetCosAngle(edge, *pFace1, *pFace2);
         // cos(15) = 0.9659 cos(30) = 0.866 cos(45) = 0.707
 
-        if (pFace1->label != pFace2->label || fabs(cos_angle) < 0.5) {
+        if (pFace1->label != pFace2->label || fabs(cos_angle) < cos_angle_threshold) {
             edge.isSharpFeature = true;
             V.at(edge.Vids[0]).type = FEATURE;
             V.at(edge.Vids[1]).type = FEATURE;
@@ -589,9 +629,9 @@ void Mesh::LabelSurface() {
                 }
             }
             for (size_t j = 1; j < vs_order.size(); j++) {
-                const glm::vec3 dir = V[vs_order[j - 1]] - V[vs_order[j]];
+                const glm::dvec3 dir = V[vs_order[j - 1]] - V[vs_order[j]];
                 const float dis = glm::length(dir);
-                v.tangent += glm::vec3(dis * dir.x, dis * dir.y, dis * dir.z);
+                v.tangent += glm::dvec3(dis * dir.x, dis * dir.y, dis * dir.z);
             }
         }
     }
@@ -601,16 +641,22 @@ void Mesh::LabelSharpEdges(const bool breakAtConrer/* = false*/) {
     size_t label = 0;
     for (size_t i = 0; i < E.size(); i++) {
         Edge& edge = E.at(i);
-        if (!edge.isBoundary || !edge.isSharpFeature || edge.label != MAXID) continue;
+        if (((m_cellType == HEXAHEDRA || m_cellType == TETRAHEDRA) && !edge.isBoundary) ||
+                !edge.isSharpFeature || edge.label != MAXID) continue;
         LabelEdge(edge, label, breakAtConrer);
         label++;
     }
     this->numOfSharpEdges = label;
 }
 
-void Mesh::LabelEdge(Edge& edge, size_t& label, const bool breakAtConrer/* = false*/)
-{
+void Mesh::LabelEdge(Edge& edge, size_t& label, const bool breakAtConrer/* = false*/) {
     edge.label = label;
+	auto& v0 = V.at(edge.Vids[0]);
+	auto& v1 = V.at(edge.Vids[1]);
+	if (!v0.isCorner) v0.label = label;
+	v0.labels.insert(label);
+	if (!v1.isCorner) v1.label = label;
+	v1.labels.insert(label);
     for (size_t i = 0; i < edge.Vids.size(); i++) {
         const Vertex& v = V.at(edge.Vids.at(i));
         if (v.isCorner && breakAtConrer)
@@ -618,7 +664,9 @@ void Mesh::LabelEdge(Edge& edge, size_t& label, const bool breakAtConrer/* = fal
         std::vector<Edge*> edges;
         for (size_t j = 0; j < v.N_Eids.size(); j++) {
             Edge& edge2 = E.at(v.N_Eids.at(j));
-            if (edge2.id != edge.id && edge2.isBoundary && edge.isSharpFeature && edge2.label == MAXID) {
+            if (edge2.id != edge.id 
+				// && ((m_cellType == HEXAHEDRA || m_cellType == TETRAHEDRA) && edge2.isBoundary) 
+				&& edge.isSharpFeature && edge2.label == MAXID) {
                 edges.push_back(&edge2);
             }
         }
@@ -780,7 +828,7 @@ void Mesh::SetCosAngleThreshold(const double cos_angle/* = 0.91*/) {
 void Mesh::LabelFace(Face& face, size_t& label) {
     face.label = label;
     for (size_t i = 0; i < face.Eids.size(); i++) {
-        const Edge& edge = E.at(face.Eids.at(i));
+        auto& edge = E.at(face.Eids.at(i));
         std::vector<Face*> faces;
         for (size_t j = 0; j < edge.N_Fids.size(); j++) {
             Face& face2 = F.at(edge.N_Fids.at(j));
@@ -788,7 +836,8 @@ void Mesh::LabelFace(Face& face, size_t& label) {
                 const double cos_angle = GetCosAngle(edge, face, face2);
                 //std::cout << "cos_angle = " << cos_angle << std::endl;
                 if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
-                faces.push_back(&face2);
+					faces.push_back(&face2);
+				//else edge.isSharpFeature = true;
             }
         }
         for (size_t i = 0; i < faces.size(); i++)
@@ -840,6 +889,7 @@ void Mesh::RemoveUselessVertices() {
             c.Vids.at(j) = v_v[cell.Vids.at(j)];
             c.id = i;
         }
+		c.cellType = cell.cellType;
         newC.push_back(c);
     }
     C.resize(newC.size());
@@ -865,11 +915,90 @@ void Mesh::RemoveUselessVertices() {
     }
 }
 
-bool Mesh::IsPointInTriangle(const glm::vec3& P, const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) const {
+void Mesh::CompressWithFeaturePreserved() {
+    std::set<size_t> vids;
+    for (const auto& c : C)
+        vids.insert(c.Vids.begin(), c.Vids.end());
+    std::vector<size_t> v_real_index;
+    std::copy(vids.begin(), vids.end(), std::back_inserter(v_real_index));
+
+    std::vector<Vertex> newV(v_real_index.size());
+    for (size_t i = 0; i < v_real_index.size(); i++) {
+        const Vertex& v = V.at(v_real_index.at(i));
+        Vertex& newv = newV.at(i);
+        newv = v;
+        newv.id = i;
+        newv.type = v.type;
+        newv.isCorner = v.isCorner;
+		newv.label = v.label;
+		newv.patch_id = v.patch_id;
+		newv.isSpecial = v.isSpecial;
+		newv.isConvex = v.isConvex;
+		newv.labels = v.labels;
+		newv.patch_ids = v.patch_ids;
+		newv.idealValence = v.idealValence;
+    }
+    V = newV;
+    for (size_t i = 0; i < newV.size(); i++) {
+        Vertex& v = V.at(i);
+        Vertex& newv = newV.at(i);
+        v.id = i;
+        v.type = newv.type;
+        v.isCorner = newv.isCorner;
+		v.label = newv.label;
+		v.patch_id = newv.patch_id;
+		v.isSpecial = newv.isSpecial;
+		v.isConvex = newv.isConvex;
+		v.labels = newv.labels;
+		v.patch_ids = newv.patch_ids;
+        v.idealValence = newv.idealValence;
+    }
+    m_refIds = v_real_index;
+    //////////////////////////////////////////////////////
+    std::map<size_t, size_t> v_v;
+    size_t index = 0;
+    for (size_t i = 0; i < v_real_index.size(); i++) {
+        v_v[v_real_index.at(i)] = i;
+    }
+
+    std::vector<Cell> newC;
+    newC.reserve(C.size());
+    Cell cell;
+    for (auto& c : C) {
+        cell.Vids = c.Vids;
+        for (auto& vid : cell.Vids)
+            vid = v_v[vid];
+        cell.id = c.id;
+        cell.cellType = c.cellType;
+        newC.push_back(cell);
+    }
+    C = newC;
+
+//    if (m_cellType == QUAD) {
+//        std::vector<Face> newF;
+//        for (size_t i = 0; i < F.size(); i++) {
+//            Face f;
+//            if (m_cellType == HEXAHEDRA) f.Vids.resize(8);
+//            else if (m_cellType == TETRAHEDRA) f.Vids.resize(4);
+//            else if (m_cellType == QUAD) f.Vids.resize(4);
+//            else if (m_cellType == TRIANGLE) f.Vids.resize(3);
+//            const Face& cell = F.at(i);
+//            for (size_t j = 0; j < F.at(i).Vids.size(); j++) {
+//                f.Vids.at(j) = v_v[cell.Vids.at(j)];
+//                f.id = i;
+//            }
+//            newF.push_back(f);
+//        }
+//        F.resize(newC.size());
+//        F = newF;
+//    }
+}
+
+bool Mesh::IsPointInTriangle(const glm::dvec3& P, const glm::dvec3& A, const glm::dvec3& B, const glm::dvec3& C) const {
     // Compute vectors
-    const glm::vec3 v0 = C - A;
-    const glm::vec3 v1 = B - A;
-    const glm::vec3 v2 = P - A;
+    const glm::dvec3 v0 = C - A;
+    const glm::dvec3 v1 = B - A;
+    const glm::dvec3 v2 = P - A;
 
     // Compute dot products
     const double dot00 = glm::dot(v0, v0);
@@ -888,16 +1017,16 @@ bool Mesh::IsPointInTriangle(const glm::vec3& P, const glm::vec3& A, const glm::
     return (u >= -2e-1) && (v >= -2e-1) && (u + v <= 1.3);
 }
 
-bool Mesh::IsPointInFace(const glm::vec3& P, const Face& face) const
+bool Mesh::IsPointInFace(const glm::dvec3& P, const Face& face) const
 {
-    const glm::vec3& A = V.at(face.Vids[0]).xyz();
-    const glm::vec3& B = V.at(face.Vids[1]).xyz();
-    const glm::vec3& C = V.at(face.Vids[2]).xyz();
+    const glm::dvec3& A = V.at(face.Vids[0]).xyz();
+    const glm::dvec3& B = V.at(face.Vids[1]).xyz();
+    const glm::dvec3& C = V.at(face.Vids[2]).xyz();
 
     // Compute vectors
-    const glm::vec3 v0 = C - A;
-    const glm::vec3 v1 = B - A;
-    const glm::vec3 v2 = P - A;
+    const glm::dvec3 v0 = C - A;
+    const glm::dvec3 v1 = B - A;
+    const glm::dvec3 v2 = P - A;
 
     // Compute dot products
     const double dot00 = glm::dot(v0, v0);
@@ -934,15 +1063,15 @@ bool Mesh::IsPointInFace(const glm::vec3& P, const Face& face) const
 //    return false;
 //}
 //
-//double Area(const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2)
+//double Area(const glm::dvec3& p0, const glm::dvec3& p1, const glm::dvec3& p2)
 //{
-//    const glm::vec3 v10 = p0 - p1;
-//    const glm::vec3 v12 = p2 - p1;
-//    const glm::vec3 normal = glm::cross(v12, v10);
+//    const glm::dvec3 v10 = p0 - p1;
+//    const glm::dvec3 v12 = p2 - p1;
+//    const glm::dvec3 normal = glm::cross(v12, v10);
 //    return 0.5f * glm::length(normal);
 //}
 //
-//bool Mesh::IsPointInTriangle(const glm::vec3& p, const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2) const
+//bool Mesh::IsPointInTriangle(const glm::dvec3& p, const glm::dvec3& p0, const glm::dvec3& p1, const glm::dvec3& p2) const
 //{
 ////    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(4, 3);
 ////    Eigen::VectorXd b = Eigen::VectorXd::Zero(4);
@@ -971,9 +1100,9 @@ bool Mesh::IsPointInFace(const glm::vec3& P, const Face& face) const
 
 struct d_i {
     double d;
-    glm::vec3 i;
+    glm::dvec3 i;
     d_i(): d(0.0){}
-    d_i(const double d, const glm::vec3 i)
+    d_i(const double d, const glm::dvec3 i)
     : d(d), i(i) {}
     d_i(const d_i& r)
     : d(r.d), i(r.i) {}
@@ -982,7 +1111,7 @@ struct d_i {
     }
 };
 
-glm::vec3 Mesh::GetProjectLocation(const glm::vec3& p) const {
+glm::dvec3 Mesh::GetProjectLocation(const glm::dvec3& p) const {
     for (size_t i = 0; i < F.size(); i++) {
         const Face& face = F.at(i);
         if (!face.isBoundary) continue;
@@ -991,16 +1120,16 @@ glm::vec3 Mesh::GetProjectLocation(const glm::vec3& p) const {
         const double d2 = glm::length(V[face.Vids[1]].xyz() - V[face.Vids[2]].xyz());
         const double d3 = glm::length(V[face.Vids[2]].xyz() - V[face.Vids[0]].xyz());
         const double d = 0.33333333 * (d1 + d2 + d3);
-        glm::vec3 intersection;
+        glm::dvec3 intersection;
         const double distance = plane.DistanseFromPoint(p, intersection);
         if (distance < 1.0 * avgEdgeLength && distance < 1.0 * d) if (IsPointInFace(intersection, face))
         //if (IsPointInTriangle(intersection, V[face.Vids[0]].xyz(), V[face.Vids[1]].xyz(), V[face.Vids[2]].xyz()))
         return intersection;
     }
     //std::cerr << "\033[1;31mERROR in GetProjectLocation(" << p.x << "," << p.y << "," << p.z << ")\033[0m\n";
-    return glm::vec3(0.0, 0.0, 0.0);
+    return glm::dvec3(0.0, 0.0, 0.0);
 }
-glm::vec3 Mesh::GetProjectLocationOnRefSurface(const glm::vec3& p, const Vertex& refV) const {
+glm::dvec3 Mesh::GetProjectLocationOnRefSurface(const glm::dvec3& p, const Vertex& refV) const {
     std::vector<d_i> d_is;
     for (size_t i = 0; i < refV.twoRingNeighborSurfaceFaceIds.size(); i++) {
         const Face& face = F.at(refV.twoRingNeighborSurfaceFaceIds[i]);
@@ -1011,7 +1140,7 @@ glm::vec3 Mesh::GetProjectLocationOnRefSurface(const glm::vec3& p, const Vertex&
             const double d2 = glm::length(V[face.Vids[1]].xyz() - V[face.Vids[2]].xyz());
             const double d3 = glm::length(V[face.Vids[2]].xyz() - V[face.Vids[0]].xyz());
             const double d = 0.33333333 * (d1 + d2 + d3);
-            glm::vec3 intersection;
+            glm::dvec3 intersection;
             const double distance = plane.DistanseFromPoint(p, intersection);
             if (distance < 1.0 * avgEdgeLength && distance < 1.0 * d) if (IsPointInFace(intersection, face)) d_is.push_back(d_i(distance, intersection));
 //            if (face.Vids.size() == 3)
@@ -1020,7 +1149,7 @@ glm::vec3 Mesh::GetProjectLocationOnRefSurface(const glm::vec3& p, const Vertex&
     }
     if (d_is.empty()) {
         //std::cerr << "\033[1;31mERROR in GetProjectLocationOfVertex " << p.id << "(" << p.x << "," << p.y << "," << p.z << ")\033[0m\n";
-        return glm::vec3(0.0, 0.0, 0.0);
+        return glm::dvec3(0.0, 0.0, 0.0);
     }
 
     std::sort(d_is.begin(), d_is.end());
@@ -1028,7 +1157,7 @@ glm::vec3 Mesh::GetProjectLocationOnRefSurface(const glm::vec3& p, const Vertex&
     return d_is[0].i;
 }
 
-glm::vec3 Mesh::GetProjectLocation(const Vertex& p) const {
+glm::dvec3 Mesh::GetProjectLocation(const Vertex& p) const {
     std::vector<d_i> d_is;
     for (size_t i = 0; i < F.size(); i++) {
         const Face& face = F.at(i);
@@ -1039,7 +1168,7 @@ glm::vec3 Mesh::GetProjectLocation(const Vertex& p) const {
             const double d2 = glm::length(V[face.Vids[1]].xyz() - V[face.Vids[2]].xyz());
             const double d3 = glm::length(V[face.Vids[2]].xyz() - V[face.Vids[0]].xyz());
             const double d = 0.33333333 * (d1 + d2 + d3);
-            glm::vec3 intersection;
+            glm::dvec3 intersection;
             const double distance = plane.DistanseFromPoint(p, intersection);
             if (distance < 1.0 * avgEdgeLength && distance < 1.0 * d) if (IsPointInFace(intersection, face))
             //if (IsPointInTriangle(intersection, V[face.Vids[(0 + j) % 4]].xyz(), V[face.Vids[(1 + j) % 4]].xyz(), V[face.Vids[(2 + j) % 4]].xyz()))
@@ -1052,14 +1181,14 @@ glm::vec3 Mesh::GetProjectLocation(const Vertex& p) const {
     }
     if (d_is.empty()) {
         //std::cerr << "\033[1;31mERROR in GetProjectLocationOfVertex " << p.id << "(" << p.x << "," << p.y << "," << p.z << ")\033[0m\n";
-        return glm::vec3(0.0, 0.0, 0.0);
+        return glm::dvec3(0.0, 0.0, 0.0);
     }
 
     std::sort(d_is.begin(), d_is.end());
     //std::vector<d_i>::iterator iter = std::unique(d_is.begin(), d_is.end());
     return d_is[0].i;
 }
-glm::vec3 Mesh::GetProjectLocationFast(const Vertex& p) const {
+glm::dvec3 Mesh::GetProjectLocationFast(const Vertex& p) const {
     std::vector<d_i> d_is;
     for (size_t i = 0; i < p.twoRingNeighborSurfaceFaceIds.size(); i++) {
         const Face& face = F.at(p.twoRingNeighborSurfaceFaceIds[i]);
@@ -1070,7 +1199,7 @@ glm::vec3 Mesh::GetProjectLocationFast(const Vertex& p) const {
             const double d2 = glm::length(V[face.Vids[1]].xyz() - V[face.Vids[2]].xyz());
             const double d3 = glm::length(V[face.Vids[2]].xyz() - V[face.Vids[0]].xyz());
             const double d = 0.33333333 * (d1 + d2 + d3);
-            glm::vec3 intersection;
+            glm::dvec3 intersection;
             const double distance = plane.DistanseFromPoint(p, intersection);
             if (distance < 1.0 * avgEdgeLength && distance < 1.0 * d) if (IsPointInFace(intersection, face))
             //if (IsPointInTriangle(intersection, V[face.Vids[(0 + j) % 4]].xyz(), V[face.Vids[(1 + j) % 4]].xyz(), V[face.Vids[(2 + j) % 4]].xyz()))
@@ -1083,14 +1212,14 @@ glm::vec3 Mesh::GetProjectLocationFast(const Vertex& p) const {
     }
     if (d_is.empty()) {
         //std::cerr << "\033[1;31mERROR in GetProjectLocationOfVertex " << p.id << "(" << p.x << "," << p.y << "," << p.z << ")\033[0m\n";
-        return glm::vec3(0.0, 0.0, 0.0);
+        return glm::dvec3(0.0, 0.0, 0.0);
     }
 
     std::sort(d_is.begin(), d_is.end());
     //std::vector<d_i>::iterator iter = std::unique(d_is.begin(), d_is.end());
     return d_is[0].i;
 }
-glm::vec3 Mesh::GetProjectLocationOnTargetSurface(const glm::vec3& p, const Vertex& refV, const Mesh& targetSurfaceMesh) const {
+glm::dvec3 Mesh::GetProjectLocationOnTargetSurface(const glm::dvec3& p, const Vertex& refV, const Mesh& targetSurfaceMesh) const {
     std::vector<d_i> d_is;
     for (size_t i = 0; i < refV.twoRingNeighborSurfaceFaceIds.size(); i++) {
         const Face& face = targetSurfaceMesh.F.at(refV.twoRingNeighborSurfaceFaceIds[i]);
@@ -1101,7 +1230,7 @@ glm::vec3 Mesh::GetProjectLocationOnTargetSurface(const glm::vec3& p, const Vert
             const double d2 = glm::length(targetSurfaceMesh.V[face.Vids[1]].xyz() - targetSurfaceMesh.V[face.Vids[2]].xyz());
             const double d3 = glm::length(targetSurfaceMesh.V[face.Vids[2]].xyz() - targetSurfaceMesh.V[face.Vids[0]].xyz());
             const double d = 0.33333333 * (d1 + d2 + d3);
-            glm::vec3 intersection;
+            glm::dvec3 intersection;
             const double distance = plane.DistanseFromPoint(p, intersection);
             if (distance < 1.0 * avgEdgeLength && distance < 1.0 * d) if (targetSurfaceMesh.IsPointInFace(intersection, face)) d_is.push_back(d_i(distance, intersection));
 //            if (face.Vids.size() == 3)
@@ -1110,7 +1239,7 @@ glm::vec3 Mesh::GetProjectLocationOnTargetSurface(const glm::vec3& p, const Vert
     }
     if (d_is.empty()) {
         //std::cerr << "\033[1;31mERROR in GetProjectLocationOfVertex " << p.id << "(" << p.x << "," << p.y << "," << p.z << ")\033[0m\n";
-        return glm::vec3(0.0, 0.0, 0.0);
+        return glm::dvec3(0.0, 0.0, 0.0);
     }
 
     std::sort(d_is.begin(), d_is.end());
@@ -1119,31 +1248,31 @@ glm::vec3 Mesh::GetProjectLocationOnTargetSurface(const glm::vec3& p, const Vert
 }
 
 void Mesh::ProjectTo(const Mesh& mesh) {
-    glm::vec3 vm(0.0, 0.0, 0.0);
+    glm::dvec3 vm(0.0, 0.0, 0.0);
     GetAvgEdgeLength();
 #pragma omp parallel for
     for (size_t i = 0; i < V.size(); i++) {
         Vertex& v = V.at(i);
         if (!v.isBoundary) continue;
-        const glm::vec3 newv = mesh.GetProjectLocation(v);
+        const glm::dvec3 newv = mesh.GetProjectLocation(v);
         if (vm != newv) v = newv;
     }
 }
 
 void Mesh::FastProjectTo(const Mesh& mesh) {
-    glm::vec3 vm(0.0, 0.0, 0.0);
+    glm::dvec3 vm(0.0, 0.0, 0.0);
     GetAvgEdgeLength();
 #pragma omp parallel for
     for (size_t i = 0; i < V.size(); i++) {
         Vertex& v = V.at(i);
         if (!v.isBoundary) continue;
-        const glm::vec3 newv = mesh.GetProjectLocationFast(v);
+        const glm::dvec3 newv = mesh.GetProjectLocationFast(v);
         if (vm != newv) v = newv;
     }
 }
 
 void Mesh::ProjectToRefMesh(const Mesh& refMesh) {
-    glm::vec3 vm(0.0, 0.0, 0.0);
+    glm::dvec3 vm(0.0, 0.0, 0.0);
     GetAvgEdgeLength();
 #pragma omp parallel for
     for (size_t i = 0; i < V.size(); i++) {
@@ -1151,13 +1280,13 @@ void Mesh::ProjectToRefMesh(const Mesh& refMesh) {
         if (!v.isBoundary) continue;
         const Vertex& refV = refMesh.V.at(m_refIds[i]);
         if (!refV.isBoundary) continue;
-        const glm::vec3 newv = refMesh.GetProjectLocation(refV);
+        const glm::dvec3 newv = refMesh.GetProjectLocation(refV);
         if (vm != newv) v = newv;
     }
 }
 
 void Mesh::ProjectToTargetSurface(const Mesh& refMesh, const Mesh& targetSurfaceMesh) {
-    glm::vec3 vm(0.0, 0.0, 0.0);
+    glm::dvec3 vm(0.0, 0.0, 0.0);
     GetAvgEdgeLength();
 #pragma omp parallel for
     for (size_t i = 0; i < V.size(); i++) {
@@ -1165,7 +1294,7 @@ void Mesh::ProjectToTargetSurface(const Mesh& refMesh, const Mesh& targetSurface
         if (!v.isBoundary) continue;
         const Vertex& refV = refMesh.V.at(m_refIds[i]);
         if (!refV.isBoundary) continue;
-        const glm::vec3 newv = refMesh.GetProjectLocationOnTargetSurface(v.xyz(), refV, targetSurfaceMesh);
+        const glm::dvec3 newv = refMesh.GetProjectLocationOnTargetSurface(v.xyz(), refV, targetSurfaceMesh);
         if (vm != newv) v = newv;
     }
 }
@@ -1187,8 +1316,8 @@ double Mesh::GetAvgEdgeLength()
     return avgEdgeLength;
 }
 
-glm::vec3 Mesh::GetFaceCenter(const Face& f) {
-    glm::vec3 center(0.0, 0.0, 0.0);
+glm::dvec3 Mesh::GetFaceCenter(const Face& f) {
+    glm::dvec3 center(0.0, 0.0, 0.0);
     for (size_t k = 0; k < f.Vids.size(); k++) {
         const Vertex& f_v = V.at(f.Vids[k]);
         center += f_v.xyz();
@@ -1213,7 +1342,7 @@ double Mesh::SmoothVolume(const SmoothMethod smoothMethod/* = LAPLACE_EDGE*/) {
                 if (smoothMethod == LAPLACE_EDGE) {
                     newV.at(i) = LapLace(v);
                 } else if (smoothMethod == LAPLACE_FACE_CENTER) {
-                    glm::vec3 sum(0.0, 0.0, 0.0);
+                    glm::dvec3 sum(0.0, 0.0, 0.0);
                     int count = 0;
                     for (size_t j = 0; j < v.N_Fids.size(); j++) {
                         const Face& f = F.at(v.N_Fids[j]);
@@ -1267,7 +1396,7 @@ double Mesh::SmoothSurface(size_t iters/* = 1*/, const SmoothMethod smoothMethod
                     newV.at(i) = LapLace(v, treatSharpFeatureAsRegular, treatCornerAsRegular);
                 }
                 else if (smoothMethod == LAPLACE_FACE_CENTER) {
-                    glm::vec3 sum(0.0, 0.0, 0.0);
+                    glm::dvec3 sum(0.0, 0.0, 0.0);
                     int count = 0;
                     for (size_t j = 0; j < v.N_Fids.size(); j++) {
                         const Face& f = F.at(v.N_Fids[j]);
@@ -1288,7 +1417,7 @@ double Mesh::SmoothSurface(size_t iters/* = 1*/, const SmoothMethod smoothMethod
                     newV.at(i) = LapLace(v);
                 }
                 else if (smoothMethod == LAPLACE_FACE_CENTER) {
-                    glm::vec3 sum(0.0, 0.0, 0.0);
+                    glm::dvec3 sum(0.0, 0.0, 0.0);
                     int count = 0;
                     for (size_t j = 0; j < v.N_Fids.size(); j++) {
                         const Face& f = F.at(v.N_Fids[j]);
@@ -1458,13 +1587,13 @@ double Mesh::SmoothAndProjectSurface(const Mesh& mesh, size_t iters/* = 1*/, con
             if (v.type == REGULAR || (v.type == FEATURE && treatSharpFeatureAsRegular) || (v.type == CORNER && treatCornerAsRegular))
             {
                 if (smoothMethod == LAPLACE_EDGE) {
-                    const glm::vec3 smoothedv = LapLace(v, treatSharpFeatureAsRegular, treatCornerAsRegular);
-                    const glm::vec3 newv = mesh.GetProjectLocation(smoothedv);
+                    const glm::dvec3 smoothedv = LapLace(v, treatSharpFeatureAsRegular, treatCornerAsRegular);
+                    const glm::dvec3 newv = mesh.GetProjectLocation(smoothedv);
                     if (!preserveQuality) {
                         V.at(i) = newv;
                     }
                     else {
-                        const glm::vec3 oldv = V.at(i).xyz();
+                        const glm::dvec3 oldv = V.at(i).xyz();
                         double oldMinSJ = 0;
                         double oldAvgSJ = 0;
                         GetQuality(V.at(i), oldMinSJ, oldAvgSJ);
@@ -1481,7 +1610,7 @@ double Mesh::SmoothAndProjectSurface(const Mesh& mesh, size_t iters/* = 1*/, con
                     }
                 }
                 else if (smoothMethod == LAPLACE_FACE_CENTER) {
-                    glm::vec3 sum(0.0, 0.0, 0.0);
+                    glm::dvec3 sum(0.0, 0.0, 0.0);
                     int count = 0;
                     for (size_t j = 0; j < v.N_Fids.size(); j++) {
                         const Face& f = F.at(v.N_Fids[j]);
@@ -1502,7 +1631,7 @@ double Mesh::SmoothAndProjectSurface(const Mesh& mesh, size_t iters/* = 1*/, con
                     newV.at(i) = LapLace(v);
                 }
                 else if (smoothMethod == LAPLACE_FACE_CENTER) {
-                    glm::vec3 sum(0.0, 0.0, 0.0);
+                    glm::dvec3 sum(0.0, 0.0, 0.0);
                     int count = 0;
                     for (size_t j = 0; j < v.N_Fids.size(); j++) {
                         const Face& f = F.at(v.N_Fids[j]);
@@ -1543,14 +1672,14 @@ double Mesh::ProjectSurface(const Mesh& mesh, size_t iters/* = 1*/, const Smooth
             if (v.type == REGULAR || (v.type == FEATURE && treatSharpFeatureAsRegular) || (v.type == CORNER && treatCornerAsRegular))
             {
                 if (smoothMethod == LAPLACE_EDGE) {
-                    //const glm::vec3 smoothedv = LapLace(v, treatSharpFeatureAsRegular, treatCornerAsRegular);
-                    const glm::vec3 smoothedv = v.xyz();
-                    const glm::vec3 newv = mesh.GetProjectLocation(smoothedv);
+                    //const glm::dvec3 smoothedv = LapLace(v, treatSharpFeatureAsRegular, treatCornerAsRegular);
+                    const glm::dvec3 smoothedv = v.xyz();
+                    const glm::dvec3 newv = mesh.GetProjectLocation(smoothedv);
                     if (!preserveQuality) {
                         V.at(i) = newv;
                     }
                     else {
-                        const glm::vec3 oldv = V.at(i).xyz();
+                        const glm::dvec3 oldv = V.at(i).xyz();
                         double oldMinSJ = 0;
                         double oldAvgSJ = 0;
                         GetQuality(V.at(i), oldMinSJ, oldAvgSJ);
@@ -1567,7 +1696,7 @@ double Mesh::ProjectSurface(const Mesh& mesh, size_t iters/* = 1*/, const Smooth
                     }
                 }
                 else if (smoothMethod == LAPLACE_FACE_CENTER) {
-                    glm::vec3 sum(0.0, 0.0, 0.0);
+                    glm::dvec3 sum(0.0, 0.0, 0.0);
                     int count = 0;
                     for (size_t j = 0; j < v.N_Fids.size(); j++) {
                         const Face& f = F.at(v.N_Fids[j]);
@@ -1588,7 +1717,7 @@ double Mesh::ProjectSurface(const Mesh& mesh, size_t iters/* = 1*/, const Smooth
                     newV.at(i) = LapLace(v);
                 }
                 else if (smoothMethod == LAPLACE_FACE_CENTER) {
-                    glm::vec3 sum(0.0, 0.0, 0.0);
+                    glm::dvec3 sum(0.0, 0.0, 0.0);
                     int count = 0;
                     for (size_t j = 0; j < v.N_Fids.size(); j++) {
                         const Face& f = F.at(v.N_Fids[j]);
@@ -1628,14 +1757,14 @@ double Mesh::SmoothVolume(const Mesh& mesh, size_t iters/* = 1*/, const SmoothMe
             //if (v.type == REGULAR || (v.type == FEATURE && treatSharpFeatureAsRegular) || (v.type == CORNER && treatCornerAsRegular))
             {
                 if (smoothMethod == LAPLACE_EDGE) {
-                    const glm::vec3 smoothedv = LapLace(v);
-                    //const glm::vec3 newv = mesh.GetProjectLocation(smoothedv);
-                    const glm::vec3 newv = smoothedv;
+                    const glm::dvec3 smoothedv = LapLace(v);
+                    //const glm::dvec3 newv = mesh.GetProjectLocation(smoothedv);
+                    const glm::dvec3 newv = smoothedv;
                     if (!preserveQuality) {
                         V.at(i) = newv;
                     }
                     else {
-                        const glm::vec3 oldv = V.at(i).xyz();
+                        const glm::dvec3 oldv = V.at(i).xyz();
                         double oldMinSJ = 0;
                         double oldAvgSJ = 0;
                         GetQuality(V.at(i), oldMinSJ, oldAvgSJ);
@@ -1652,7 +1781,7 @@ double Mesh::SmoothVolume(const Mesh& mesh, size_t iters/* = 1*/, const SmoothMe
                     }
                 }
                 else if (smoothMethod == LAPLACE_FACE_CENTER) {
-                    glm::vec3 sum(0.0, 0.0, 0.0);
+                    glm::dvec3 sum(0.0, 0.0, 0.0);
                     int count = 0;
                     for (size_t j = 0; j < v.N_Fids.size(); j++) {
                         const Face& f = F.at(v.N_Fids[j]);
@@ -1721,7 +1850,7 @@ bool JudgeDirection(const Mesh& mesh, const Cell& c) {
     else return true;
 }
 
-static float _GetScaledJacobian(const glm::vec3& i, const glm::vec3& j, const glm::vec3& k) {
+static float _GetScaledJacobian(const glm::dvec3& i, const glm::dvec3& j, const glm::dvec3& k) {
     const glm::mat3x3 m(i, j, k);
     return glm::determinant(m);
 }
@@ -1742,17 +1871,17 @@ const float Mesh::GetScaledJacobian(const Cell& c) const {
         const Vertex& j = V.at(c1.Vids.at(HexPoint_Points[n][1]));
         const Vertex& k = V.at(c1.Vids.at(HexPoint_Points[n][2]));
 
-        const glm::vec3 ei(i.x - o.x, i.y - o.y, i.z - o.z);
-        const glm::vec3 ej(j.x - o.x, j.y - o.y, j.z - o.z);
-        const glm::vec3 ek(k.x - o.x, k.y - o.y, k.z - o.z);
+        const glm::dvec3 ei(i.x - o.x, i.y - o.y, i.z - o.z);
+        const glm::dvec3 ej(j.x - o.x, j.y - o.y, j.z - o.z);
+        const glm::dvec3 ek(k.x - o.x, k.y - o.y, k.z - o.z);
 
         const float length_i = glm::length(ei);
         const float length_j = glm::length(ej);
         const float length_k = glm::length(ek);
 
-        const glm::vec3 ni(ei.x / length_i, ei.y / length_i, ei.z / length_i);
-        const glm::vec3 nj(ej.x / length_j, ej.y / length_j, ej.z / length_j);
-        const glm::vec3 nk(ek.x / length_k, ek.y / length_k, ek.z / length_k);
+        const glm::dvec3 ni(ei.x / length_i, ei.y / length_i, ei.z / length_i);
+        const glm::dvec3 nj(ej.x / length_j, ej.y / length_j, ej.z / length_j);
+        const glm::dvec3 nk(ek.x / length_k, ek.y / length_k, ek.z / length_k);
 
         float scaledJacobian = _GetScaledJacobian(ni, nj, nk);
         minScaledJacobian = minScaledJacobian < scaledJacobian ? minScaledJacobian : scaledJacobian;
@@ -1811,9 +1940,9 @@ void Mesh::OutputBadCells(const std::vector<size_t>& badCellIds, const char* fil
     writer.WriteFile();
 }
 
-glm::vec3 Mesh::LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular/* = false*/, const bool treatCornerAsRegular/* = false*/) {
+glm::dvec3 Mesh::LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular/* = false*/, const bool treatCornerAsRegular/* = false*/) {
     if (v.type == REGULAR || (v.type == FEATURE && treatSharpFeatureAsRegular) || (v.type == CORNER && treatCornerAsRegular)) {
-        glm::vec3 sum(0.0, 0.0, 0.0);
+        glm::dvec3 sum(0.0, 0.0, 0.0);
         int count = 0;
         for (size_t j = 0; j < v.N_Vids.size(); j++) {
             const Vertex& n_v = V.at(v.N_Vids[j]);
@@ -1821,9 +1950,9 @@ glm::vec3 Mesh::LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular/*
             sum += n_v.xyz();
             count++;
         }
-        return glm::vec3(sum.x / count, sum.y / count, sum.z / count);
+        return glm::dvec3(sum.x / count, sum.y / count, sum.z / count);
     } else if (v.type == FEATURE) {
-        glm::vec3 sum(0.0, 0.0, 0.0);
+        glm::dvec3 sum(0.0, 0.0, 0.0);
         int count = 0;
         for (size_t j = 0; j < v.N_Vids.size(); j++) {
             const Vertex& n_v = V.at(v.N_Vids[j]);
@@ -1834,23 +1963,23 @@ glm::vec3 Mesh::LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular/*
         }
         if (count == 1) {
             int c = 0;
-            sum = glm::vec3(0.0, 0.0, 0.0);
+            sum = glm::dvec3(0.0, 0.0, 0.0);
             for (size_t j = 0; j < v.N_Vids.size(); j++) {
                 const Vertex& n_v = V.at(v.N_Vids[j]);
                 if (!n_v.isBoundary) continue;
                 sum += n_v.xyz();
                 c++;
             }
-            return glm::vec3(sum.x / c, sum.y / c, sum.z / c);
+            return glm::dvec3(sum.x / c, sum.y / c, sum.z / c);
         } else if (count == 2) {
-            return glm::vec3(sum.x / count, sum.y / count, sum.z / count);
+            return glm::dvec3(sum.x / count, sum.y / count, sum.z / count);
         } else {
             //std::cerr << "\033[1;31mERROR\033[0m in smoothing Vertex of Sharp Feature!!" << std::endl;
             return v.xyz();
         }
     } else if (v.type == CORNER) return v.xyz();
     else {
-        glm::vec3 sum(0.0, 0.0, 0.0);
+        glm::dvec3 sum(0.0, 0.0, 0.0);
         int count = 0;
         for (size_t j = 0; j < v.N_Vids.size(); j++) {
             const Vertex& n_v = V.at(v.N_Vids[j]);
@@ -1859,14 +1988,14 @@ glm::vec3 Mesh::LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular/*
             sum += n_v.xyz();
             count++;
         }
-        return glm::vec3(sum.x / count, sum.y / count, sum.z / count);
+        return glm::dvec3(sum.x / count, sum.y / count, sum.z / count);
     }
 }
 
-//glm::vec3 Mesh::LapLace(const Vertex& v)
+//glm::dvec3 Mesh::LapLace(const Vertex& v)
 //{
 //    if (v.type == REGULAR || v.type == FEATURE) {
-//        glm::vec3 sum(0.0, 0.0, 0.0);
+//        glm::dvec3 sum(0.0, 0.0, 0.0);
 //        int count = 0;
 //        for (size_t j = 0; j < v.N_Vids.size(); j++) {
 //            const Vertex& n_v = V.at(v.N_Vids[j]);
@@ -1875,10 +2004,10 @@ glm::vec3 Mesh::LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular/*
 //            sum += n_v.xyz();
 //            count++;
 //        }
-//        return glm::vec3(sum.x/count, sum.y/count, sum.z/count);
+//        return glm::dvec3(sum.x/count, sum.y/count, sum.z/count);
 //    }
 //    else if (v.type == FEATURE) {
-//        glm::vec3 sum(0.0, 0.0, 0.0);
+//        glm::dvec3 sum(0.0, 0.0, 0.0);
 //        int count = 0;
 //        for (size_t j = 0; j < v.N_Vids.size(); j++) {
 //            const Vertex& n_v = V.at(v.N_Vids[j]);
@@ -1891,7 +2020,7 @@ glm::vec3 Mesh::LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular/*
 //        }
 //        if (count == 1) {
 //            int c = 0;
-//            sum = glm::vec3 (0.0, 0.0, 0.0);
+//            sum = glm::dvec3 (0.0, 0.0, 0.0);
 //            for (size_t j = 0; j < v.N_Vids.size(); j++) {
 //                const Vertex& n_v = V.at(v.N_Vids[j]);
 //                if (!n_v.isBoundary)
@@ -1899,10 +2028,10 @@ glm::vec3 Mesh::LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular/*
 //                sum += n_v.xyz();
 //                c++;
 //            }
-//            return glm::vec3(sum.x/c, sum.y/c, sum.z/c);
+//            return glm::dvec3(sum.x/c, sum.y/c, sum.z/c);
 //        }
 //        else if (count == 2) {
-//            return glm::vec3(sum.x/count, sum.y/count, sum.z/count);
+//            return glm::dvec3(sum.x/count, sum.y/count, sum.z/count);
 //        }
 //        else {
 //            std::cout << "\033[1;31mERROR\033[0m in smoothing Vertex of Sharp Feature!!" << std::endl;
@@ -1925,9 +2054,16 @@ static void set_cross(const std::vector<size_t>& set1, const std::vector<size_t>
     }
 }
 
+std::vector<size_t> unique(const std::vector<size_t>& s) {
+	std::vector<size_t> res;
+	std::set<size_t> ss(s.begin(), s.end());
+	std::copy(ss.begin(), ss.end(), std::back_inserter(res));
+	return res;
+}
+
 void Mesh::BuildF()
 {
-    if (m_cellType == TRIANGLE || m_cellType == QUAD) {
+    if (m_cellType == TRIANGLE || m_cellType == QUAD || m_cellType == POLYGON) {
         F.resize(C.size());
         for (size_t i = 0; i < C.size(); i++) {
             F[i].Vids = C[i].Vids;
@@ -1997,13 +2133,13 @@ void Mesh::BuildF()
             ////////////////////////////////////////////////
             std::vector<bool> Vs_flags(V.size(), false);
             for (int i = 0; i < F.size(); i++) {
-                for (int j = 0; j < 3; j++)
+                for (int j = 0; j < 4; j++)
                     Vs_flags[F[i].Vids[j]] = true;
                 for (int j = 0; j < F[i].N_Cids.size(); j++) {
                     int nhid = F[i].N_Cids[j];
                     for (int k = 0; k < 4; k++) {
                         bool have_true = false;
-                        for (int m = 0; m < 3; m++)
+                        for (int m = 0; m < 4; m++)
                             if (Vs_flags[F[C[nhid].Fids[k]].Vids[m]]) {
                                 have_true = true;
                                 break;
@@ -2011,6 +2147,103 @@ void Mesh::BuildF()
                         if (!have_true) {
                             F[i].N_Fids.push_back(C[nhid].Fids[k]);
                             break;
+                        }
+                    }
+                }
+            }
+        }
+        else if (m_cellType == POLYGON) {
+            for (size_t i = 0; i < F.size(); i++) {
+                auto& f = F[i];
+                f.Eids.resize(f.Vids.size());
+                if (f.Vids.size() == 4) {
+                    for (size_t j = 0; j < 4; j++) {
+                        bool found = false;
+                        for (size_t k = 0; k < V[F[i].Vids[j]].N_Eids.size(); k++) {
+                            size_t ne = V[F[i].Vids[j]].N_Eids[k];
+                            for (size_t m = 0; m < V[F[i].Vids[(j + 1) % 4]].N_Eids.size(); m++) {
+                                if (ne == V[F[i].Vids[(j + 1) % 4]].N_Eids[m]) {
+                                    E[ne].N_Fids.push_back(i);
+                                    F[i].Eids[j] = ne;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (found) break;
+                        }
+                    }
+                } else if (f.Vids.size() == 3) {
+                    for (size_t j = 0; j < 3; j++) {
+                        bool found = false;
+                        for (size_t k = 0; k < V[F[i].Vids[j]].N_Eids.size(); k++) {
+                            size_t ne = V[F[i].Vids[j]].N_Eids[k];
+                            for (size_t m = 0; m < V[F[i].Vids[(j + 1) % 3]].N_Eids.size(); m++) {
+                                if (ne == V[F[i].Vids[(j + 1) % 3]].N_Eids[m]) {
+                                    E[ne].N_Fids.push_back(i);
+                                    F[i].Eids[j] = ne;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (found) break;
+                        }
+                    }
+                } else {
+					for (size_t j = 0; j < f.Vids.size(); j++) {
+						bool found = false;
+						for (size_t k = 0; k < V[f.Vids[j]].N_Eids.size(); k++) {
+							size_t ne = V[f.Vids[j]].N_Eids[k];
+							for (size_t m = 0; m < V[f.Vids[(j + 1) % f.Vids.size()]].N_Eids.size(); m++) {
+								if (ne == V[f.Vids[(j + 1) % f.Vids.size()]].N_Eids[m]) {
+									E[ne].N_Fids.push_back(i);
+									f.Eids[j] = ne;
+									found = true;
+									break;
+								}
+							}
+							if (found) break;
+						}
+					}
+				}
+            }
+            ////////////////////////////////////////////////
+            std::vector<bool> Vs_flags(V.size(), false);
+            for (int i = 0; i < F.size(); i++) {
+                const auto& f = F[i];
+                if (f.Vids.size() == 4) {
+                    for (int j = 0; j < 4; j++)
+                        Vs_flags[F[i].Vids[j]] = true;
+                    for (int j = 0; j < F[i].N_Cids.size(); j++) {
+                        int nhid = F[i].N_Cids[j];
+                        for (int k = 0; k < 4; k++) {
+                            bool have_true = false;
+                            for (int m = 0; m < 4; m++)
+                                if (Vs_flags[F[C[nhid].Fids[k]].Vids[m]]) {
+                                    have_true = true;
+                                    break;
+                                }
+                            if (!have_true) {
+                                F[i].N_Fids.push_back(C[nhid].Fids[k]);
+                                break;
+                            }
+                        }
+                    }
+                } else if (f.Vids.size() == 3) {
+                    for (int j = 0; j < 3; j++)
+                        Vs_flags[F[i].Vids[j]] = true;
+                    for (int j = 0; j < F[i].N_Cids.size(); j++) {
+                        int nhid = F[i].N_Cids[j];
+                        for (int k = 0; k < 4; k++) {
+                            bool have_true = false;
+                            for (int m = 0; m < 3; m++)
+                                if (Vs_flags[F[C[nhid].Fids[k]].Vids[m]]) {
+                                    have_true = true;
+                                    break;
+                                }
+                            if (!have_true) {
+                                F[i].N_Fids.push_back(C[nhid].Fids[k]);
+                                break;
+                            }
                         }
                     }
                 }
@@ -2187,6 +2420,260 @@ void Mesh::BuildF()
                 F[i].N_Ortho_4Eids.push_back(N_4Eids);
             }
         }
+    } else if (m_cellType == POLYHEDRA) {
+		F.reserve(C.size() * 6);
+		int F_N = 0;
+		for (auto& c : C) {
+			std::vector<Face> faces;
+			Face temp_face;
+			auto iter = cell_faces.find(c.cellType);
+			auto iterEdge = cell_edges.find(c.cellType);
+			for (auto& face : iter->second) {
+				temp_face.Vids.resize(face.size());
+				for (auto i = 0; i < face.size(); ++i)
+					temp_face.Vids[i] = c.Vids[face[i]];
+				temp_face.Eids.resize(face.size());
+				faces.push_back(temp_face);
+			}
+
+			for (auto& f : faces) {
+				bool have = false;
+				for (auto fvid : f.Vids) {
+					for (auto F_id : V[fvid].N_Fids) {
+						bool all_have = true;
+						for (size_t p : f.Vids) {
+							bool exist_v = false;
+							for (size_t q : F[F_id].Vids)
+								if (p == q) exist_v = true;
+							if (!exist_v) all_have = false;
+						}
+						if (all_have) {
+							have = true;
+							F[F_id].N_Cids.push_back(c.id);
+						}
+					}
+				}
+				if (!have) {
+					f.id = F_N++;
+					for (size_t k = 0; k < f.Vids.size(); k++) {
+						size_t id1 = f.Vids[k];
+						size_t id2 = f.Vids[(k + 1) % f.Vids.size()];
+						bool found = false;
+						for (auto edge1 : V[id1].N_Eids) {
+							for (auto edge2 : V[id2].N_Eids) {
+								if (edge1 == edge2) {
+									f.Eids[k] = edge1;
+									found = true;
+									break;
+								}
+							}
+							if (found)	break;
+						}
+					}
+					F.push_back(f);
+					for (auto fvid : f.Vids)
+						V[fvid].N_Fids.push_back(f.id);
+					F[F.size() - 1].N_Cids.push_back(c.id);
+				}
+			}
+		}
+
+		for (auto& f : F)
+			f.N_Cids = unique(f.N_Cids);
+
+		for (auto& f : F) {
+			for (size_t j = 0; j < f.Vids.size(); j++) {
+				bool found = false;
+				for (auto neid : V[f.Vids[j]].N_Eids) {
+					for (auto neid1 : V[f.Vids[(j + 1) % f.Vids.size()]].N_Eids) {
+						if (neid == neid1) {
+							E[neid].N_Fids.push_back(f.id);
+							f.Eids[j] = neid;
+							found = true;
+							break;
+						}
+					}
+					if (found) break;
+				}
+			}
+		}
+
+		for (auto& f : F)
+			for (auto cid : f.N_Cids)
+				C[cid].N_Fids.push_back(f.id);
+
+		for (auto& c : C) {
+			c.Fids.reserve(6);
+			std::vector<size_t> f_ids = c.N_Fids;
+			c.N_Fids.clear();
+			for (size_t j = 0; j < f_ids.size(); j++) {
+				bool havesame = false;
+				for (size_t k = j + 1; k < f_ids.size(); k++)
+					if (f_ids[j] == f_ids[k])
+						havesame = true;
+				if (!havesame) {
+					c.N_Fids.push_back(f_ids[j]);
+					c.Fids.push_back(F[f_ids[j]].id);
+				}
+			}
+		}
+		////////////////////////////////////////////////
+		std::vector<bool> Vs_flags(V.size(), false);
+		for (auto& f : F) {
+			for (auto fvid : f.Vids)
+				Vs_flags[fvid] = true;
+			for (auto ncid : f.N_Cids) {
+				auto& nc = C.at(ncid);
+				for (auto ncfid : nc.Fids) {
+					auto& ncf = F.at(ncfid);
+					bool have_true = false;
+					for (auto ncfvid : ncf.Vids)
+						if (Vs_flags[ncfvid]) {
+							have_true = true;
+							break;
+						}
+					if (!have_true) {
+						f.N_Fids.push_back(ncfid);
+						break;
+					}
+				}
+			}
+		}
+	} else if (m_cellType == TETRAHEDRA) {
+        F.reserve(C.size() * 4);
+        int F_N = 0;
+        for (size_t i = 0; i < C.size(); i++) {
+            std::vector<Face> hf(4, Face(3, 3));
+            for (size_t j = 0; j < 4; j++)
+                for (size_t k = 0; k < 3; k++)
+                    hf[j].Vids[k] = C[i].Vids[TetFaces[j][k]];
+
+            for (size_t j = 0; j < 4; j++) {
+                bool have = false;
+                for (size_t m = 0; m < 3; m++) {
+                    for (size_t n = 0; n < V[hf[j].Vids[m]].N_Fids.size(); n++) {
+                        const size_t F_id = V[hf[j].Vids[m]].N_Fids[n];
+                        bool all_have = true;
+                        for (size_t p = 0; p < 3; p++) {
+                            bool exist_v = false;
+                            for (size_t q = 0; q < 3; q++)
+                                if (hf[j].Vids[p] == F[F_id].Vids[q])
+                                    exist_v = true;
+                            if (!exist_v)
+                                all_have = false;
+                        }
+                        if (all_have) {
+                            have = true;
+                            F[F_id].N_Cids.push_back(i);
+                        }
+                    }
+                }
+                if (!have) {
+                    hf[j].id = F_N++;
+                    for (size_t k = 0; k < 3; k++) {
+                        size_t id1 = hf[j].Vids[k];
+                        size_t id2 = hf[j].Vids[(k + 1) % 3];
+                        bool found = false;
+                        for (size_t m = 0; m < V[id1].N_Eids.size(); m++) {
+                            int edge1 = V[id1].N_Eids[m];
+                            for (size_t n = 0; n < V[id2].N_Eids.size(); n++) {
+                                size_t edge2 = V[id2].N_Eids[n];
+                                if (edge1 == edge2) {
+                                    hf[j].Eids[k] = edge1;
+                                    found = true;
+                                }
+                                if (found)
+                                    break;
+                            }
+                            if (found)
+                                break;
+                        }
+                    }
+                    F.push_back(hf[j]);
+                    V[hf[j].Vids[0]].N_Fids.push_back(hf[j].id);
+                    V[hf[j].Vids[1]].N_Fids.push_back(hf[j].id);
+                    V[hf[j].Vids[2]].N_Fids.push_back(hf[j].id);
+
+                    F[F.size() - 1].N_Cids.push_back(i);
+                }
+            }
+        }
+
+        for (size_t i = 0; i < F.size(); i++) {
+            std::vector<size_t> N_Cids = F[i].N_Cids;
+            F[i].N_Cids.clear();
+            for (size_t j = 0; j < N_Cids.size(); j++) {
+                bool already = false;
+                for (size_t k = 0; k < F[i].N_Cids.size(); k++) {
+                    if (N_Cids[j] == F[i].N_Cids[k]) {
+                        already = true;
+                        break;
+                    }
+                }
+                if (!already)
+                    F[i].N_Cids.push_back(N_Cids[j]);
+            }
+        }
+
+        for (size_t i = 0; i < F.size(); i++) {
+            for (size_t j = 0; j < 3; j++) {
+                bool found = false;
+                for (size_t k = 0; k < V[F[i].Vids[j]].N_Eids.size(); k++) {
+                    size_t ne = V[F[i].Vids[j]].N_Eids[k];
+                    for (size_t m = 0; m < V[F[i].Vids[(j + 1) % 3]].N_Eids.size(); m++) {
+                        if (ne == V[F[i].Vids[(j + 1) % 3]].N_Eids[m]) {
+                            E[ne].N_Fids.push_back(i);
+                            F[i].Eids[j] = ne;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (found)
+                        break;
+                }
+            }
+        }
+
+        for (size_t i = 0; i < F.size(); i++)
+            for (size_t j = 0; j < F[i].N_Cids.size(); j++)
+                C[F[i].N_Cids[j]].N_Fids.push_back(i);
+
+        for (size_t i = 0; i < C.size(); i++) {
+            C[i].Fids.resize(4);
+            std::vector<size_t> f_ids = C[i].N_Fids;
+            C[i].N_Fids.clear();
+            for (size_t j = 0; j < f_ids.size(); j++) {
+                bool havesame = false;
+                for (size_t k = j + 1; k < f_ids.size(); k++)
+                    if (f_ids[j] == f_ids[k])
+                        havesame = true;
+                if (!havesame) {
+                    C[i].N_Fids.push_back(f_ids[j]);
+                    C[i].Fids[C[i].N_Fids.size() - 1] = F[f_ids[j]].id;
+                }
+            }
+        }
+        ////////////////////////////////////////////////
+        std::vector<bool> Vs_flags(V.size(), false);
+        for (int i = 0; i < F.size(); i++) {
+            for (int j = 0; j < 3; j++)
+                Vs_flags[F[i].Vids[j]] = true;
+            for (int j = 0; j < F[i].N_Cids.size(); j++) {
+                int nhid = F[i].N_Cids[j];
+                for (int k = 0; k < 4; k++) {
+                    bool have_true = false;
+                    for (int m = 0; m < 3; m++)
+                        if (Vs_flags[F[C[nhid].Fids[k]].Vids[m]]) {
+                            have_true = true;
+                            break;
+                        }
+                    if (!have_true) {
+                        F[i].N_Fids.push_back(C[nhid].Fids[k]);
+                        break;
+                    }
+                }
+            }
+        }
     } else if (m_cellType == TETRAHEDRA) {
         F.reserve(C.size() * 4);
         int F_N = 0;
@@ -2337,27 +2824,26 @@ void Mesh::BuildV_F()
 {
 
 }
-void Mesh::BuildV_C()
-{
-    if (m_cellType == HEXAHEDRA || m_cellType == TETRAHEDRA)
-        for (size_t i = 0; i < C.size(); i++)
-            for (size_t j = 0; j < C[i].Vids.size(); j++)
-                V[C[i].Vids[j]].N_Cids.push_back(i);
-    else if (m_cellType == TRIANGLE || m_cellType == QUAD)
-        for (size_t i = 0; i < C.size(); i++)
-            for (size_t j = 0; j < C[i].Vids.size(); j++)
-                V[C[i].Vids[j]].N_Fids.push_back(i);
+void Mesh::BuildV_C() {
+//    if (m_cellType == HEXAHEDRA || m_cellType == TETRAHEDRA || m_cellType == WEDGE || m_cellType == PENTAHEDRON || m_cellType == POLYHEDRA)
+        for (auto& c : C)
+            for (auto vid : c.Vids)
+                V[vid].N_Cids.push_back(c.id);
+    /*else */if (m_cellType == TRIANGLE || m_cellType == QUAD || m_cellType == POLYGON)
+        for (auto& c : C)
+			for (auto vid : c.Vids)
+                V[vid].N_Fids.push_back(c.id);
 }
 void Mesh::BuildE_V() {
-    for (size_t i = 0; i < E.size(); i++) {
-        for (size_t j = 0; j < E[i].Vids.size(); j++) {
-            for (size_t k = 0; k < V[E[i].Vids[j]].N_Vids.size(); k++) {
-                E[i].N_Vids.push_back(V[E[i].Vids[j]].N_Vids[k]);
+    for (auto& e: E) {
+        for (auto vid : e.Vids) {
+            for (auto nvid : V[vid].N_Vids) {
+                e.N_Vids.push_back(nvid);
             }
         }
-        for (size_t j = 0; j < E[i].Vids.size(); j++) {
-            for (std::vector<size_t>::iterator iter = E[i].N_Vids.begin(); iter != E[i].N_Vids.end();) {
-                if (*iter == E[i].Vids[j]) iter = E[i].N_Vids.erase(iter);
+		for (auto vid : e.Vids) {
+            for (auto iter = e.N_Vids.begin(); iter != e.N_Vids.end();) {
+                if (*iter == vid) iter = e.N_Vids.erase(iter);
                 else ++iter;
             }
         }
@@ -2388,9 +2874,18 @@ void Mesh::BuildE_F() {
         }
     }
 }
-void Mesh::BuildE_C()
-{
+void Mesh::BuildE_C() {
+	for (auto& e : E)
+		for (auto cid0 : V[e.Vids[0]].N_Cids)
+			for (auto cid1 : V[e.Vids[1]].N_Cids)
+				if (cid0 == cid1) e.N_Cids.push_back(cid0);
 
+	for (auto& e : E) {
+		std::set<size_t> N_Cids(e.N_Cids.begin(), e.N_Cids.end());
+		e.N_Cids.clear();
+		for (auto ncid : N_Cids)
+			e.N_Cids.push_back(ncid);
+	}
 }
 void Mesh::BuildF_V()
 {
@@ -2479,6 +2974,29 @@ void Mesh::BuildC_E()
                 }
             }
         }
+	else if (m_cellType == POLYHEDRA)
+		for (auto & c : C) {
+			c.Eids.resize(6);
+			auto iter = cell_edges.find(c.cellType);
+			c.Eids.resize(iter->second.size());
+			for (size_t k = 0; k < iter->second.size(); k++) {
+				auto& vids = iter->second[k];
+				Edge e1(vids);
+				for (size_t j = 0; j < c.Fids.size(); j++) {
+					bool found = false;
+					const Face& face = F.at(c.Fids.at(j));
+					for (auto eid : face.Eids) {
+						const Edge& e2 = E[eid];
+						if (e1 == e2) {
+							c.Eids[k] = e2.id;
+							found = true;
+							break;
+						}
+					}
+					if (found) break;
+				}
+			}
+		}
 }
 void Mesh::BuildC_F()
 {
@@ -2522,6 +3040,39 @@ void Mesh::BuildAllConnectivities()
 //    }
 //}
 
+void Mesh::FixOrientation() {
+	if (m_cellType == POLYGON || m_cellType == TRIANGLE || m_cellType == QUAD)
+	for (auto& e : E) {
+		auto& f0 = F[e.N_Fids[0]];
+		auto& f1 = F[e.N_Fids[1]];
+		auto feid = MAXID;
+		for (auto eid : f1.Eids)
+			if (eid == e.id) {
+				feid = eid;
+				break;
+			}
+		auto fvid0 = MAXID;
+		auto fvid1 = MAXID;
+		for (auto i = 0; i < f1.Vids.size(); ++i) {
+			auto fvid0_ = f1.Vids.at(i);
+			auto fvid1_ = f1.Vids.at((i + 1) % f1.Vids.size());
+			if ((fvid0_ == e.Vids[0] && fvid1_ == e.Vids[1]) || (fvid0_ == e.Vids[1] && fvid1_ == e.Vids[0])) {
+				fvid0 = fvid0_;
+				fvid1 = fvid1_;
+				break;
+			}
+		}
+		auto& v0 = V[fvid0];
+		auto& v1 = V[fvid1];
+		auto f0center = 0.25 * (V[f0.Vids[0]].xyz() + V[f0.Vids[1]].xyz() + V[f0.Vids[2]].xyz() + V[f0.Vids[3]].xyz());
+		auto f1center = 0.25 * (V[f1.Vids[0]].xyz() + V[f1.Vids[1]].xyz() + V[f1.Vids[2]].xyz() + V[f1.Vids[3]].xyz());
+		auto vec_f = glm::cross(f1center - f0center, v1.xyz() - v0.xyz());
+		auto vec_o = glm::cross(V[f0.Vids[2]].xyz() - V[f0.Vids[1]].xyz(), V[f0.Vids[0]].xyz() - V[f0.Vids[1]].xyz());
+		auto sign = glm::dot(vec_f, vec_o);
+		if (sign < 0) std::swap(e.N_Fids[0], e.N_Fids[1]);
+	}
+}
+
 void Mesh::ExtractBoundary() {
     if (m_cellType == POLYGON || m_cellType == TRIANGLE || m_cellType == QUAD) {
         for (auto& e : E)
@@ -2534,8 +3085,16 @@ void Mesh::ExtractBoundary() {
                 V.at(e.Vids[0]).isBoundary = true;
                 V.at(e.Vids[1]).isBoundary = true;
                 e.isBoundary = true;
+                V.at(e.Vids[0]).type = FEATURE;
+                V.at(e.Vids[1]).type = FEATURE;
             }
         }
+//        for (auto& v : V) {
+//            if (v.N_Fids.size() == 1) {
+//                v.type = CORNER;
+//                v.isCorner = true;
+//            }
+//        }
         for (size_t i = 0; i < F.size(); i++)
             F[i].isBoundary = true;
         return;
@@ -2872,20 +3431,20 @@ void Mesh::ExtractTwoRingNeighborSurfaceFaceIdsForEachVertex(int N/* = 2*/)
 //        v.twoRingNeighborSurfaceFaceIds.resize(std::distance(v.twoRingNeighborSurfaceFaceIds.begin(), iter));
 //    }
 }
-glm::vec3 GetCenter(const std::vector<Vertex>& V) {
-    glm::vec3 sum(0.0, 0.0, 0.0);
+glm::dvec3 GetCenter(const std::vector<Vertex>& V) {
+    glm::dvec3 sum(0.0, 0.0, 0.0);
     for (size_t i = 0; i < V.size(); i++)
         sum += V.at(i).xyz();
-    return glm::vec3(sum.x / V.size(), sum.y / V.size(), sum.z / V.size());
+    return glm::dvec3(sum.x / V.size(), sum.y / V.size(), sum.z / V.size());
 }
 
-void Mesh::Zoom(const glm::vec3& ref, const double scale/* = 1*/) {
+void Mesh::Zoom(const glm::dvec3& ref, const double scale/* = 1*/) {
     if (scale == 1.0)  return;
 //    if (glm::length(m_center) == 0)
 //        m_center = GetCenter(V);
     for (size_t i = 0; i < V.size(); i++) {
         Vertex& v = V.at(i);
-        const glm::vec3 dir = v - ref;
+        const glm::dvec3 dir = v - ref;
         const glm::dvec3 d(dir.x, dir.y, dir.z);
         v.x = scale * d.x + ref.x;
         v.y = scale * d.y + ref.y;
@@ -2897,7 +3456,7 @@ bool Mesh::HasBoundary() const {
     return hasBoundary;
 }
 
-const unsigned int HexEdge[12][2] =
+const unsigned int HexEdges[12][2] =
 {
     { 0, 1 },
     { 1, 2 },
@@ -2913,7 +3472,23 @@ const unsigned int HexEdge[12][2] =
     { 3, 7 },
 };
 
-const unsigned int TetEdge[6][2] =
+const std::vector<std::vector<size_t>> HexEdge = {
+	{ 0, 1 },
+	{ 1, 2 },
+	{ 2, 3 },
+	{ 3, 0 },
+	{ 4, 5 },
+	{ 5, 6 },
+	{ 6, 7 },
+	{ 7, 4 },
+	{ 0, 4 },
+	{ 1, 5 },
+	{ 2, 6 },
+	{ 3, 7 },
+};
+
+
+const unsigned int TetEdges[6][2] =
 {
     { 0, 1 },
     { 0, 2 },
@@ -2921,6 +3496,107 @@ const unsigned int TetEdge[6][2] =
     { 1, 2 },
     { 1, 3 },
     { 2, 3 }
+};
+
+const std::vector<std::vector<size_t>> TetEdge = {
+	{ 0, 1 },
+	{ 0, 2 },
+	{ 0, 3 },
+	{ 1, 2 },
+	{ 1, 3 },
+	{ 2, 3 }
+};
+
+//        0
+//        /\
+//       /| \
+//   	/ |  \
+//    1/__|___\2
+//     | 3|   |
+//     |  /\  |
+//     | /  \ |
+//     |/    \|
+//    4/______\5
+const unsigned int WedgeEdges[9][2] =
+{
+	{ 0, 1 },
+	{ 1, 2 },
+	{ 2, 1 },
+	{ 3, 4 },
+	{ 4, 5 },
+	{ 5, 3 },
+	{ 0, 3 },
+	{ 1, 4 },
+	{ 2, 5 }
+};
+
+const std::vector<std::vector<size_t>> WedgeEdge = {
+	{ 0, 1 },
+	{ 1, 2 },
+	{ 2, 1 },
+	{ 3, 4 },
+	{ 4, 5 },
+	{ 5, 3 },
+	{ 0, 3 },
+	{ 1, 4 },
+	{ 2, 5 }
+};
+
+const std::vector<std::vector<size_t>> WedgeFace =
+{
+	{ 0, 1, 2 },
+	{ 3, 4, 5 },
+	{ 0, 3, 5, 2 },
+	{ 2, 5, 4, 1 },
+	{ 1, 4, 3, 0 },
+};
+
+const unsigned int PentaEdges[15][2] =
+{
+	{ 0, 1 },
+	{ 1, 2 },
+	{ 2, 3 },
+	{ 3, 4 },
+    { 4, 0 },
+	{ 5, 6 },
+	{ 6, 7 },
+	{ 7, 8 },
+    { 8, 9 },
+    { 9, 5 },
+	{ 0, 5 },
+	{ 1, 6 },
+	{ 2, 7 },
+	{ 3, 8 },
+    { 4, 9 }
+};
+
+const std::vector<std::vector<size_t>> PentaEdge = {
+	{ 0, 1 },
+	{ 1, 2 },
+	{ 2, 3 },
+	{ 3, 4 },
+	{ 4, 0 },
+	{ 5, 6 },
+	{ 6, 7 },
+	{ 7, 8 },
+	{ 8, 9 },
+	{ 9, 5 },
+	{ 0, 5 },
+	{ 1, 6 },
+	{ 2, 7 },
+	{ 3, 8 },
+	{ 4, 9 }
+};
+
+const std::vector<std::vector<size_t>> PentaFace =
+{
+	{ 0, 1, 2, 3, 4 },
+	{ 5, 6, 7, 8, 9 },
+	{ 0, 5, 6, 1 },
+	{ 1, 6, 7, 2 },
+	{ 2, 7, 8, 3 },
+	{ 3, 8, 9, 4 },
+	{ 4, 9, 5, 0 },
 };
 
 const unsigned int QuadEdge[4][2] =
@@ -3012,12 +3688,42 @@ const unsigned int HexFaces[6][4] =
 //    {4, 5, 6, 7}
 };
 
+const std::vector<std::vector<size_t>> HexFace = {
+	{0, 3, 2, 1},
+	{4, 5, 6, 7},
+	{0, 4, 7, 3},
+	{1, 2, 6, 5},
+	{0, 1, 5, 4},
+	{3, 7, 6, 2}
+};
+
 const unsigned int TetFaces[4][3] =
 {
     {0, 2, 1},
     {0, 3, 2},
     {0, 1, 3},
     {1, 2, 3}
+};
+
+const std::vector<std::vector<size_t>> TetFace = {
+    {0, 2, 1},
+    {0, 3, 2},
+    {0, 1, 3},
+    {1, 2, 3}
+};
+
+const std::map<size_t, std::vector<std::vector<size_t>>> cell_faces = {
+	{ VTK_TETRA, TetFace },
+    { VTK_HEXAHEDRON, HexFace },
+    { VTK_WEDGE, WedgeFace },
+    { VTK_PENTAGONAL_PRISM, PentaFace }
+};
+
+const std::map<size_t, std::vector<std::vector<size_t>>> cell_edges = {
+	{ VTK_TETRA, TetEdge },
+	{ VTK_HEXAHEDRON, HexEdge },
+	{ VTK_WEDGE, WedgeEdge },
+	{ VTK_PENTAGONAL_PRISM, PentaEdge }
 };
 
 const unsigned int HexPoint_Faces[8][3][4] =
@@ -3247,15 +3953,15 @@ bool IsEdgeInCell(const Mesh& mesh, const size_t cellId, const size_t edgeId) {
     return false;
 }
 
-bool Mesh::IsPointInside(const glm::vec3& orig, const glm::vec3 dir) const {
+bool Mesh::IsPointInside(const glm::dvec3& orig, const glm::dvec3 dir) const {
     bool bInside = false;
     for (size_t i = 0; i < F.size(); i++) {
         const Face& tri = F.at(i);
         if (!tri.isBoundary) continue;
-        const glm::vec3& v0 = V.at(tri.Vids.at(0));
-        const glm::vec3& v1 = V.at(tri.Vids.at(1));
-        const glm::vec3& v2 = V.at(tri.Vids.at(2));
-        glm::vec3 position;
+        const glm::dvec3& v0 = V.at(tri.Vids.at(0));
+        const glm::dvec3& v1 = V.at(tri.Vids.at(1));
+        const glm::dvec3& v2 = V.at(tri.Vids.at(2));
+        glm::dvec3 position;
         if (glm::intersectRayTriangle(orig, dir, v0, v1, v2, position) || glm::intersectRayTriangle(orig, dir, v0, v2, v1, position)) {
             bInside = !bInside;
         }
@@ -3263,9 +3969,9 @@ bool Mesh::IsPointInside(const glm::vec3& orig, const glm::vec3 dir) const {
     return bInside;
 }
 
-void GetBoundingBox(const std::vector<Vertex>& V, glm::vec3& Max, glm::vec3& Min) {
-    Min = glm::vec3(-1e+10);
-    Max = glm::vec3(1e+10);
+void GetBoundingBox(const std::vector<Vertex>& V, glm::dvec3& Max, glm::dvec3& Min) {
+    Min = glm::dvec3(-1e+10);
+    Max = glm::dvec3(1e+10);
     for (int i = 0; i < V.size(); i++) {
         for (int j = 0; j < 3; j++) {
             if (V[i][j] > Max[j]) Max[j] = V[i][j];

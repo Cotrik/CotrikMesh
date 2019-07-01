@@ -32,15 +32,15 @@ int main(int argc, char* argv[])
 
     MeshFileReader reader(filename.c_str());
     Mesh& mesh = (Mesh&)reader.GetMesh();
-
+    mesh.RemoveUselessVertices();
     mesh.BuildAllConnectivities();
     mesh.ExtractBoundary();
     mesh.ExtractSingularities();
     //"Info: cos10 = 0.984807753; cos15 = 0.965925826; cos20 = 0.939692621; cos25 = 0.906307787; cos30 = 0.866025404\n\n";
-    const double cosangle = 0.866025404;
-    mesh.SetCosAngleThreshold(cosangle);
-    mesh.LabelSurface();
-    mesh.LabelSharpEdges(true);
+    //const double cosangle = 0.866025404;
+    //mesh.SetCosAngleThreshold(cosangle);
+    //mesh.LabelSurface();
+    //mesh.LabelSharpEdges(true);
     // For extracting singularity Graph
     mesh.BuildParallelE();
     mesh.BuildConsecutiveE();
@@ -62,12 +62,12 @@ int main(int argc, char* argv[])
 
     BaseComplexQuad baseComplex(mesh);
     baseComplex.Build();
-//    baseComplex.WriteBaseComplexHexVTK("BaseComplexHex.vtk");
+    baseComplex.WriteBaseComplexQuadVTK("BaseComplexQuad.vtk");
 //    baseComplex.WriteBaseComplex_VTK("BaseComplex.vtk");
 //    baseComplex.WriteSingularV_VTK("singularV.vtk");
 //    baseComplex.WriteSingularE_VTK("singularE.vtk");
 //    baseComplex.WriteSingularities_VTK("singularities.vtk");
-//    baseComplex.WriteBaseComplexSeparatedFacePatchesVTK("BaseComplexSeparatedFacePatches.vtk");
+    baseComplex.WriteBaseComplexSeparatedEdgeLinksVTK("BaseComplexSeparatedEdgeLinks.vtk");
 //    baseComplex.WriteComponentEdge_NeighborComponentFaces_VTK("ComponentEdge_NeighborComponentFaces.vtk");
 //    baseComplex.WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK("SingularEdge_NeighborSeparatedComponentFacePatches.vtk");
 //    baseComplex.WriteAllSingularEdge_NeighborSeparatedComponentFacePatches_VTK("SingularFaces");
@@ -81,22 +81,25 @@ int main(int argc, char* argv[])
 
     BaseComplexSheetQuad baseComplexSheets(baseComplex);
     baseComplexSheets.Extract();
-//    baseComplexSheets.ExtractSets();
-//    baseComplexSheets.WriteAllSheetsCellsVTK("SheetCells");
-    baseComplexSheets.WriteAllSheetsFacesVTK("SheetFaces");
-    baseComplexSheets.WriteAllSheetsEdgesVTK("SheetEdges");
-//    baseComplexSheets.WriteAllSheetsFacesAndEdgesVTK("SheetFacesAndEdges");
-    baseComplexSheets.WriteAllSheetsFacesDualVTK("SheetDual");
-    baseComplexSheets.ExtractSheetDecompositions();
-    baseComplexSheets.WriteSheetDecompositionsFile(NULL);
-
-    baseComplexSheets.ExtractSheetConnectivities();
-    baseComplexSheets.WriteSheetsConnectivitiesMatrixVTK("SheetsConnectivities.vtk");
-    baseComplexSheets.WriteSheetsConnectivitiesMatrixMat("SheetsConnectivities.mat");
-    baseComplexSheets.ExtractMainSheetConnectivities();
-    baseComplexSheets.WriteSheetsConnectivitiesMatrixVTK("DominantSheetsConnectivities.vtk");
-    baseComplexSheets.WriteSheetsConnectivitiesMatrixMat("DominantSheetsConnectivities.mat");
-    baseComplexSheets.ComputeComplexity();
+////    baseComplexSheets.ExtractSets();
+////    baseComplexSheets.WriteAllSheetsCellsVTK("SheetCells");
+//    baseComplexSheets.WriteAllSheetsFacesVTK("SheetFaces");
+//    baseComplexSheets.WriteAllSheetsEdgesVTK("SheetEdges");
+////    baseComplexSheets.WriteAllSheetsFacesAndEdgesVTK("SheetFacesAndEdges");
+	baseComplexSheets.WriteAllSheetsFacesInOneVTK("SheetFaces.vtk");
+//    baseComplexSheets.WriteAllSheetsFacesDualVTK("SheetDual");
+	baseComplexSheets.WriteDualVTK("ChordDual.vtk");
+//	baseComplexSheets.WriteDualLinksVTK("ChordDualLinks.vtk");
+//    baseComplexSheets.ExtractSheetDecompositions();
+//    baseComplexSheets.WriteSheetDecompositionsFile(NULL);
+//
+//    baseComplexSheets.ExtractSheetConnectivities();
+//    baseComplexSheets.WriteSheetsConnectivitiesMatrixVTK("SheetsConnectivities.vtk");
+//    baseComplexSheets.WriteSheetsConnectivitiesMatrixMat("SheetsConnectivities.mat");
+//    baseComplexSheets.ExtractMainSheetConnectivities();
+//    baseComplexSheets.WriteSheetsConnectivitiesMatrixVTK("DominantSheetsConnectivities.vtk");
+//    baseComplexSheets.WriteSheetsConnectivitiesMatrixMat("DominantSheetsConnectivities.mat");
+//    baseComplexSheets.ComputeComplexity();
 
 //    BaseComplexChord baseComplexChords(baseComplex);
 //    baseComplexChords.Extract();

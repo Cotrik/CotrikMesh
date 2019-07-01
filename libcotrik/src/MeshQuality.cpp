@@ -315,7 +315,7 @@ static bool JudgeDirection(const Mesh& mesh, const Cell& c)
         return true;
 }
 
-static float _GetScaledJacobian(const glm::vec3& i, const glm::vec3& j, const glm::vec3& k)
+static float _GetScaledJacobian(const glm::dvec3& i, const glm::dvec3& j, const glm::dvec3& k)
 {
     const glm::mat3x3 m(i, j, k);
     return glm::determinant(m);
@@ -338,17 +338,17 @@ static const float GetScaledJacobian(const Mesh& mesh, const Cell& c)
         const Vertex& j = mesh.V.at(c1.Vids.at(HexPoint_Points[n][1]));
         const Vertex& k = mesh.V.at(c1.Vids.at(HexPoint_Points[n][2]));
 
-        const glm::vec3 ei(i.x - o.x, i.y - o.y, i.z - o.z);
-        const glm::vec3 ej(j.x - o.x, j.y - o.y, j.z - o.z);
-        const glm::vec3 ek(k.x - o.x, k.y - o.y, k.z - o.z);
+        const glm::dvec3 ei(i.x - o.x, i.y - o.y, i.z - o.z);
+        const glm::dvec3 ej(j.x - o.x, j.y - o.y, j.z - o.z);
+        const glm::dvec3 ek(k.x - o.x, k.y - o.y, k.z - o.z);
 
         const float length_i = glm::length(ei);
         const float length_j = glm::length(ej);
         const float length_k = glm::length(ek);
 
-        const glm::vec3 ni(ei.x / length_i, ei.y / length_i, ei.z / length_i);
-        const glm::vec3 nj(ej.x / length_j, ej.y / length_j, ej.z / length_j);
-        const glm::vec3 nk(ek.x / length_k, ek.y / length_k, ek.z / length_k);
+        const glm::dvec3 ni(ei.x / length_i, ei.y / length_i, ei.z / length_i);
+        const glm::dvec3 nj(ej.x / length_j, ej.y / length_j, ej.z / length_j);
+        const glm::dvec3 nk(ek.x / length_k, ek.y / length_k, ek.z / length_k);
 
         float scaledJacobian = _GetScaledJacobian(ni, nj, nk);
         minScaledJacobian = minScaledJacobian < scaledJacobian ? minScaledJacobian : scaledJacobian;
@@ -390,7 +390,7 @@ size_t GetMinScaledJacobianVerdict(const Mesh& mesh, double& MinScaledJacobian, 
             coordinates[j][2] = v.z;
         }
         double scaledJacobian = v_hex_scaled_jacobian(8, coordinates);
-        if (scaledJacobian > 1.01 or scaledJacobian < -1.01) scaledJacobian = -1.0;
+        if (scaledJacobian > 1.01 || scaledJacobian < -1.01) scaledJacobian = -1.0;
         minScaledJacobian = minScaledJacobian < scaledJacobian ? minScaledJacobian : scaledJacobian;
         if (scaledJacobian < minSJ) {
             numOfInvertedElements++;
@@ -426,6 +426,19 @@ size_t GetMinScaledJacobianQuad(const Mesh& mesh, double& MinScaledJacobian, con
 
     return numOfInvertedElements;
 }
+
+double GetScaledJacobianQuad(const Mesh& mesh, size_t faceId) {
+    double coordinates[4][3];
+    const Face& f = mesh.F[faceId];
+    for (size_t j = 0; j < 4; j++) {
+        const Vertex& v = mesh.V[f.Vids[j]];
+        coordinates[j][0] = v.x;
+        coordinates[j][1] = v.y;
+        coordinates[j][2] = v.z;
+    }
+    return v_quad_scaled_jacobian(4, coordinates);
+}
+
 size_t GetScaledJacobianVerdict(const Mesh& mesh, std::vector<double>& scaledJacobian, const double minSJ/* = 0.0*/)
 {
     size_t numOfInvertedElements = 0;

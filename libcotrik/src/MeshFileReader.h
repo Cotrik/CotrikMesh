@@ -24,6 +24,7 @@ private:
 	void ReadVtkFile();
 	void ReadObjFile();
 	void ReadStlFile();
+	bool HasCellType(const VTKCellType cellType) const;
 
 private:
 	std::string m_strFileName;

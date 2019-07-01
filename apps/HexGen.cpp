@@ -44,8 +44,8 @@ bool IsPointInsideMesh(const Point& p, const Tree& tree)
 }
 
 
-void GetBoundingBox(const Mesh&mesh, glm::vec3&min_coordinate, glm::vec3&max_coordinate);
-void GenerateCubeMeshInBoundingBox(const glm::vec3& min_coordinate, const glm::vec3& max_coordinate, const size_t numberOfGridsPerAxis, Mesh& cubeMesh);
+void GetBoundingBox(const Mesh&mesh, glm::dvec3&min_coordinate, glm::dvec3&max_coordinate);
+void GenerateCubeMeshInBoundingBox(const glm::dvec3& min_coordinate, const glm::dvec3& max_coordinate, const size_t numberOfGridsPerAxis, Mesh& cubeMesh);
 
 int main(int argc, char* argv[])
 {
@@ -81,8 +81,8 @@ int main(int argc, char* argv[])
     input >> cgalMesh;
     Tree tree(faces(cgalMesh).first, faces(cgalMesh).second, cgalMesh);
 
-    glm::vec3 min_coordinate(1000000.0f, 1000000.0f, 1000000.0f);
-    glm::vec3 max_coordinate(-1000000.0f, -1000000.0f, -1000000.0f);
+    glm::dvec3 min_coordinate(1000000.0f, 1000000.0f, 1000000.0f);
+    glm::dvec3 max_coordinate(-1000000.0f, -1000000.0f, -1000000.0f);
     GetBoundingBox(mesh, min_coordinate, max_coordinate);
 
     Mesh hexMesh;
@@ -96,9 +96,9 @@ int main(int argc, char* argv[])
 //#pragma omp parallel for
     for (size_t i = 0; i < hexMesh.C.size(); i++) {
         const Cell& cell = hexMesh.C.at(i);
-        glm::vec3 p0 = hexMesh.V.at(cell.Vids.at(0)).xyz();
-        glm::vec3 p6 = hexMesh.V.at(cell.Vids.at(6)).xyz();
-        glm::vec3 mid = (p0 + p6) * 0.5f;
+        glm::dvec3 p0 = hexMesh.V.at(cell.Vids.at(0)).xyz();
+        glm::dvec3 p6 = hexMesh.V.at(cell.Vids.at(6)).xyz();
+        glm::dvec3 mid = (p0 + p6) * 0.5f;
         Point p(mid.x, mid.y, mid.z);
         //if (mesh.IsPointInside(p)) C.push_back(cell);
         if (IsPointInsideMesh(p, tree)) C.push_back(cell);
@@ -109,7 +109,7 @@ int main(int argc, char* argv[])
     return 0;
 }
 
-void GetBoundingBox(const Mesh& mesh, glm::vec3& min_coordinate, glm::vec3& max_coordinate)
+void GetBoundingBox(const Mesh& mesh, glm::dvec3& min_coordinate, glm::dvec3& max_coordinate)
 {
     for (auto const & v : mesh.V) {
         //if (!v.isBoundary) continue;
@@ -124,7 +124,7 @@ void GetBoundingBox(const Mesh& mesh, glm::vec3& min_coordinate, glm::vec3& max_
     }
 }
 
-void GenerateCubeMeshInBoundingBox(const glm::vec3& min_coordinate, const glm::vec3& max_coordinate, const size_t numberOfGridsPerAxis/* = 50*/, Mesh& cubeMesh)
+void GenerateCubeMeshInBoundingBox(const glm::dvec3& min_coordinate, const glm::dvec3& max_coordinate, const size_t numberOfGridsPerAxis/* = 50*/, Mesh& cubeMesh)
 {
     double xLength = max_coordinate.x - min_coordinate.x;
     double yLength = max_coordinate.y - min_coordinate.y;
@@ -170,7 +170,7 @@ void GenerateCubeMeshInBoundingBox(const glm::vec3& min_coordinate, const glm::v
             yPos = min_coordinate.y + cubeLength * yStep;
             for (size_t zStep = 0; zStep < zTotalStep; zStep++) {
                 zPos = min_coordinate.z + cubeLength * zStep;
-                glm::vec3 v(xPos, yPos, zPos);
+                glm::dvec3 v(xPos, yPos, zPos);
                 size_t vid = zStep + zTotalStep * yStep + yzPlaneNumber * xStep;
                 cubeMesh.V[vid] = v;
                 cubeMesh.V[vid].id = vid;

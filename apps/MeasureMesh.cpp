@@ -14,8 +14,8 @@
 
 
 void printMeshSizeInfo(const Mesh& mesh) {
-    glm::vec3 mn(INT_MAX, INT_MAX, INT_MAX);
-    glm::vec3 mx(INT_MIN, INT_MIN, INT_MIN);
+    glm::dvec3 mn(INT_MAX, INT_MAX, INT_MAX);
+    glm::dvec3 mx(INT_MIN, INT_MIN, INT_MIN);
     for (const auto& v : mesh.V) {
         if (v.x < mn.x) mn.x = v.x;
         if (v.y < mn.y) mn.y = v.y;
@@ -25,7 +25,7 @@ void printMeshSizeInfo(const Mesh& mesh) {
         if (v.y > mx.y) mx.y = v.y;
         if (v.z > mx.z) mx.z = v.z;
     }
-    glm::vec3 s = mx - mn;
+    glm::dvec3 s = mx - mn;
     std::cout << "######## mesh size info ########\n";
     std::cout << "x : " << mn.x << " ~ " << mx.x << " size : " << s.x << "\n";
     std::cout << "y : " << mn.y << " ~ " << mx.y << " size : " << s.y << "\n";

@@ -71,7 +71,7 @@ void WriteSharpEdgesVtk(const char* filename, const Mesh& m_mesh, const std::vec
         << "ASCII" << std::endl << std::endl
         << "DATASET UNSTRUCTURED_GRID" << std::endl;
     ofs << "POINTS " << V.size() << " float" << std::endl;
-    ofs << std::fixed << setprecision(7);
+    ofs << std::fixed << std::setprecision(7);
     for (size_t i = 0; i < V.size(); i++)
         ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << std::endl;
     size_t numOfSharpVertices = 0;

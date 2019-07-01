@@ -21,7 +21,7 @@ public:
     ComponentVertex(const ComponentVertex& r)
     : Vertex(r)
     {}
-    ComponentVertex(const glm::vec3& v)
+    ComponentVertex(const glm::dvec3& v)
     : Vertex(v)
     {}
     virtual ~ComponentVertex()
@@ -33,7 +33,7 @@ public:
         Vertex::operator = (r);
         return *this;
     }
-    ComponentVertex& operator = (const glm::vec3& r)
+    ComponentVertex& operator = (const glm::dvec3& r)
     {
         if (r == *this)
             return *this;
@@ -162,10 +162,11 @@ public:
     int color;
 };
 
-struct SingularityInfo
-{
+struct SingularityInfo {
     std::vector<SingularV> V;
     std::vector<SingularE> E;
+    std::vector<std::pair<std::set<size_t>, std::set<size_t>>> ExtractSubConnectedGraphs() const;
+    std::pair<std::set<size_t>, std::set<size_t>> ExtractSubConnectedGraphs(size_t singularVid) const;
 };
 
 struct BaseComplexEdge
@@ -186,6 +187,7 @@ private:
 public:
     const Mesh& GetMesh() const;
     void WriteSingularities_VTK(const char *filename) const;
+    void WriteSingularities_VTK(const char *filename, const std::pair<std::set<size_t>, std::set<size_t>>& subset) const;
     void WriteSingularV_VTK(const char* filename) const;
     void WriteSingularE_VTK(const char *filename) const;
     void WriteBaseComplex_VTK(const char *filename) const;
@@ -201,6 +203,7 @@ public:
     void WriteBaseComplexComponentsWithoutSingularitiesVTK(const char *filename) const;
     void WriteBaseComplexComponentsWithSingularitiesVTK(const char *filename) const;
     void WriteBaseComplexSeparatedFacePatchesVTK(const char *filename) const;
+    void WriteBaseComplexSeparatedSurfacesVTK(const char *filename) const;
     // Write Neighboring information
     void WriteComponentEdge_NeighborComponentFaces_VTK(const char *filename) const;
     void WriteComponentEdge_NeighborComponentCells_VTK(const char *filename) const;

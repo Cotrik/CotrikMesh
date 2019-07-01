@@ -41,10 +41,10 @@ public:
     std::vector<size_t> GetParallelComponentFaceIds(const ComponentFace & componentFace) const;
     std::vector<size_t> GetLinkedChordComponentFaceIds(const std::vector<size_t>& chordComponentFaceIds) const;
     std::vector<size_t> GetLinkedChordComponentCellIds(const std::vector<size_t>& chordComponentCellIds, const std::vector<size_t>& linkedChordComponentFaceIds) const;
-    std::vector<glm::vec3> GetLinkedChordCurveVertices(const std::vector<size_t>& linkedChordComponentFaceIds, const std::vector<size_t>& linkedChordComponentCellIds) const;
-    glm::vec3 GetCenter(const ComponentFace& c) const;
-    glm::vec3 GetCenter(const ComponentCell& c) const;
-private:
+    std::vector<glm::dvec3> GetLinkedChordCurveVertices(const std::vector<size_t>& linkedChordComponentFaceIds, const std::vector<size_t>& linkedChordComponentCellIds) const;
+    glm::dvec3 GetCenter(const ComponentFace& c) const;
+    glm::dvec3 GetCenter(const ComponentCell& c) const;
+public:
     BaseComplex& baseComplex;
     std::vector<std::vector<size_t>> chords_componentEdgeIds;  // each sheet consists a list of base-complex componentEdge ids;
     std::vector<std::vector<size_t>> chords_componentFaceIds;  // each sheet consists a list of base-complex componentFace ids;

@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <stack>
+#include <queue>
 
 BaseComplex::BaseComplex(Mesh& mesh)
 : mesh(mesh)
@@ -115,9 +116,10 @@ bool BaseComplex::AddSingularV(const size_t current_vid, const size_t singularVi
         SingularV sv;
         sv.id = singularVid;
         sv.id_mesh = current_vid;
-        if (sv.id == 312) {
-        sv.isBoundary = mesh.V[current_vid].isBoundary;
-        }
+        sv.isBoundary = mesh.V.at(sv.id_mesh).isBoundary;
+//        if (sv.id == 312) {
+//        sv.isBoundary = mesh.V[current_vid].isBoundary;
+//        }
         SingularityI.V.push_back(sv);
         ending_singular_vid = sv.id;
     }
@@ -172,20 +174,20 @@ void BaseComplex::AddcircularSingularE(const std::vector<size_t>& leftVids, cons
 void BaseComplex::Build()
 {
     ExtractSingularVandE();
-    //BuildSingularityConnectivity();
+    BuildSingularityConnectivity();
 
     BuildF();
-    std::cout << "Finished extracting BaseComplex Faces --> " << Fids.size() << " faces\n";
+//    std::cout << "Finished extracting BaseComplex Faces --> " << Fids.size() << " faces\n";
     BuildE();
-    std::cout << "Finished extracting BaseComplex Edges --> " << Eids.size() << " edges\n";
+//    std::cout << "Finished extracting BaseComplex Edges --> " << Eids.size() << " edges\n";
     BuildV();
-    std::cout << "Finished extracting BaseComplex Vertices --> " << Vids.size() << " vertices\n";
+//    std::cout << "Finished extracting BaseComplex Vertices --> " << Vids.size() << " vertices\n";
 //    BuildF();
     BuildC();
-    std::cout << "Finished extracting Component Cells --> " << componentC.size() << " component cells\n";
-    std::cout << "Finished extracting Component Faces --> " << componentF.size() << " component faces\n";
-    std::cout << "Finished extracting Component Edges --> " << componentE.size() << " component edges\n";
-    std::cout << "Finished extracting Component Vertices --> " << Vids.size() << " component vertices\n";
+//    std::cout << "Finished extracting Component Cells --> " << componentC.size() << " component cells\n";
+//    std::cout << "Finished extracting Component Faces --> " << componentF.size() << " component faces\n";
+//    std::cout << "Finished extracting Component Edges --> " << componentE.size() << " component edges\n";
+//    std::cout << "Finished extracting Component Vertices --> " << Vids.size() << " component vertices\n";
 
     BuildComponentConnectivities();
     BuildSigularEdge_separatedPatches();
@@ -402,7 +404,7 @@ std::vector<size_t> BaseComplex::GetComponentVids(const ComponentCell& component
        }
     }
     if (vids.empty()) {
-        std::cerr << "Circular Cell, No Vertices\n";
+        // std::cerr << "Circular Cell, No Vertices\n";
         return {};
     }
     // if (vids.empty()) std::cerr << "Error in std::vector<size_t> BaseComplex::GetComponentVids(const ComponentCell& component) const\n";
@@ -679,7 +681,7 @@ void BaseComplex::ExtractSingularVandE()
              bool is_circle = TraceEdge(current_vid, current_eid, leftVids, leftEids, is_edge_visited);
              current_vid = leftVids.back();
              if (is_circle) {
-                 std::cout << "AddcircularSingularE(leftVids, leftEids, singularEid++);\n";
+                 // std::cout << "AddcircularSingularE(leftVids, leftEids, singularEid++);\n";
                  AddcircularSingularE(leftVids, leftEids, singularEid++);
                  continue;
              }
@@ -2305,8 +2307,7 @@ void BaseComplex::WriteSingularE_VTK(const char *filename) const
     }
 }
 
-void BaseComplex::WriteSingularities_VTK(const char *filename) const
-{
+void BaseComplex::WriteSingularities_VTK(const char *filename) const {
     std::ofstream ofs(filename);
 
     ofs << "# vtk DataFile Version 2.0" << std::endl << "Singularities Color" << std::endl;
@@ -2355,6 +2356,67 @@ void BaseComplex::WriteSingularities_VTK(const char *filename) const
         else ofs << 1.0 - valence * 0.125 << std::endl;
     }
     for (auto& se : SingularityI.E) {
+        const auto& e = mesh.E.at(se.es_link.front());
+        const auto valence = e.N_Cids.size();
+        if (e.isBoundary) ofs << 0.5 - valence * 0.25 << std::endl;
+        else ofs << 1.0 - valence * 0.25 << std::endl;
+    }
+}
+
+void BaseComplex::WriteSingularities_VTK(const char *filename, const std::pair<std::set<size_t>, std::set<size_t>>& subset) const {
+    std::ofstream ofs(filename);
+
+    ofs << "# vtk DataFile Version 2.0" << std::endl << "Singularities Color" << std::endl;
+    ofs << "ASCII" << std::endl;
+    ofs << "DATASET POLYDATA" << std::endl;
+
+    ofs << "POINTS " << mesh.V.size() << " double" << std::endl;
+    for (size_t i = 0; i < mesh.V.size(); i++) {
+        const Vertex& v = mesh.V[i];
+        ofs << v.x << " " << v.y << " " << v.z << std::endl;
+    }
+
+    ofs << "VERTICES " << subset.first.size() << " " << subset.first.size() * 2 << std::endl;
+    for (auto i : subset.first)
+        ofs << "1 " << SingularityI.V[i].id_mesh << std::endl;
+
+    int line_num = 0;
+    for (auto i : subset.second)
+        line_num += 1 + SingularityI.E[i].vs_link.size();
+
+    ofs << "LINES " << subset.second.size() << " " << line_num << std::endl;
+    for (auto i : subset.second) {
+        ofs << SingularityI.E[i].vs_link.size() << " ";
+        for (int j = 0; j < SingularityI.E[i].vs_link.size(); j++)
+            ofs << SingularityI.E[i].vs_link[j] << " ";
+        ofs << std::endl;
+    }
+
+    ofs << "CELL_DATA " << subset.first.size() + subset.second.size() << std::endl;
+    ofs << "SCALARS SingularityEdge int" << std::endl;
+    ofs << "LOOKUP_TABLE SingularEdge" << std::endl;
+    for (auto i : subset.first) ofs << 0 << std::endl;
+    for (auto i : subset.second) ofs << i << std::endl;
+
+    ofs << "SCALARS valence int" << std::endl;
+    ofs << "LOOKUP_TABLE valence" << std::endl;
+    for (auto i : subset.first) {
+        auto& sv = SingularityI.V[i];
+        ofs << mesh.V.at(sv.id_mesh).N_Cids.size() << std::endl;
+    }
+    for (auto i : subset.second) ofs << mesh.E.at(SingularityI.E[i].es_link.front()).N_Cids.size() << std::endl;
+
+    ofs << "SCALARS index double" << std::endl;
+    ofs << "LOOKUP_TABLE index" << std::endl;
+    for (auto i : subset.first) {
+        auto& sv = SingularityI.V[i];
+        const auto& v = mesh.V.at(sv.id_mesh);
+        const auto valence = v.N_Cids.size();
+        if (v.isBoundary) ofs << 0.5 - valence * 0.125 << std::endl;
+        else ofs << 1.0 - valence * 0.125 << std::endl;
+    }
+    for (auto i : subset.second) {
+        auto& se = SingularityI.E.at(i);
         const auto& e = mesh.E.at(se.es_link.front());
         const auto valence = e.N_Cids.size();
         if (e.isBoundary) ofs << 0.5 - valence * 0.25 << std::endl;
@@ -2952,8 +3014,56 @@ void BaseComplex::WriteBaseComplexSeparatedFacePatchesVTK(const char *filename) 
 
 }
 
-void BaseComplex::WriteBaseComplex_VTK(const char *filename) const
-{
+void BaseComplex::WriteBaseComplexSeparatedSurfacesVTK(const char *filename) const {
+    const std::vector<Vertex>& V = mesh.V;
+    const std::vector<Edge>& E = mesh.E;
+    const std::vector<Face>& F = F;
+
+    std::ofstream ofs(filename);
+    ofs << "# vtk DataFile Version 2.0" << std::endl
+        << filename << std::endl
+        << "ASCII" << std::endl << std::endl
+        << "DATASET POLYDATA" << std::endl;
+    ofs << "POINTS " << V.size() << " double" << std::endl;
+
+    for (auto& v : V)
+        ofs << v.x << " " << v.y << " " << v.z << std::endl;
+
+	size_t numOfFaces = 0;
+	for (auto fid : Fids)
+		if (!mesh.F.at(fid).isBoundary) ++numOfFaces;
+    ofs << "POLYGONS " << numOfFaces << " " << 5 * numOfFaces << std::endl;
+    for (const auto& patch : separatedFacePatches) {
+        for (const auto& faceid : patch) {
+            const Face& face = mesh.F.at(faceid);
+            ofs << face.Vids.size();
+            for (size_t j = 0; j < face.Vids.size(); j++)
+                ofs << " " << face.Vids.at(j);
+            ofs << "\n";
+        }
+    }
+
+	ofs << "CELL_DATA " << numOfFaces << std::endl;
+	ofs << "SCALARS " << " type" << " int 1" << std::endl
+		<< "LOOKUP_TABLE default" << std::endl;
+	int id = 0;
+	for (const auto& patch : separatedFacePatches) {
+		for (const auto& faceid : patch)
+			ofs << id % 8 << "\n";
+		++id;
+	}
+
+    ofs << "SCALARS " << " patch" << " int 1" << std::endl
+        << "LOOKUP_TABLE default" << std::endl;
+    id = 0;
+    for (const auto& patch : separatedFacePatches) {
+        for (const auto& faceid : patch)
+            ofs << id << "\n";
+        ++id;
+    }
+}
+
+void BaseComplex::WriteBaseComplex_VTK(const char *filename) const {
     const std::vector<Vertex>& V = mesh.V;
     const std::vector<Edge>& E = mesh.E;
     const std::vector<Face>& F = mesh.F;
@@ -3223,4 +3333,52 @@ void BaseComplex::WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK(co
         for (auto & face_id : separatedFacePatches.at(separatedFacePatchId))
             ofs << separatedFacePatchId << "\n";
     ++count;
+}
+
+std::vector<std::pair<std::set<size_t>, std::set<size_t>>> SingularityInfo::ExtractSubConnectedGraphs() const {
+    std::vector<std::pair<std::set<size_t>, std::set<size_t>>> res;
+    std::vector<bool> visitedV(false, V.size());
+    std::vector<bool> visitedE(false, E.size());
+    std::set<size_t> visitedVids;
+    std::set<size_t> visitedEids;
+    for (size_t i = 0; i < V.size(); ++i) visitedVids.insert(i);
+    for (size_t i = 0; i < E.size(); ++i) visitedEids.insert(i);
+    bool finish = false;
+    while (!finish) {
+        auto graph = ExtractSubConnectedGraphs(*visitedVids.begin());
+        std::cout << "vsize = " << graph.first.size() << " esize = " << graph.second.size() << std::endl;
+        res.push_back(graph);
+        for (auto id : graph.first)
+            visitedVids.erase(id);
+        for (auto id : graph.second)
+            visitedEids.erase(id);
+
+        finish = visitedVids.empty() && visitedEids.empty();
+//        bool finish_v = std::accumulate(visitedV.begin(), visitedV.end(), size_t(0)) == V.size();
+//        bool finish_e = std::accumulate(visitedE.begin(), visitedE.end(), size_t(0)) == E.size();
+//        finish = finish_v && finish_e;
+    }
+    return res;
+}
+
+std::pair<std::set<size_t>, std::set<size_t>> SingularityInfo::ExtractSubConnectedGraphs(size_t singularVid) const {
+    std::pair<std::set<size_t>, std::set<size_t>> res;
+    std::set<size_t>& visitedVids = res.first;
+    std::set<size_t>& visitedEids = res.second;
+    std::queue<size_t> q;
+    q.push(singularVid);
+    while (!q.empty()) {
+        auto n = q.size();
+        for (auto i = 0; i < n; ++i) {
+            auto vid = q.front();
+            q.pop();
+            visitedVids.insert(vid);
+            for (auto nvid : V[vid].N_Vids)
+                if (visitedVids.find(nvid) == visitedVids.end()) q.push(nvid);
+        }
+    }
+    for (auto vid : visitedVids)
+        for (auto eid : V.at(vid).N_Eids)
+            visitedEids.insert(eid);
+    return res;
 }

@@ -28,8 +28,8 @@ float GetAngle(Mesh& mesh, const Vertex& v, const Face& c)
             break;
         }
     }
-    glm::vec3 v1 = mesh.V.at(vid1).xyz() - v.xyz();
-    glm::vec3 v2 = mesh.V.at(vid2).xyz() - v.xyz();
+    glm::dvec3 v1 = mesh.V.at(vid1).xyz() - v.xyz();
+    glm::dvec3 v2 = mesh.V.at(vid2).xyz() - v.xyz();
 
     return acos(glm::dot(v1, v2) / (glm::length(v1) * glm::length(v2)));
 }
@@ -90,7 +90,7 @@ int main(int argc, char* argv[])
     }
     double avg_edge_length = sum_edge_length/mesh.E.size();
     double base_edge_length = base_edge_length_ratio * avg_edge_length;
-    cout << "base_edge_length = " << base_edge_length << std::endl;
+    std::cout << "base_edge_length = " << base_edge_length << std::endl;
 
     mesh.GetNormalOfSurfaceFaces();
     mesh.GetNormalOfSurfaceVertices();
@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
         Vertex& v = mesh.V.at(i);
         //if (v.type == FEATURE && v.type == CORNER) continue;
 
-        glm::vec3 new_v(0.0, 0.0, 0.0);
+        glm::dvec3 new_v(0.0, 0.0, 0.0);
         new_v.x = v.x - v.normal.x * base_edge_length / (curvature_base + gaussianCurvatureOnVertices.at(i));
         new_v.y = v.y - v.normal.y * base_edge_length / (curvature_base + gaussianCurvatureOnVertices.at(i));
         new_v.z = v.z - v.normal.z * base_edge_length / (curvature_base + gaussianCurvatureOnVertices.at(i));

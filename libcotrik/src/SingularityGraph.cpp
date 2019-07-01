@@ -159,24 +159,6 @@ void SingularityGraph::BuildV_E()
         }
     }
 }
-void combine(std::vector<size_t>& com, std::vector<std::vector<size_t> > &res, int n, int k, int start) {
-    if (k == com.size()) {
-        res.push_back(com);
-        return;
-    }
-    for (int i = start; i < n; ++i) {
-        com.push_back(i);
-        combine(com, res, n, k, i + 1);
-        com.pop_back();
-    }
-}
-
-std::vector<std::vector<size_t>> combine(int n, int k) {
-    std::vector<std::vector<size_t>> res;
-    std::vector<size_t> com;
-    combine(com, res, n, k, 0);
-    return res;
-}
 
 void SingularityGraph::BuildE_directlyLinkedSingularEdgeIds()
 {
@@ -184,7 +166,7 @@ void SingularityGraph::BuildE_directlyLinkedSingularEdgeIds()
     directlyLinkedSingularEdgeIds.resize(E.size(), std::vector<size_t>(E.size(), 0));
     for (const auto& v : V) {
         //auto neighborSingularEdgeIds = v.neighborSingularEdgeIds;
-        std::vector<std::vector<size_t>> com = combine(v.neighborSingularEdgeIds.size(), 2);
+        std::vector<std::vector<size_t>> com = Util::combine(v.neighborSingularEdgeIds.size(), 2);
         for (const auto& c : com) {
 //            directlyLinkedSingularEdgeIds[v.neighborSingularEdgeIds[c[0]]].push_back(v.neighborSingularEdgeIds[c[1]]);
 //            directlyLinkedSingularEdgeIds[v.neighborSingularEdgeIds[c[1]]].push_back(v.neighborSingularEdgeIds[c[0]]);
@@ -232,7 +214,7 @@ void SingularityGraph::BuildE_linkedByOneComponentEdgeSingularEdgeIds()
             }
         }
         if (singularEdgeIds.size() < 2) continue;
-        std::vector<std::vector<size_t>> com = combine(singularEdgeIds.size(), 2);
+        std::vector<std::vector<size_t>> com = Util::combine(singularEdgeIds.size(), 2);
         for (const auto& c : com) {
             const size_t seid1 = singularEdgeIds[c[0]];
             const size_t seid2 = singularEdgeIds[c[1]];
@@ -301,7 +283,7 @@ void SingularityGraph::BuildE_orthogonalDirectionSingularEdgeIds()
     const Mesh& mesh = m_baseComplex.GetMesh();
     for (const auto& v : V) {
         //auto neighborSingularEdgeIds = v.neighborSingularEdgeIds;
-        std::vector<std::vector<size_t>> com = combine(v.neighborSingularEdgeIds.size(), 2);
+        std::vector<std::vector<size_t>> com = Util::combine(v.neighborSingularEdgeIds.size(), 2);
         for (const auto& c : com) {
             const size_t seid1 = v.neighborSingularEdgeIds[c[0]];
             const size_t seid2 = v.neighborSingularEdgeIds[c[1]];
@@ -343,7 +325,7 @@ void SingularityGraph::BuildE_onTheSameFacesPatchSingularEdgeIds()
             }
             std::sort(singularEdgeIds.begin(), singularEdgeIds.end());
             singularEdgeIds.resize(std::distance(singularEdgeIds.begin(), std::unique(singularEdgeIds.begin(), singularEdgeIds.end())));
-            //std::vector<std::vector<size_t>> combinations = combine(v.neighborSingularEdgeIds.size(), 2);
+            //std::vector<std::vector<size_t>> combinations = Util::combine(v.neighborSingularEdgeIds.size(), 2);
             for (const auto singularEdgeId : singularEdgeIds) {
                 onTheSameFacesPatchSingularEdgeIds[seid][singularEdgeId] = 1;
                 onTheSameFacesPatchSingularEdgeIds[singularEdgeId][seid] = 1;

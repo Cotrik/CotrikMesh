@@ -25,7 +25,7 @@ public:
     void WriteSingularV_VTK(const char* filename) const;
     void WriteSingularE_VTK(const char *filename) const;
     void WriteBaseComplex_VTK(const char *filename) const;
-    void WriteBaseComplexHexVTK(const char *filename) const;
+    void WriteBaseComplexQuadVTK(const char *filename) const;
     void WriteBaseComplex_ColorVerticesVTK(const char *filename) const;
     void WriteBaseComplex_ColorEdgesVTK(const char *filename) const;
     void WriteBaseComplex_ColorFacesVTK(const char *filename) const;
@@ -34,7 +34,7 @@ public:
     void WriteBaseComplexComponentsVTK(const char *filename_prefix, const size_t id) const;
     void WriteBaseComplexComponentsWithoutSingularitiesVTK(const char *filename) const;
     void WriteBaseComplexComponentsWithSingularitiesVTK(const char *filename) const;
-    void WriteBaseComplexSeparatedFacePatchesVTK(const char *filename) const;
+    void WriteBaseComplexSeparatedEdgeLinksVTK(const char *filename) const;
     // Write Neighboring information
     void WriteComponentEdge_NeighborComponentFaces_VTK(const char *filename) const;
     void WriteComponentEdge_NeighborComponentCells_VTK(const char *filename) const;
@@ -46,7 +46,7 @@ public:
 
     void Build();
 
-protected:
+public:
     virtual void BuildV();
     virtual void BuildE();
     virtual void BuildF();
@@ -141,7 +141,6 @@ public:
     size_t TraceAlongEdge(const Vertex& start_vertex, const Edge& start_edge,
             std::vector<bool>& is_edge_visited, std::vector<size_t>& vids_link, std::vector<size_t> &eids_link); // return end_mesh_vertex_id
     std::vector<char> GetColorsOfNeighborComponents(const ComponentFace& component);
-    void WriteBaseComplexQuadVTK(const char *filename) const;
 public:
 //    Mesh& mesh;
 //    std::vector<size_t> Vids;

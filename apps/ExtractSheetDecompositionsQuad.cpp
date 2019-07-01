@@ -16,6 +16,7 @@
 #include "ArgumentManager.h"
 
 #include <iostream>
+#include <algorithm>
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -85,7 +86,7 @@ int main(int argc, char* argv[]) {
 
     int sheet_id = 0;
     float min_complexity = INT_MAX;
-    std::vector<pair<int, float>> representativeSheetId_complexities(baseComplexSheets.Get_sheets_coverSheetIds().size());
+    std::vector<std::pair<int, float>> representativeSheetId_complexities(baseComplexSheets.Get_sheets_coverSheetIds().size());
     for (auto& sheetIds : baseComplexSheets.Get_sheets_coverSheetIds()) {
         baseComplexSheets.ExtractMainSheetConnectivities(sheet_id);
         float complexity = baseComplexSheets.ComputeComplexityUnbalancedMatrix(sheet_id++);

@@ -74,7 +74,6 @@ static void FindSetCombination(std::vector<std::set<size_t>>& input, std::set<si
 }
 
 static std::vector<std::vector<std::set<size_t>>> FindSetCombination(std::vector<std::set<size_t>>& input, std::set<size_t>& target) {
-
     std::set<int> full;
     for (auto it : input)
         full.insert(it.begin(), it.end());
@@ -99,6 +98,7 @@ static std::vector<std::vector<std::set<size_t>>> FindSetCombination(std::vector
 
         } while (next_permutation(vec.begin(), vec.end()));
     }
+    return res;
 }
 
 BaseComplexSheetQuad::BaseComplexSheetQuad(BaseComplexQuad& baseComplex)
@@ -760,6 +760,176 @@ void BaseComplexSheetQuad::WriteAllSheetsFacesDualVTK(const char *filename_prefi
     }
 }
 
+size_t getNextVid(const Mesh& mesh,	size_t start_vid, size_t start_eid, size_t& next_eid) {
+	auto& start_edge = mesh.E.at(start_eid);
+	size_t res = start_edge.Vids[0] == start_vid ? start_edge.Vids[1] : start_edge.Vids[0];
+	auto& v = mesh.V.at(res);
+	for (auto eid : start_edge.consecutiveEids) {
+		auto& e = mesh.E.at(eid);
+		if (e.Vids[0] == res || e.Vids[1] == res) {
+			next_eid = eid;
+			break;
+		}
+	}
+	return res;
+}
+
+std::vector<size_t> getLinkVids(const RefinedDualQuad& dual, const Mesh& mesh, const std::unordered_set<size_t>& dualEdgeIds) {
+	std::vector<size_t> linkVids;
+	auto& edgeIds = dualEdgeIds;
+	auto start_eid = *edgeIds.begin();
+	auto& start_edge = dual.E.at(start_eid);
+	for (auto& e : mesh.E) {
+		if ((e.Vids[0] == start_edge.Vids[0] && e.Vids[1] == start_edge.Vids[1]) ||
+			(e.Vids[0] == start_edge.Vids[1] && e.Vids[1] == start_edge.Vids[0])) {
+			start_eid = e.id;
+			break;
+		}
+	}
+	auto start_vid = mesh.E.at(start_eid).Vids.front();
+	linkVids.push_back(start_vid);
+	size_t next_eid;
+	auto next_vid = getNextVid(mesh, start_vid, start_eid, next_eid);
+	while (next_vid != start_vid) {
+		linkVids.push_back(next_vid);
+		next_vid = getNextVid(mesh, start_vid, start_eid, next_eid);
+	}
+	linkVids.push_back(next_vid);
+	return linkVids;
+}
+
+void BaseComplexSheetQuad::WriteDualLinksVTK(const char *filename) const {
+    RefinedDualQuad dual(baseComplex.mesh);
+    dual.Build();
+
+	Mesh dualMesh;
+	dualMesh.m_cellType = QUAD;
+	dualMesh.V.resize(dual.V.size());
+	for (size_t i = 0; i < dual.V.size(); ++i) {
+		dualMesh.V[i] = dual.V[i].xyz();
+		dualMesh.V[i].id = i;
+	}
+
+	dualMesh.F.resize(dual.F.size());
+	for (size_t i = 0; i < dual.F.size(); ++i) {
+		dualMesh.F[i].Vids = dual.F[i].Vids;
+		dualMesh.F[i].id = i;
+	}
+
+	dualMesh.C.resize(dual.F.size());
+	for (size_t i = 0; i < dual.F.size(); ++i) {
+		dualMesh.C[i].Vids = dual.F[i].Vids;
+		dualMesh.C[i].id = i;
+		dualMesh.C[i].cellType = VTK_QUAD;
+	}
+
+	MeshFileWriter writer(dualMesh, "temp.vtk");
+	writer.WriteFile();
+	MeshFileReader reader("temp.vtk");
+	auto m = reader.GetMesh();
+
+	//dualMesh.BuildAllConnectivities();
+	//dualMesh.BuildConsecutiveE();
+
+
+	//std::vector<std::vector<size_t>> all_dualVids;
+	//size_t numOfLineVids = 0;
+ //   for (size_t i = 0; i < sheets_componentFaceIds.size(); ++i) {
+	//	std::unordered_set<size_t> dualEdgeIds = GetDualEdgeIds(i);
+	//	auto link = getLinkVids(dual, dualMesh, dualEdgeIds);
+	//	all_dualVids.push_back(link);
+	//	numOfLineVids += 1 + link.size();
+ //   }
+
+	//const auto& mesh = baseComplex.GetMesh();
+	//const auto& V = dualMesh.V;
+	//const auto& E = dualMesh.E;
+
+	m.BuildAllConnectivities();
+	m.BuildConsecutiveE();
+
+
+	std::vector<std::vector<size_t>> all_dualVids;
+	size_t numOfLineVids = 0;
+	for (size_t i = 0; i < sheets_componentFaceIds.size(); ++i) {
+		std::unordered_set<size_t> dualEdgeIds = GetDualEdgeIds(i);
+		auto link = getLinkVids(dual, m, dualEdgeIds);
+		all_dualVids.push_back(link);
+		numOfLineVids += 1 + link.size();
+	}
+
+	const auto& mesh = baseComplex.GetMesh();
+	const auto& V = m.V;
+	const auto& E = m.E;
+	std::ofstream ofs(filename);
+	ofs << "# vtk DataFile Version 2.0\n"
+		<< filename << "\n"
+		<< "ASCII\n\n"
+		<< "DATASET POLYDATA\n";
+	ofs << "POINTS " << V.size() << " double" << "\n";
+	for (const auto& v : V)
+		ofs << v.x << " " << v.y << " " << v.z << "\n";
+
+	ofs << "Lines " << all_dualVids.size() << " " << numOfLineVids << "\n";
+	for (const auto& dualVids : all_dualVids) {
+		ofs << dualVids.size();
+		for (const auto vid : dualVids)
+			ofs << " " << vid;
+		ofs << "\n";
+	}
+
+	ofs << "CELL_DATA " << all_dualVids.size() << "\n"
+		<< "SCALARS " << "id" << " int 1\n"
+		<< "LOOKUP_TABLE default\n";
+	size_t sheet_id = 0;
+	for (const auto& dualVids : all_dualVids) {
+		ofs << sheet_id << "\n";
+		++sheet_id;
+	}
+}
+
+
+void BaseComplexSheetQuad::WriteDualVTK(const char *filename) const {
+	RefinedDualQuad dual(baseComplex.mesh);
+	dual.Build();
+
+	std::vector<std::unordered_set<size_t>> all_dualEdgeIds;
+	size_t numOfLines = 0;
+	for (size_t i = 0; i < sheets_componentFaceIds.size(); ++i) {
+		std::unordered_set<size_t> dualEdgeIds = GetDualEdgeIds(i);
+		all_dualEdgeIds.push_back(dualEdgeIds);
+		numOfLines += dualEdgeIds.size();
+	}
+
+	const auto& mesh = baseComplex.GetMesh();
+	const auto& V = dual.V;
+	const auto& E = dual.E;
+	std::ofstream ofs(filename);
+	ofs << "# vtk DataFile Version 2.0\n"
+		<< filename << "\n"
+		<< "ASCII\n\n"
+		<< "DATASET POLYDATA\n";
+	ofs << "POINTS " << V.size() << " double" << "\n";
+	for (const auto& v : V)
+		ofs << v.x << " " << v.y << " " << v.z << "\n";
+
+	ofs << "Lines " << numOfLines << " " << 3 * numOfLines << "\n";
+	for (const auto& dualEdgeIds : all_dualEdgeIds)
+		for (const auto edge_id : dualEdgeIds) {
+			const auto& edge = E.at(edge_id);
+			ofs << edge.Vids.size() << " " << edge.Vids[0] << " " << edge.Vids[1] << "\n";
+		}
+
+	ofs << "CELL_DATA " << numOfLines << "\n"
+		<< "SCALARS " << "id" << " int 1\n"
+		<< "LOOKUP_TABLE default\n";
+	size_t sheet_id = 0;
+	for (const auto& dualEdgeIds : all_dualEdgeIds) {
+		for (const auto id : dualEdgeIds)
+			ofs << sheet_id << "\n";
+		++sheet_id;
+	}
+}
 //void BaseComplexSheetQuad::WriteAllSheetsCellsVTK(const char *filename_prefix) const
 //{
 //    for (int i = 0; i < sheets_componentCellIds.size(); ++i) {
@@ -767,6 +937,20 @@ void BaseComplexSheetQuad::WriteAllSheetsFacesDualVTK(const char *filename_prefi
 //        WriteSheetCellsVTK(filename.c_str(), i);
 //    }
 //}
+
+void BaseComplexSheetQuad::WriteAllSheetsFacesInOneVTK(const char *filename) const {
+	std::vector<std::set<size_t>> faceIds;
+	for (auto& sheet_componentFaceIds : sheets_componentFaceIds) {
+		std::set<size_t> sheetFaceIds;
+		for (auto& componentFaceId : sheet_componentFaceIds) {
+			auto& componentFace = baseComplex.componentF.at(componentFaceId);
+			sheetFaceIds.insert(componentFace.fids_patch.begin(), componentFace.fids_patch.end());
+		}
+		faceIds.push_back(sheetFaceIds);
+	}
+	MeshFileWriter writer(baseComplex.mesh, filename);
+	writer.WriteFacesVtk(faceIds);
+}
 
 void BaseComplexSheetQuad::WriteAllSheetsFacesVTK(const char *filename_prefix) const
 {
@@ -1101,25 +1285,6 @@ void BaseComplexSheetQuad::WriteSheetFacesAndEdgesVTK(const char *filename, cons
             ofs << sheet_id << "\n";
 }
 
-static void combine(std::vector<size_t>& com, std::vector<std::vector<size_t> > &res, int n, int k, int start) {
-    if (k == com.size()) {
-        res.push_back(com);
-        return;
-    }
-    for (int i = start; i < n; ++i) {
-        com.push_back(i);
-        combine(com, res, n, k, i + 1);
-        com.pop_back();
-    }
-}
-
-static std::vector<std::vector<size_t>> combine(int n, int k) {
-    std::vector<std::vector<size_t>> res;
-    std::vector<size_t> com;
-    combine(com, res, n, k, 0);
-    return res;
-}
-
 enum SheetsConnectivity {
     SheetsConnectivity_UNKNOWN = 0,
     SheetsConnectivity_NEIGHBOR,
@@ -1145,7 +1310,7 @@ void BaseComplexSheetQuad::ExtractSheetConnectivities() {
     // Get intersections
     for (const auto& sheetIds : faceComponent_sheetIds)
         if (sheetIds.size() > 1) {
-            auto combinations = combine(sheetIds.size(), 2);
+            auto combinations = Util::combine(sheetIds.size(), 2);
             std::vector<size_t> sheet_ids(sheetIds.begin(), sheetIds.end());
             for (auto combination : combinations) {
                 auto sheetid1 = sheet_ids[combination[0]];
@@ -1249,7 +1414,7 @@ const size_t BaseComplexSheetQuad::GetNumOfSheets() const {
 
 void BaseComplexSheetQuad::ComputeComplexity() {
     const auto& main_sheet_ids = sheets_coverSheetIds.front();
-    auto combinations = combine(main_sheet_ids.size(), 2);
+    auto combinations = Util::combine(main_sheet_ids.size(), 2);
     size_t complexity = 0;
     for (auto& p : combinations) {
         auto sheetid1 = main_sheet_ids[p[0]];
@@ -1300,7 +1465,7 @@ void BaseComplexSheetQuad::ComputeComplexityDrChen(int sheetid) {
     size_t n = sheets_connectivities.size();
     sheets_connectivities_float.clear();
     sheets_connectivities_float.resize(n,std::vector<float>(n, 0));
-    auto combinations = combine(n, 2);
+    auto combinations = Util::combine(n, 2);
     for (auto& p : combinations) {
         auto sheetid1 = sorted_main_sheet_ids[p[0]];
         auto sheetid2 = sorted_main_sheet_ids[p[1]];
@@ -1332,7 +1497,7 @@ void BaseComplexSheetQuad::ComputeComplexityDrChen(int sheetid) {
             auto relation_float = common_component_face_ids.size();
             if (common_component_face_ids_size > 1) {
                 std::vector<size_t> common_component_face_ids_array(common_component_face_ids.begin(), common_component_face_ids.end());
-                auto combs = combine(common_component_face_ids_size, 2);
+                auto combs = Util::combine(common_component_face_ids_size, 2);
                 for (auto& comb : combs) {
                     auto component_id1 = common_component_face_ids_array[comb[0]];
                     auto component_id2 = common_component_face_ids_array[comb[1]];
@@ -1368,7 +1533,7 @@ void BaseComplexSheetQuad::ComputeComplexityDrChen(int sheetid) {
             size_t common_component_face_ids_size = common_component_face_ids.size();
             if (common_component_face_ids_size > 1) {
                 std::vector<size_t> common_component_face_ids_array(common_component_face_ids.begin(), common_component_face_ids.end());
-                auto combs = combine(common_component_face_ids_size, 2);
+                auto combs = Util::combine(common_component_face_ids_size, 2);
                 for (auto& comb : combs) {
                     auto component_id1 = common_component_face_ids_array[comb[0]];
                     auto component_id2 = common_component_face_ids_array[comb[1]];
@@ -1676,7 +1841,7 @@ size_t BaseComplexSheetQuad::GetNumOfIntersections(const std::unordered_set<size
     std::vector<std::vector<int>> M(n, std::vector<int>(n, 0));
     size_t common_component_face_ids_size = common_component_face_ids.size();
     std::vector<size_t> common_component_face_ids_array(common_component_face_ids.begin(), common_component_face_ids.end());
-    auto combs = combine(common_component_face_ids_size, 2);
+    auto combs = Util::combine(common_component_face_ids_size, 2);
     for (auto& comb : combs) {
         auto component_id1 = common_component_face_ids_array[comb[0]];
         auto component_id2 = common_component_face_ids_array[comb[1]];
@@ -1698,7 +1863,7 @@ float BaseComplexSheetQuad::ComputeComplexityUnbalancedMatrix(int sheetid) {
     size_t n = sheets_connectivities.size();
     sheets_connectivities_float.clear();
     sheets_connectivities_float.resize(n,std::vector<float>(n, 0.0f));
-    auto combinations = combine(n, 2);
+    auto combinations = Util::combine(n, 2);
     for (auto& p : combinations) {
         auto sheetid1 = sorted_main_sheet_ids[p[0]];
         auto sheetid2 = sorted_main_sheet_ids[p[1]];
@@ -1967,7 +2132,7 @@ void BaseComplexSheetQuad::WriteSelfIntersectingEdges(const char *filename) cons
 
     auto n = intersecting_edge_ids.size();
     std::vector<std::vector<size_t>> M(n, std::vector<size_t>(n, 0));
-    auto combs = combine(n, 2);
+    auto combs = Util::combine(n, 2);
     for (auto& comb : combs) {
         auto eid1 = intersecting_edge_ids[comb[0]];
         auto eid2 = intersecting_edge_ids[comb[1]];

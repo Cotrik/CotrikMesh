@@ -25,7 +25,7 @@ Mesh GetRefineMesh2(const Mesh& hex_mesh, int clockwise)
         const Edge& e = new_mesh.E.at(i);
         const Vertex& v0 = new_mesh.V.at(e.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(e.Vids[1]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size();
     for (size_t i = 0; i < new_mesh.F.size(); i++) {
@@ -34,7 +34,7 @@ Mesh GetRefineMesh2(const Mesh& hex_mesh, int clockwise)
         const Vertex& v1 = new_mesh.V.at(f.Vids[1]);
         const Vertex& v2 = new_mesh.V.at(f.Vids[2]);
         const Vertex& v3 = new_mesh.V.at(f.Vids[3]);
-        new_vertex.at(offset + i) = 0.25f * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
+        new_vertex.at(offset + i) = 0.25 * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size() + new_mesh.F.size();
     for (size_t i = 0; i < new_mesh.C.size(); i++) {
@@ -47,7 +47,7 @@ Mesh GetRefineMesh2(const Mesh& hex_mesh, int clockwise)
         const Vertex& v5 = new_mesh.V.at(c.Vids[5]);
         const Vertex& v6 = new_mesh.V.at(c.Vids[6]);
         const Vertex& v7 = new_mesh.V.at(c.Vids[7]);
-        new_vertex.at(offset + i) = 0.125f * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz() + v4.xyz() + v5.xyz() + v6.xyz() + v7.xyz());
+        new_vertex.at(offset + i) = 0.125 * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz() + v4.xyz() + v5.xyz() + v6.xyz() + v7.xyz());
     }
     //new_mesh.V = new_vertex;
     /////////////////////////////////////////////////////////////////
@@ -149,7 +149,7 @@ Mesh GetRefineMesh3(const Mesh& hex_mesh, int clockwise)
         const Edge& e = new_mesh.E.at(i);
         const Vertex& v0 = new_mesh.V.at(e.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(e.Vids[1]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size();
     for (size_t i = 0; i < new_mesh.F.size(); i++) {
@@ -158,7 +158,7 @@ Mesh GetRefineMesh3(const Mesh& hex_mesh, int clockwise)
         const Vertex& v1 = new_mesh.V.at(f.Vids[1]);
         const Vertex& v2 = new_mesh.V.at(f.Vids[2]);
         const Vertex& v3 = new_mesh.V.at(f.Vids[3]);
-        new_vertex.at(offset + i) = 0.25f * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
+        new_vertex.at(offset + i) = 0.25 * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size() + new_mesh.F.size();
     for (size_t i = 0; i < new_mesh.C.size(); i++) {
@@ -171,7 +171,7 @@ Mesh GetRefineMesh3(const Mesh& hex_mesh, int clockwise)
         const Vertex& v5 = new_mesh.V.at(c.Vids[5]);
         const Vertex& v6 = new_mesh.V.at(c.Vids[6]);
         const Vertex& v7 = new_mesh.V.at(c.Vids[7]);
-        new_vertex.at(offset + i) = 0.125f * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz() + v4.xyz() + v5.xyz() + v6.xyz() + v7.xyz());
+        new_vertex.at(offset + i) = 0.125 * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz() + v4.xyz() + v5.xyz() + v6.xyz() + v7.xyz());
     }
     //new_mesh.V = new_vertex;
     /////////////////////////////////////////////////////////////////
@@ -255,7 +255,7 @@ void RefinedDual::BuildV() {
         const Edge& e = mesh.E.at(i);
         const Vertex& v0 = mesh.V.at(e.Vids[0]);
         const Vertex& v1 = mesh.V.at(e.Vids[1]);
-        V.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        V.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = mesh.V.size() + mesh.E.size();
     for (size_t i = 0; i < mesh.F.size(); i++) {
@@ -264,7 +264,7 @@ void RefinedDual::BuildV() {
         const Vertex& v1 = mesh.V.at(f.Vids[1]);
         const Vertex& v2 = mesh.V.at(f.Vids[2]);
         const Vertex& v3 = mesh.V.at(f.Vids[3]);
-        V.at(offset + i) = 0.25f * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
+        V.at(offset + i) = 0.25 * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
     }
     offset = mesh.V.size() + mesh.E.size() + mesh.F.size();
     for (size_t i = 0; i < mesh.C.size(); i++) {
@@ -277,7 +277,7 @@ void RefinedDual::BuildV() {
         const Vertex& v5 = mesh.V.at(c.Vids[5]);
         const Vertex& v6 = mesh.V.at(c.Vids[6]);
         const Vertex& v7 = mesh.V.at(c.Vids[7]);
-        V.at(offset + i) = 0.125f * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz() + v4.xyz() + v5.xyz() + v6.xyz() + v7.xyz());
+        V.at(offset + i) = 0.125 * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz() + v4.xyz() + v5.xyz() + v6.xyz() + v7.xyz());
     }
     size_t id = 0;
     for (auto& v : V)

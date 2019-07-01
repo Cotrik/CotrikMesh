@@ -8,33 +8,49 @@
 #ifndef MESH_H_
 #define MESH_H_
 
-#include <vector>
-#include <string>
+#include "Util.h"
 #include <glm/glm.hpp>
 #include <vtkCellType.h>
 class FeatureLine;
-enum ElementType
-{
+enum ElementType {
     POLYGON,
     TRIANGLE,
     QUAD,
     TETRAHEDRA,
     HEXAHEDRA,
-    POLYHEDRA
+    POLYHEDRA,
+	WEDGE,
+	PENTAHEDRON,
 };
 
 extern const size_t MAXID;
-extern const unsigned int HexEdge[12][2];
+extern const unsigned int HexEdges[12][2];
 extern const unsigned int HexFaces[6][4];
 
-extern const unsigned int TetEdge[6][2];
+extern const unsigned int TetEdges[6][2];
 extern const unsigned int TetFaces[4][3];
+
+extern const unsigned int WedgeEdges[9][2];
+extern const unsigned int PentaEdges[15][2];
+
+extern const std::vector<std::vector<size_t>> HexFace;
+extern const std::vector<std::vector<size_t>> TetFace;
+extern const std::vector<std::vector<size_t>> WedgeFace;
+extern const std::vector<std::vector<size_t>> PentaFace;
+
+extern const std::vector<std::vector<size_t>> HexEdge;
+extern const std::vector<std::vector<size_t>> TetEdge;
+extern const std::vector<std::vector<size_t>> WedgeEdge;
+extern const std::vector<std::vector<size_t>> PentaEdge;
 
 extern const unsigned int TriEdge[3][2];
 extern const unsigned int QuadEdge[4][2];
 
 extern const unsigned int HexPoint_Points[8][3];
 extern const unsigned int HexPoint_Edges[8][3];
+
+extern const std::map<size_t, std::vector<std::vector<size_t>>> cell_faces;
+extern const std::map<size_t, std::vector<std::vector<size_t>>> cell_edges;
 
 class NeighborInfo
 {
@@ -120,17 +136,22 @@ enum SmoothMethod
     LAPLACE_BELTRAMI
 };
 
-class Vertex : public glm::vec3, public GeoInfo, public NeighborInfo
+class Vertex : public glm::dvec3, public GeoInfo, public NeighborInfo
 {
 public:
     Vertex()
     : hvid(MAXID)
     , triVid(MAXID)
-    , type(MAXID)
+    , type(REGULAR)
+	, label(MAXID)
+	, patch_id(MAXID)
     , isCorner(false)
+	, isSpecial(false)
+    , isConvex(false)
+    , idealValence(0)
     {}
     Vertex(const Vertex& r)
-    : glm::vec3(r)
+    : glm::dvec3(r)
     , GeoInfo(r)
     , NeighborInfo(r)
     , normal(r.normal)
@@ -138,49 +159,64 @@ public:
     , hvid(r.hvid)
     , triVid(r.triVid)
     , type(r.type)
+	, label(r.label)
+	, patch_id(r.patch_id)
+	, labels(r.labels)
+	, patch_ids(r.patch_ids)
     , isCorner(r.isCorner)
+	, isSpecial(r.isSpecial)
+    , isConvex(r.isConvex)
+    , idealValence(r.idealValence)
     {}
-    Vertex(const glm::vec3& v)
-    : glm::vec3(v)
+    Vertex(const glm::dvec3& v)
+    : glm::dvec3(v)
     , hvid(MAXID)
     , triVid(MAXID)
-    , type(MAXID)
+    , type(REGULAR)
+	, label(MAXID)
+	, patch_id(MAXID)
     , isCorner(false)
+	, isSpecial(false)
+    , isConvex(false)
     {}
     virtual ~Vertex()
     {}
-    Vertex& operator = (const Vertex& r)
-    {
-        if (r == *this)
-            return *this;
-        x = r.x;
-        y = r.y;
-        z = r.z;
+	Vertex& operator = (const Vertex& r) {
+		if (r == *this)
+			return *this;
+		x = r.x;
+		y = r.y;
+		z = r.z;
 
-        return *this;
-    }
-    Vertex& operator = (const glm::vec3& r)
-    {
-        if (r == *this)
-            return *this;
-        x = r.x;
-        y = r.y;
-        z = r.z;
+		return *this;
+	}
+	Vertex& operator = (const glm::dvec3& r) {
+		if (r == *this)
+			return *this;
+		x = r.x;
+		y = r.y;
+		z = r.z;
 
-        return *this;
-    }
-    glm::vec3 xyz() const
-    {
-        return glm::vec3(x,y,z);
-    }
-    glm::vec3 normal;
+		return *this;
+	}
+	glm::dvec3 xyz() const {
+		return glm::dvec3(x, y, z);
+	}
+    glm::dvec3 normal;
 
     // for edge cone triangle surface
-    glm::vec3 tangent;
+    glm::dvec3 tangent;
     size_t hvid;
     size_t triVid;
-    size_t type; //0 regular, 1 feature, 2 corner.
+    size_t type; // 0 regular, 1 feature, 2 corner.
+	size_t label; // the same as the edge line label;
+	size_t patch_id; // face patch id;
+	std::set<size_t> labels; // for corner
+	std::set<size_t> patch_ids;
     bool isCorner;
+	bool isSpecial;
+	bool isConvex;
+	size_t idealValence = 0;
     std::vector<size_t> twoRingNeighborSurfaceFaceIds; // for surface projecting;
 };
 
@@ -236,11 +272,13 @@ public:
     virtual ~Edge()
     {}
 public:
-    bool operator == (const Edge& e) const
-    {
-        return ((Vids[0] == e.Vids[0] && Vids[1] == e.Vids[1]) ||
-                (Vids[0] == e.Vids[1] && Vids[1] == e.Vids[0]) );
+    bool operator == (const Edge& e) const {
+        return ((Vids[0] == e.Vids[0] && Vids[1] == e.Vids[1]) || (Vids[0] == e.Vids[1] && Vids[1] == e.Vids[0]) );
     }
+	bool operator < (const Edge& e) const {
+		if (*this == e) return false;
+		return Vids[0] < e.Vids[0];
+	}
 public:
     std::vector<size_t> Vids;
     std::vector<size_t> parallelEids;
@@ -306,7 +344,7 @@ public:
     std::vector<std::vector<size_t> > N_Ortho_4Vids;   // Neighboring Orthogonal 4 Vids of Edges
     std::vector<std::vector<size_t> > N_Ortho_4Eids;   // Neighboring Orthogonal 4 Eids of Edges
 
-    glm::vec3 normal;
+    glm::dvec3 normal;
     size_t label;     // patch number starting from 0, MAXID is invalid
     size_t componentFid = MAXID;
 };
@@ -352,7 +390,7 @@ public:
     std::vector<size_t> Vids;
     std::vector<size_t> Eids;
     std::vector<size_t> Fids;
-    //glm::vec3 cv;                 // center vertex's x,y,z coordinate of the Cell;  For Node of Frame
+    //glm::dvec3 cv;                 // center vertex's x,y,z coordinate of the Cell;  For Node of Frame
     size_t componentCid = MAXID;
 };
 
@@ -395,10 +433,10 @@ public:
         double cosangle = (a*p.a + b*p.b + c*p.c) / (sqrt(a*a + b*b + c*c)* sqrt(p.a*p.a + p.b*p.b + p.c*p.c));
         return cosangle;
     }
-    double DistanseFromPoint(const glm::vec3& p, glm::vec3& intersection) const {
+    double DistanseFromPoint(const glm::dvec3& p, glm::dvec3& intersection) const {
         const double distance = fabs(a*p.x + b*p.y + c*p.z + d) / sqrt(a*a + b*b + c*c);
         const double t = (a*p.x + b*p.y + c*p.z + d) / (a*a + b*b + c*c);
-        intersection = glm::vec3(p.x - a*t, p.y - b*t, p.z - c*t);
+        intersection = glm::dvec3(p.x - a*t, p.y - b*t, p.z - c*t);
         return distance;
     }
     bool operator < (const Plane& right) const {
@@ -415,7 +453,7 @@ public:
 class Line
 {
 public:
-    Line(const glm::vec3& o, const glm::vec3& d)
+    Line(const glm::dvec3& o, const glm::dvec3& d)
         : o(o), dir(d) {
     }
     Line(const Vertex& p1, const Vertex& p2)
@@ -424,7 +462,7 @@ public:
     Line(const Line& r)
     : o(r.o), dir(r.dir)    {
     }
-    double Perpendicular(const glm::vec3& a, glm::vec3& intersection) const {
+    double Perpendicular(const glm::dvec3& a, glm::dvec3& intersection) const {
         const double t = ((a.x - o.x) * dir.x + (a.y - o.y) * dir.y + (a.z - o.z) * dir.z) / (dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
         intersection.x = o.x + dir.x * t;
         intersection.y = o.y + dir.y * t;
@@ -437,8 +475,8 @@ public:
 //        return d < right.d;
 //    }
 public:
-    glm::vec3 o;
-    glm::vec3 dir;
+    glm::dvec3 o;
+    glm::dvec3 dir;
 };
 
 class Mesh {
@@ -463,21 +501,22 @@ public:
     void GetNormalOfSurfaceFaces();             // must ExtractBoundary(); first
     void GetNormalOfSurfaceVertices();          // must ExtractBoundary(); first
     void RemoveUselessVertices();
+    void CompressWithFeaturePreserved();
     void ClassifyVertexTypes();
     void LabelSurface();
     void ClearLabelOfSurface();
     void LabelSharpEdges(const bool breakAtConrer = false);
     void ProjectSharpEdgesTo(const std::vector<FeatureLine>& featureLines);
     void SetCosAngleThreshold(const double cos_angle = 0.91);
-    //bool IsPointInTriangle(const glm::vec3& P, const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) const;
+    //bool IsPointInTriangle(const glm::dvec3& P, const glm::dvec3& A, const glm::dvec3& B, const glm::dvec3& C) const;
     bool IsPointInTriangle(const Vertex& p, const Vertex& p0, const Vertex& p1, const Vertex& p2) const;
-    bool IsPointInTriangle(const glm::vec3& p, const glm::vec3& p0, const glm::vec3& p1, const glm::vec3& p2) const;
-    bool IsPointInFace(const glm::vec3& P, const Face& face) const;
-    glm::vec3 GetProjectLocation(const glm::vec3& p) const;
-    glm::vec3 GetProjectLocation(const Vertex& p) const;
-    glm::vec3 GetProjectLocationFast(const Vertex& p) const;
-    glm::vec3 GetProjectLocationOnRefSurface(const glm::vec3& p, const Vertex& refV) const;
-    glm::vec3 GetProjectLocationOnTargetSurface(const glm::vec3& p, const Vertex& refV, const Mesh& targetSurfaceMesh) const;
+    bool IsPointInTriangle(const glm::dvec3& p, const glm::dvec3& p0, const glm::dvec3& p1, const glm::dvec3& p2) const;
+    bool IsPointInFace(const glm::dvec3& P, const Face& face) const;
+    glm::dvec3 GetProjectLocation(const glm::dvec3& p) const;
+    glm::dvec3 GetProjectLocation(const Vertex& p) const;
+    glm::dvec3 GetProjectLocationFast(const Vertex& p) const;
+    glm::dvec3 GetProjectLocationOnRefSurface(const glm::dvec3& p, const Vertex& refV) const;
+    glm::dvec3 GetProjectLocationOnTargetSurface(const glm::dvec3& p, const Vertex& refV, const Mesh& targetSurfaceMesh) const;
     void ProjectTo(const Mesh& mesh);
     void FastProjectTo(const Mesh& mesh);
     void ProjectToRefMesh(const Mesh& refMesh);
@@ -496,14 +535,14 @@ public:
     double SmoothVolume(const Mesh& mesh, size_t iters = 1, const SmoothMethod smoothMethod = LAPLACE_EDGE,
             const bool preserveQuality = false);
     double SmoothVolume(size_t iters = 1, const SmoothMethod smoothMethod = LAPLACE_EDGE, const bool preserveQuality = false);
-    glm::vec3 GetFaceCenter(const Face& f);
-    glm::vec3 LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular = false, const bool treatCornerAsRegular = false);
+    glm::dvec3 GetFaceCenter(const Face& f);
+    glm::dvec3 LapLace(const Vertex& v, const bool treatSharpFeatureAsRegular = false, const bool treatCornerAsRegular = false);
     void ConvertSurfaceToTriangleMesh();
 
-    void Zoom(const glm::vec3& ref, const double scale = 1);
+    void Zoom(const glm::dvec3& ref, const double scale = 1);
     const float GetScaledJacobian(const Cell& c) const;
     double GetMinScaledJacobian(double& avgSJ) const;
-    bool IsPointInside(const glm::vec3& orig, const glm::vec3 dir = glm::vec3(0, 0, 1)) const;
+    bool IsPointInside(const glm::dvec3& orig, const glm::dvec3 dir = glm::dvec3(0, 0, 1)) const;
 protected:
     virtual void BuildE();
     virtual void BuildF();
@@ -527,9 +566,11 @@ protected:
     virtual void BuildC_E();
     virtual void BuildC_F();
     virtual void BuildC_C();
+	// -------------
     void LabelFace(Face& face, size_t& label);
     void LabelEdge(Edge& edge, size_t& label, const bool breakAtConrer = false);
 public:
+	virtual void FixOrientation();
     double GetCosAngle(const Edge& edge, const Face& face1, const Face& face2);
 public:
     void GetQuality(const Vertex& v, double& minSJ, double& avgSJ);
@@ -555,7 +596,7 @@ public:
     double avgEdgeLength;
     size_t numOfSharpEdges;
 
-    glm::vec3 m_center;
+    glm::dvec3 m_center;
     std::vector<size_t> m_refIds;
     double cos_angle_threshold = 0.984807753;
     size_t numberOfPatches = 0;
@@ -570,7 +611,7 @@ bool IsOverlap(const Face& f1, const Face& f2);
 bool Find(const std::vector<size_t>& Ids, const size_t targetId);
 size_t GetoppositeFaceId(const Mesh& mesh, const size_t cellId, const size_t faceId);
 bool IsEdgeInCell(const Mesh& mesh, const size_t cellId, const size_t edgeId);
-glm::vec3 GetCenter(const std::vector<Vertex>& V);
-void GetBoundingBox(const std::vector<Vertex>& V, glm::vec3& Max, glm::vec3& Min);
+glm::dvec3 GetCenter(const std::vector<Vertex>& V);
+void GetBoundingBox(const std::vector<Vertex>& V, glm::dvec3& Max, glm::dvec3& Min);
 
 #endif /* MESH_H_ */

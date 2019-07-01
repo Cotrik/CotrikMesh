@@ -30,7 +30,7 @@ include_directories(
     #/usr/local/include/
     #/usr/local/include/vtk-6.3/
     ${PROJECT_SOURCE_DIR}/verdict/vtkverdict
-    ${PROJECT_SOURCE_DIR}/libigl/include
+    ${PROJECT_SOURCE_DIR}/../libigl/include
     ../
     #${PROJECT_SOURCE_DIR}/libgeodesic_heart/include
     ${VTK_INCLUDE_DIRS}
@@ -106,6 +106,8 @@ add_library(cotrik SHARED STATIC
     src/MeshFileReader.h
     src/MeshFileWriter.cpp
     src/MeshFileWriter.h
+    src/UnstructuredVTKWriter.cpp
+    src/UnstructuredVTKWriter.h
     src/MeshOptFixBoundary.cpp
     src/MeshOptFixBoundary.h
     src/MeshQuality.cpp
@@ -124,6 +126,36 @@ add_library(cotrik SHARED STATIC
     src/WeightedMeshOptFixBoundary.h
     src/UnstructuredVTKWriter.h
     src/UnstructuredVTKWriter.cpp
+	src/DualMesh.h
+	src/DualMesh.cpp
+	src/MST.h
+	src/MST.cpp
+	src/Simplifier.h
+	src/Simplifier.cpp
+	src/CollapseSimplifier.h
+	src/CollapseSimplifier.cpp
+	src/SplitSimplifier.h
+	src/SplitSimplifier.cpp
+	src/SheetSimplifier.h
+	src/SheetSimplifier.cpp
+	src/GlobalSheetSimplifier.h
+	src/GlobalSheetSimplifier.cpp
+	src/SingleSheetSimplifier.h
+	src/SingleSheetSimplifier.cpp
+	src/SheetSplitSimplifier.h
+	src/SheetSplitSimplifier.cpp
+	src/DoubletSimplifier.h
+	src/DoubletSimplifier.cpp
+	src/EdgeRotateSimplifier.h
+	src/EdgeRotateSimplifier.cpp
+	src/DiagnalCollapseSimplifier.h
+	src/DiagnalCollapseSimplifier.cpp
+	src/TriangleSimplifier.h
+	src/TriangleSimplifier.cpp
+	src/PatchSimplifier.h
+	src/PatchSimplifier.cpp
+	src/Util.h
+	src/Util.cpp
 )
 target_link_libraries(cotrik ${ALL_LIBS})
 #install(FILES cotrik DESTINATION D:/Program\ Files/CotrikMesh/)

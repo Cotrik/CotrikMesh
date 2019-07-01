@@ -29,7 +29,6 @@ void WriteSharpEdgesVtk(const char* filename, const Mesh& m_mesh, const std::vec
         << "ASCII" << std::endl << std::endl
         << "DATASET POLYDATA" << std::endl;
     ofs << "POINTS " << V.size() << " float" << std::endl;
-    ofs << std::fixed << setprecision(7);
     for (size_t i = 0; i < V.size(); i++)
         ofs << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << std::endl;
     size_t numOfSharpVertices = 0;
@@ -71,6 +70,7 @@ int main(int argc, char* argv[])
     }
     MeshFileReader reader(argv[1]);
     Mesh& mesh = (Mesh&)reader.GetMesh();
+    mesh.RemoveUselessVertices();
     mesh.BuildAllConnectivities();
     mesh.ExtractBoundary();
     // cos10 = 0.984807753; cos15 = 0.965925826; cos20 = 0.939692621; cos25 = 0.906307787; cos30 = 0.866025404;
@@ -295,11 +295,11 @@ void test(const Mesh& mesh)
     std::cout << "\n";
     }
 
-    const glm::vec3 a(1, 2, 1);
-    const glm::vec3 dir(1, 2, 3);
+    const glm::dvec3 a(1, 2, 1);
+    const glm::dvec3 dir(1, 2, 3);
     Line line(a, dir);
-    const glm::vec3 p(2, 3, 4);
-    glm::vec3 intersection;
+    const glm::dvec3 p(2, 3, 4);
+    glm::dvec3 intersection;
     const double d = line.Perpendicular(p, intersection);
     std::cout << "d = " << d << std::endl;
 }

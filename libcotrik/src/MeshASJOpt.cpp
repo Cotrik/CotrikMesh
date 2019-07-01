@@ -140,13 +140,13 @@ bool MeshASJOpt::Optimize(double& energy)
             const double& x = X[3 * i + 0];
             const double& y = X[3 * i + 1];
             const double& z = X[3 * i + 2];
-            const glm::vec3 oldv = v.xyz();
+            const glm::dvec3 oldv = v.xyz();
             double oldMinSJ = 0;
             double oldAvgSJ = 0;
             mesh.GetQuality(v, oldMinSJ, oldAvgSJ);
             double newMinSJ = 0;
             double newAvgSJ = 0;
-            const glm::vec3 newv(x,y,z);
+            const glm::dvec3 newv(x,y,z);
             v = newv;
             mesh.GetQuality(v, newMinSJ, newAvgSJ);
             //if (newMinSJ < this->minScaledJacobian || newAvgSJ < oldAvgSJ){

@@ -51,6 +51,7 @@ public:
     void WriteSheetEdgesVTK(const char *filename, const size_t sheet_id) const;
     void WriteSheetFacesAndEdgesVTK(const char *filename, const size_t sheet_id) const;
     //void WriteAllSheetsCellsVTK(const char *filename_prefix) const;
+	void WriteAllSheetsFacesInOneVTK(const char *filename) const;
     void WriteAllSheetsFacesVTK(const char *filename_prefix) const;
     void WriteAllSheetsEdgesVTK(const char *filename_prefix) const;
     void WriteAllSheetsFacesAndEdgesVTK(const char *filename_prefix) const;
@@ -61,6 +62,8 @@ public:
     void WriteSheetFacesDualVTK(const char *filename, const size_t sheet_id, const RefinedDualQuad& dual, const std::unordered_set<size_t>& dualEdgeIds,
             const std::unordered_set<size_t>& singularVertexIds) const;
     void WriteAllSheetsFacesDualVTK(const char *filename_prefix) const;
+	void WriteDualVTK(const char *filename) const;
+	void WriteDualLinksVTK(const char *filename) const;
     void WriteSheetDecompositionsFile(const char *filename) const;
     void WriteSheetDecompositionsDuaVTK(const char *filename, const int scalar = 0, const int main_sheets_id = 0) const;
     void GetParallelComponents(const ComponentEdge & componentEdge,
@@ -99,7 +102,7 @@ public:
     void ExtractSheetDecompositionsAll();
     SheetType GetSheetType();
     void VerifySheetDecompositions();
-private:
+public:
     BaseComplexQuad& baseComplex;
     std::vector<std::vector<size_t>> sheets_componentEdgeIds;  // each sheet consists a list of base-complex componentEdge ids;
     std::vector<std::vector<size_t>> sheets_componentFaceIds;  // each sheet consists a list of base-complex componentFace ids;

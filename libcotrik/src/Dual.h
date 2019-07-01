@@ -20,7 +20,7 @@ public:
     DualVertex(const DualVertex& r)
     : Vertex(r)
     {}
-    DualVertex(const glm::vec3& v)
+    DualVertex(const glm::dvec3& v)
     : Vertex(v)
     {}
     virtual ~DualVertex()
@@ -30,7 +30,7 @@ public:
         Vertex::operator =(r);
         return *this;
     }
-    DualVertex& operator =(const glm::vec3& r) {
+    DualVertex& operator =(const glm::dvec3& r) {
         if (r == *this) return *this;
         Vertex::operator =(r);
         return *this;
@@ -44,7 +44,7 @@ public:
             // Compute center x,y,z coordinates
             for (size_t i = 0; i < facesSize; i++) {
                 const Face& face = mesh.F.at(cell.N_Fids.at(i));
-                glm::vec3 faceCenter(0.0, 0.0, 0.0);
+                glm::dvec3 faceCenter(0.0, 0.0, 0.0);
                 const size_t faceVidsSize = face.Vids.size();
                 for (size_t j = 0; j < faceVidsSize; j++) {
                     const Vertex& v = mesh.V.at(face.Vids.at(j));
@@ -83,7 +83,7 @@ public:
             }
         } else {
             const Face& face = mesh.F.at(surfaceId);
-            glm::vec3 faceCenter(0.0, 0.0, 0.0);
+            glm::dvec3 faceCenter(0.0, 0.0, 0.0);
             const size_t faceVidsSize = face.Vids.size();
             for (size_t j = 0; j < faceVidsSize; j++) {
                 const Vertex& v = mesh.V.at(face.Vids.at(j));

@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     for (const auto& e : tetMesh.E) {
         const auto& v1 = tetMesh.V.at(e.Vids[0]);
         const auto& v2 = tetMesh.V.at(e.Vids[1]);
-        hexMesh.V.at(vid) = 0.5f * (v1 + v2);
+        hexMesh.V.at(vid) = 0.5 * (v1 + v2);
         hexMesh.V.at(vid).isBoundary = e.isBoundary;
         hexMesh.V.at(vid).id = vid++;
     }
@@ -62,7 +62,7 @@ int main(int argc, char* argv[]) {
         const auto& v1 = tetMesh.V.at(f.Vids[0]);
         const auto& v2 = tetMesh.V.at(f.Vids[1]);
         const auto& v3 = tetMesh.V.at(f.Vids[2]);
-        hexMesh.V.at(vid) = 0.333333f * (v1 + v2 + v3);
+        hexMesh.V.at(vid) = 0.333333 * (v1 + v2 + v3);
         hexMesh.V.at(vid).isBoundary = f.isBoundary;
         hexMesh.V.at(vid).id = vid++;
     }
@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
         const auto& v2 = tetMesh.V.at(c.Vids[1]);
         const auto& v3 = tetMesh.V.at(c.Vids[2]);
         const auto& v4 = tetMesh.V.at(c.Vids[3]);
-        hexMesh.V.at(vid) = 0.25f * (v1 + v2 + v3 + v4);
+        hexMesh.V.at(vid) = 0.25 * (v1 + v2 + v3 + v4);
         hexMesh.V.at(vid).isBoundary = false;
         hexMesh.V.at(vid).id = vid++;
     }

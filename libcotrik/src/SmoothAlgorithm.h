@@ -32,8 +32,8 @@ public:
 
 private:
     double SmoothVolume(const Smooth_Algorithm smoothMethod = LAPLACIAN);
-    glm::vec3 LapLace(const Vertex& v);
-    glm::vec3 ScaledJacobian(const Vertex& v);
+    glm::dvec3 LapLace(const Vertex& v);
+    glm::dvec3 ScaledJacobian(const Vertex& v);
 
 private:
     Mesh& mesh;

@@ -264,7 +264,7 @@ bool MeshOpt::Optimize()
     bool converged = true;
     if (recoverable) {
         Mesh targetMesh(mesh);
-        std::vector<glm::vec3> oldV(mesh.V.size());
+        std::vector<glm::dvec3> oldV(mesh.V.size());
         for (size_t i = 0; i < mesh.V.size(); i++)
         {
             oldV[i].x = mesh.V[i].x;
@@ -416,7 +416,7 @@ bool MeshOpt::Optimize()
 //
 //    bool converged = true;
 //    if (recoverable) {
-//        std::vector<glm::vec3> oldV(mesh.V.size());
+//        std::vector<glm::dvec3> oldV(mesh.V.size());
 //        for (size_t i = 0; i < mesh.V.size(); i++)
 //        {
 //            oldV[i].x = mesh.V[i].x;
@@ -535,17 +535,17 @@ void MeshOpt::OptimizeEdgeComformalty(std::vector<Trip>& A_Entries, std::vector<
             const Vertex& vetex2_1 = mesh.V.at(vId2_1);
             const Vertex& vetex2_2 = mesh.V.at(vId2_2);
 
-            const glm::vec3 v2 = glm::vec3(vetex2_1.x - vetex2_2.x, vetex2_1.y - vetex2_2.y, vetex2_1.z - vetex2_2.z);
-            const glm::vec3 v2n = glm::normalize(v2);
+            const glm::dvec3 v2 = glm::dvec3(vetex2_1.x - vetex2_2.x, vetex2_1.y - vetex2_2.y, vetex2_1.z - vetex2_2.z);
+            const glm::dvec3 v2n = glm::normalize(v2);
             double length_v1 = edge1.length;
             if (!useAverageTargetLength) {
-                length_v1 = glm::length(glm::vec3(vetex1_1.x - vetex1_2.x, vetex1_1.y - vetex1_2.y, vetex1_1.z - vetex1_2.z));
+                length_v1 = glm::length(glm::dvec3(vetex1_1.x - vetex1_2.x, vetex1_1.y - vetex1_2.y, vetex1_1.z - vetex1_2.z));
                 // length_v1 = length_v1 > 1e-4 ? length_v1 : 1e-4;
                 length_v1 = length_v1 > avgMeshEdgeLength*anisotropy ? length_v1 : avgMeshEdgeLength*anisotropy;
             }
             ///////////////////////////////////////////////
 //            const double length_v1_ = 1.0/length_v1;
-//            const glm::vec3 v1n = glm::vec3((vetex1_1.x - vetex1_2.x)*length_v1_, (vetex1_1.y - vetex1_2.y)*length_v1_, (vetex1_1.z - vetex1_2.z)*length_v1_);
+//            const glm::dvec3 v1n = glm::dvec3((vetex1_1.x - vetex1_2.x)*length_v1_, (vetex1_1.y - vetex1_2.y)*length_v1_, (vetex1_1.z - vetex1_2.z)*length_v1_);
 //            const double energy_straightness = (glm::dot(v1n, v2n) + 1.0) * (glm::dot(v1n, v2n) + 1.0) * gamma;
 //            energy += energy_straightness;
 //            edge1.energyStraightness += energy_straightness;
@@ -611,11 +611,11 @@ void MeshOpt::OptimizeSingularity(std::vector<Trip>& A_Entries, std::vector<floa
                 const Vertex& vetex1 = shareVId == vId1_1 ? mesh.V.at(vId1_2) : mesh.V.at(vId1_1);
                 const Vertex& vetexC = mesh.V.at(shareVId);
                 const Vertex& vetex2 = shareVId == vId2_1 ? mesh.V.at(vId2_2) : mesh.V.at(vId2_1);
-                const glm::vec3 v2 = glm::vec3(vetexC.x - vetex2.x, vetexC.y - vetex2.y, vetexC.z - vetex2.z);
-                const glm::vec3 v2n = glm::normalize(v2);
+                const glm::dvec3 v2 = glm::dvec3(vetexC.x - vetex2.x, vetexC.y - vetex2.y, vetexC.z - vetex2.z);
+                const glm::dvec3 v2n = glm::normalize(v2);
                 double length_v1 = edge1.length;
                 if (!useAverageTargetLength) {
-                    length_v1 = glm::length(glm::vec3(vetexC.x - vetex1.x, vetexC.y - vetex1.y, vetexC.z - vetex1.z));
+                    length_v1 = glm::length(glm::dvec3(vetexC.x - vetex1.x, vetexC.y - vetex1.y, vetexC.z - vetex1.z));
                     // length_v1 = length_v1 > 1e-4 ? length_v1 : 1e-4;
                     length_v1 = length_v1 > avgMeshEdgeLength*anisotropy ? length_v1 : avgMeshEdgeLength*anisotropy;
                     length_v1 = std::isnan(length_v1) ? avgMeshEdgeLength*anisotropy : length_v1;
@@ -633,7 +633,7 @@ void MeshOpt::OptimizeSingularity(std::vector<Trip>& A_Entries, std::vector<floa
                     std::cout << "Error! edge.N_Cids.size() = " << edge.N_Cids.size() << std::endl;
                 ///////////////////////////////////////////////
                 const double length_v1_ = 1.0/length_v1;
-                const glm::vec3 v1n = glm::vec3((vetexC.x - vetex1.x)*length_v1_, (vetexC.y - vetex1.y)*length_v1_, (vetexC.z - vetex1.z)*length_v1_);
+                const glm::dvec3 v1n = glm::dvec3((vetexC.x - vetex1.x)*length_v1_, (vetexC.y - vetex1.y)*length_v1_, (vetexC.z - vetex1.z)*length_v1_);
                 const double energy_sigularity = (glm::dot(v1n, v2n) - b_term) * (glm::dot(v1n, v2n) - b_term) * gamma;
                 energy += energy_sigularity;
                 edge1.energySingularity += energy_sigularity;
@@ -757,21 +757,21 @@ void MeshOpt::OptimizeScaledJacobian(std::vector<Trip>& A_Entries, std::vector<f
             const double d = (v1.x*v2.y-v2.x*v1.y)*v3.z - (v1.x*v3.y-v3.x*v1.y)*v2.z + (v2.x*v3.y-v3.x*v2.y)*v1.z;
             double length_v1 = e1.length;
             if (!useAverageTargetLength) {
-                length_v1 = glm::length(glm::vec3(v1.x - v.x, v1.y - v.y, v1.z - v.z));
+                length_v1 = glm::length(glm::dvec3(v1.x - v.x, v1.y - v.y, v1.z - v.z));
                 length_v1 = length_v1 > avgMeshEdgeLength*anisotropy ? length_v1 : avgMeshEdgeLength*anisotropy;
                 length_v1 = std::isnan(length_v1) ? avgMeshEdgeLength*anisotropy : length_v1;
             }
 
             double length_v2 = e2.length;
             if (!useAverageTargetLength) {
-                length_v2 = glm::length(glm::vec3(v2.x - v.x, v2.y - v.y, v2.z - v.z));
+                length_v2 = glm::length(glm::dvec3(v2.x - v.x, v2.y - v.y, v2.z - v.z));
                 length_v2 = length_v2 > avgMeshEdgeLength*anisotropy ? length_v2 : avgMeshEdgeLength*anisotropy;
                 length_v2 = std::isnan(length_v2) ? avgMeshEdgeLength*anisotropy : length_v2;
             }
 
             double length_v3 = e3.length;
             if (!useAverageTargetLength) {
-                length_v3 = glm::length(glm::vec3(v3.x - v.x, v3.y - v.y, v3.z - v.z));
+                length_v3 = glm::length(glm::dvec3(v3.x - v.x, v3.y - v.y, v3.z - v.z));
                 length_v3 = length_v3 > avgMeshEdgeLength*anisotropy ? length_v3 : avgMeshEdgeLength*anisotropy;
                 length_v3 = std::isnan(length_v3) ? avgMeshEdgeLength*anisotropy : length_v3;
             }
@@ -791,7 +791,7 @@ void MeshOpt::OptimizeSmoothness(std::vector<Trip>& A_Entries, std::vector<float
     double weight = beta;
     for (size_t k = 0; k < mesh.V.size(); k++) {
         const Vertex& v = mesh.V.at(k);
-        glm::vec3 avg(0.0, 0.0, 0.0);
+        glm::dvec3 avg(0.0, 0.0, 0.0);
         for (size_t j = 0; j < v.N_Vids.size(); j++) {
             const Vertex& n_v = mesh.V.at(v.N_Vids.at(j));
             avg.x += n_v.x;
@@ -831,18 +831,18 @@ void MeshOpt::OptimizeEdgeOrthogonality(std::vector<Trip>& A_Entries, std::vecto
             const Vertex& vetex1 = shareVId == vId1_1 ? mesh.V.at(vId1_2) : mesh.V.at(vId1_1);
             const Vertex& vetexC = mesh.V.at(shareVId);
             const Vertex& vetex2 = shareVId == vId2_1 ? mesh.V.at(vId2_2) : mesh.V.at(vId2_1);
-            const glm::vec3 v2 = glm::vec3(vetexC.x - vetex2.x, vetexC.y - vetex2.y, vetexC.z - vetex2.z);
-            const glm::vec3 v2n = glm::normalize(v2);
+            const glm::dvec3 v2 = glm::dvec3(vetexC.x - vetex2.x, vetexC.y - vetex2.y, vetexC.z - vetex2.z);
+            const glm::dvec3 v2n = glm::normalize(v2);
             double length_v1 = edge1.length;
             if (!useAverageTargetLength) {
-                length_v1 = glm::length(glm::vec3(vetexC.x - vetex1.x, vetexC.y - vetex1.y, vetexC.z - vetex1.z));
+                length_v1 = glm::length(glm::dvec3(vetexC.x - vetex1.x, vetexC.y - vetex1.y, vetexC.z - vetex1.z));
                 // length_v1 = length_v1 > 1e-4 ? length_v1 : 1e-4;
                 length_v1 = length_v1 > avgMeshEdgeLength*anisotropy ? length_v1 : avgMeshEdgeLength*anisotropy;
                 length_v1 = std::isnan(length_v1) ? avgMeshEdgeLength*anisotropy : length_v1;
             }
             ///////////////////////////////////////////////
             const double length_v1_ = 1.0/length_v1;
-            const glm::vec3 v1n = glm::vec3((vetexC.x - vetex1.x)*length_v1_, (vetexC.y - vetex1.y)*length_v1_, (vetexC.z - vetex1.z)*length_v1_);
+            const glm::dvec3 v1n = glm::dvec3((vetexC.x - vetex1.x)*length_v1_, (vetexC.y - vetex1.y)*length_v1_, (vetexC.z - vetex1.z)*length_v1_);
             const double energy_orthognality = (glm::dot(v1n, v2n) - 0.0) * (glm::dot(v1n, v2n) - 0.0) * gamma;
             energy += energy_orthognality;
             edge1.energyOrthogonality += energy_orthognality;
@@ -889,18 +889,18 @@ void MeshOpt::OptimizeEdgeStraightness(std::vector<Trip>& A_Entries, std::vector
             const Vertex& vetex1 = shareVId == vId1_1 ? mesh.V.at(vId1_2) : mesh.V.at(vId1_1);
             const Vertex& vetexC = mesh.V.at(shareVId);
             const Vertex& vetex2 = shareVId == vId2_1 ? mesh.V.at(vId2_2) : mesh.V.at(vId2_1);
-            const glm::vec3 v2 = glm::vec3(vetexC.x - vetex2.x, vetexC.y - vetex2.y, vetexC.z - vetex2.z);
-            const glm::vec3 v2n = glm::normalize(v2);
+            const glm::dvec3 v2 = glm::dvec3(vetexC.x - vetex2.x, vetexC.y - vetex2.y, vetexC.z - vetex2.z);
+            const glm::dvec3 v2n = glm::normalize(v2);
             double length_v1 = edge1.length;
             if (!useAverageTargetLength) {
-                length_v1 = glm::length(glm::vec3(vetexC.x - vetex1.x, vetexC.y - vetex1.y, vetexC.z - vetex1.z));
+                length_v1 = glm::length(glm::dvec3(vetexC.x - vetex1.x, vetexC.y - vetex1.y, vetexC.z - vetex1.z));
                 // length_v1 = length_v1 > 1e-4 ? length_v1 : 1e-4;
                 length_v1 = length_v1 > avgMeshEdgeLength*anisotropy ? length_v1 : avgMeshEdgeLength*anisotropy;
                 length_v1 = std::isnan(length_v1) ? avgMeshEdgeLength*anisotropy : length_v1;
             }
             ///////////////////////////////////////////////
             const double length_v1_ = 1.0/length_v1;
-            const glm::vec3 v1n = glm::vec3((vetexC.x - vetex1.x)*length_v1_, (vetexC.y - vetex1.y)*length_v1_, (vetexC.z - vetex1.z)*length_v1_);
+            const glm::dvec3 v1n = glm::dvec3((vetexC.x - vetex1.x)*length_v1_, (vetexC.y - vetex1.y)*length_v1_, (vetexC.z - vetex1.z)*length_v1_);
             const double energy_straightness = (glm::dot(v1n, v2n) + 1.0) * (glm::dot(v1n, v2n) + 1.0) * gamma;
             energy += energy_straightness;
             edge1.energyStraightness += energy_straightness;
@@ -939,18 +939,18 @@ void MeshOpt::OptimizeBoundaryVertices(std::vector<Trip>& A_Entries, std::vector
     }
 }
 
-float uctet(const glm::vec3& a, glm::vec3& b, const glm::vec3& c, glm::vec3& d)
+float uctet(const glm::dvec3& a, glm::dvec3& b, const glm::dvec3& c, glm::dvec3& d)
 {
-    glm::vec3 x = b - a;
-    glm::vec3 y = c - a;
-    glm::vec3 z = d - a;
+    glm::dvec3 x = b - a;
+    glm::dvec3 y = c - a;
+    glm::dvec3 z = d - a;
     float res = -((x[0] * y[1] * z[2] + x[1] * y[2] * z[0] + x[2] * y[0] * z[1]) - (x[2] * y[1] * z[0] + x[1] * y[0] * z[2] + x[0] * y[2] * z[1]));
     return res;
 }
 
 void orient_triangle_mesh_index(std::vector<Vertex>& Vs, std::vector<Cell>& Ts)
 {
-    std::vector<glm::vec3 > p(Vs.size());
+    std::vector<glm::dvec3 > p(Vs.size());
     std::vector<std::vector<size_t> > f(Ts.size());
     for (int i = 0; i < Vs.size(); i++) {
         const Vertex& v = Vs.at(i);
@@ -1140,7 +1140,7 @@ void orient_triangle_mesh_index(std::vector<Vertex>& Vs, std::vector<Cell>& Ts)
     }
 
     float res = 0;
-    glm::vec3 ori(0.0, 0.0, 0.0);
+    glm::dvec3 ori(0.0, 0.0, 0.0);
     for (size_t i = 0; i < nf.size(); i++)
         res += uctet(ori, p[nf[i][0]], p[nf[i][1]], p[nf[i][2]]);
 
@@ -1242,7 +1242,7 @@ void MeshOpt::ConvertSurfaceToTriangleMesh()
 //            const Vertex& triV = triMesh.V[tvid];
 //            if (triV.type == REGULAR) {
 //                //beta(nv + d)
-//                const glm::vec3& implicit_n = triV.normal;
+//                const glm::dvec3& implicit_n = triV.normal;
 //                float implicit_d = glm::dot(implicit_n, triV.xyz());
 //                for (size_t k = 0; k < 3; k++) {
 //                    A_Entries.push_back(Trip(row, 3 * i + k, beta * implicit_n[k]));
@@ -1302,7 +1302,7 @@ size_t MeshOpt::OptimizeSurfaceVertices(std::vector<Trip>& A_Entries, std::vecto
             continue;
         if (v.type == REGULAR) {
             //beta(nv + d)
-            const glm::vec3& implicit_n = v.normal;
+            const glm::dvec3& implicit_n = v.normal;
             float implicit_d = glm::dot(implicit_n, v.xyz());
             for (size_t k = 0; k < 3; k++) {
                 A_Entries.push_back(Trip(row, 3 * i + k, beta * implicit_n[k]));
@@ -1353,13 +1353,13 @@ void MeshOpt::AdjustOutlayer()
                 for (size_t k = 0; k < bv.N_Vids.size(); k++) {
                     const Vertex& bv1 = mesh.V.at(bv.N_Vids.at(k));
                     if (bv.isBoundary) {
-                        targetLen += glm::length(glm::vec3(bv.x - bv1.x, bv.y - bv1.y, bv.z - bv1.z));
+                        targetLen += glm::length(glm::dvec3(bv.x - bv1.x, bv.y - bv1.y, bv.z - bv1.z));
                         count++;
                     }
                 }
                 targetLen /= 2*count;
 
-                glm::vec3 start(bv.x, bv.y, bv.z);
+                glm::dvec3 start(bv.x, bv.y, bv.z);
                 v.x = start.x - bv.normal.x*targetLen;
                 v.y = start.y - bv.normal.y*targetLen;
                 v.z = start.z - bv.normal.z*targetLen;
@@ -1398,17 +1398,17 @@ void MeshOpt::OptimizeInnerVertices(std::vector<Trip>& A_Entries, std::vector<fl
                 for (size_t k = 0; k < bv.N_Vids.size(); k++) {
                     const Vertex& bv1 = mesh.V.at(bv.N_Vids.at(k));
                     if (bv.isBoundary) {
-                        targetLen += glm::length(glm::vec3(bv.x - bv1.x, bv.y - bv1.y, bv.z - bv1.z));
+                        targetLen += glm::length(glm::dvec3(bv.x - bv1.x, bv.y - bv1.y, bv.z - bv1.z));
                         count++;
                     }
                 }
                 targetLen /= 2*count;
 
-                glm::vec3 start(bv.x, bv.y, bv.z);
+                glm::dvec3 start(bv.x, bv.y, bv.z);
 //                v.x = start.x - bv.normal.x*targetLen;
 //                v.y = start.y - bv.normal.y*targetLen;
 //                v.z = start.z - bv.normal.z*targetLen;
-                const glm::vec3 innerV(start.x - bv.normal.x*targetLen, start.y - bv.normal.y*targetLen, start.z - bv.normal.z*targetLen);
+                const glm::dvec3 innerV(start.x - bv.normal.x*targetLen, start.y - bv.normal.y*targetLen, start.z - bv.normal.z*targetLen);
                 for (size_t n = 0; n < 3; n++)
                 {
                     A_Entries.push_back(Trip(row, 3 * v.id + n, alpha));

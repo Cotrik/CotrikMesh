@@ -39,11 +39,11 @@ int main(int argc, char* argv[])
 
 
     // Read quaternions from file
-    std::vector<glm::quat> quaternions;
+    std::vector<glm::dquat> quaternions;
     quaternions.reserve(50000);
     {
         std::ifstream ifs(filename.c_str());
-        glm::quat q;
+        glm::dquat q;
         while (ifs >> q.x >> q.y >> q.z >> q.w)
             quaternions.push_back(q);
         quaternions.resize(quaternions.size());
@@ -51,16 +51,16 @@ int main(int argc, char* argv[])
 
     // Construct Frame Field
     struct frame {
-        glm::vec3 x , y, z;
+        glm::dvec3 x , y, z;
         frame() {}
         frame(const frame& rhs):x(rhs.x), y(rhs.y), z(rhs.z) {}
         ~frame() {}
     };
     std::vector<frame> frames(quaternions.size(), frame());
     {
-        const glm::vec3 x(1.0f, 0.0f, 0.0f);
-        const glm::vec3 y(0.0f, 1.0f, 0.0f);
-        const glm::vec3 z(0.0f, 0.0f, 1.0f);
+        const glm::dvec3 x(1.0, 0.0, 0.0);
+        const glm::dvec3 y(0.0, 1.0, 0.0);
+        const glm::dvec3 z(0.0, 0.0, 1.0);
 
         int i = 0;
         for (const auto& q : quaternions) {
@@ -77,12 +77,12 @@ int main(int argc, char* argv[])
     const double s = scale;
     for (size_t i = 0; i < mesh.V.size(); ++i) {
         const Vertex& v = mesh.V.at(i);
-        glm::vec3& x = frames[i].x;
-        glm::vec3& y = frames[i].y;
-        glm::vec3& z = frames[i].z;
-        x = glm::vec3(x.x * s, x.y * s, x.z * s) + v.xyz();
-        y = glm::vec3(y.x * s, y.y * s, y.z * s) + v.xyz();
-        z = glm::vec3(z.x * s, z.y * s, z.z * s) + v.xyz();
+        glm::dvec3& x = frames[i].x;
+        glm::dvec3& y = frames[i].y;
+        glm::dvec3& z = frames[i].z;
+        x = glm::dvec3(x.x * s, x.y * s, x.z * s) + v.xyz();
+        y = glm::dvec3(y.x * s, y.y * s, y.z * s) + v.xyz();
+        z = glm::dvec3(z.x * s, z.y * s, z.z * s) + v.xyz();
     }
 // Make Edge frames
     std::vector<Vertex> V(mesh.V.size() * 4, Vertex());
@@ -131,21 +131,21 @@ int main(int argc, char* argv[])
 // Make Cube frames
     // Construct Frame Field
     struct v8 {
-        std::vector<glm::vec3> v;
+        std::vector<glm::dvec3> v;
         v8() {v.resize(8);}
         v8(const v8& rhs):v(rhs.v) {}
         ~v8() {}
     };
     std::vector<v8> v8s(quaternions.size(), v8());
     {
-        const glm::vec3 v0(-0.5f, -0.5f, +0.5f);
-        const glm::vec3 v1(+0.5f, -0.5f, +0.5f);
-        const glm::vec3 v2(+0.5f, -0.5f, -0.5f);
-        const glm::vec3 v3(-0.5f, -0.5f, -0.5f);
-        const glm::vec3 v4(-0.5f, +0.5f, +0.5f);
-        const glm::vec3 v5(+0.5f, +0.5f, +0.5f);
-        const glm::vec3 v6(+0.5f, +0.5f, -0.5f);
-        const glm::vec3 v7(-0.5f, +0.5f, -0.5f);
+        const glm::dvec3 v0(-0.5, -0.5, +0.5);
+        const glm::dvec3 v1(+0.5, -0.5, +0.5);
+        const glm::dvec3 v2(+0.5, -0.5, -0.5);
+        const glm::dvec3 v3(-0.5, -0.5, -0.5);
+        const glm::dvec3 v4(-0.5, +0.5, +0.5);
+        const glm::dvec3 v5(+0.5, +0.5, +0.5);
+        const glm::dvec3 v6(+0.5, +0.5, -0.5);
+        const glm::dvec3 v7(-0.5, +0.5, -0.5);
 
         int i = 0;
         for (const auto& q : quaternions) {
@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
     //std::vector<Vertex> V(mesh.V.size() * 8, Vertex());
     V.resize(mesh.V.size() * 8);
     std::vector<Cell> C(mesh.V.size() * 1, Cell());
-    float fs = s;
+    double fs = s;
     for (size_t i = 0; i < mesh.V.size(); ++i) {
         const Vertex& v = mesh.V.at(i);
         for (size_t j = 0; j < 8; ++j) {

@@ -29,7 +29,7 @@ private:
     void Parametrize3DInnerPoint(const Vertex& innerPoint,
             const std::vector<Vertex>& boundaryVertices,
             const std::vector<Cell>& boundaryTriangles,
-            std::vector<glm::vec3>& w,
+            std::vector<glm::dvec3>& w,
             const double eps = 1e-8);
     BaseComplex& baseComplex;
     Mesh newMesh;

@@ -2,49 +2,49 @@
 #include <string>
 #include <iostream>
 #include <sstream>
-using namespace std;
+#include <vector>
 
 // This is a class that can parse the commnad line arguments we use in COSC 2430 homework.
 class ArgumentManager {
 private:
-    map<string, string> m_argumentMap;
+    std::map<std::string, std::string> m_argumentMap;
 public:
     ArgumentManager() { }
     ArgumentManager(int argc, char *argv[], char delimiter=';');
-    ArgumentManager(string rawArguments, char delimiter=';');
+    ArgumentManager(std::string rawArguments, char delimiter=';');
     void parse(int argc, char *argv[], char delimiter=';');
-    void parse(string rawArguments, char delimiter=';');
-    string get(string argumentName);
-    string toString();
-    friend ostream& operator << (ostream &out, ArgumentManager &am);
+    void parse(std::string rawArguments, char delimiter=';');
+    std::string get(std::string argumentName);
+    void get(const std::string key, bool& value);
+    void get(const std::string key, int& value);
+    void get(const std::string key, float& value);
+    void get(const std::string key, double& value);
+    void get(const std::string key, std::vector<size_t>& value);
+    void get(const std::string key, std::vector<int>& value);
+    void get(const std::string key, std::vector<float>& value);
+    void get(const std::string key, std::vector<double>& value);
+    std::string toString();
+    friend std::ostream& operator << (std::ostream &out, ArgumentManager &am);
 };
 
-void ArgumentManager::parse(string rawArguments, char delimiter) {
-    stringstream currentArgumentName;
-    stringstream currentArgumentValue;
+void ArgumentManager::parse(std::string rawArguments, char delimiter) {
+    std::stringstream currentArgumentName;
+    std::stringstream currentArgumentValue;
     bool argumentNameFinished = false;
     
-    for (unsigned int i=0; i<=rawArguments.length(); i++) {
+    for (unsigned int i = 0; i <= rawArguments.length(); i++) {
         if (i == rawArguments.length() || rawArguments[i] == delimiter) {
-            if (currentArgumentName.str() != "") {
-                m_argumentMap[currentArgumentName.str()] = currentArgumentValue.str();
-            }
+            if (currentArgumentName.str() != "") m_argumentMap[currentArgumentName.str()] = currentArgumentValue.str();
             // reset
             currentArgumentName.str("");
             currentArgumentValue.str("");
             argumentNameFinished = false;
-        }
-        else if (rawArguments[i] == '=') {
-            argumentNameFinished = true;
-        }
+        } else if (rawArguments[i] == '=') argumentNameFinished = true;
         else {
-            if (argumentNameFinished) {
-                currentArgumentValue << rawArguments[i];
-            }
+            if (argumentNameFinished) currentArgumentValue << rawArguments[i];
             else {
                 // ignore any spaces in argument names. 
-                if (rawArguments[i] == ' ')
-                    continue;
+                if (rawArguments[i] == ' ') continue;
                 currentArgumentName << rawArguments[i];
             }
         }
@@ -63,32 +63,74 @@ ArgumentManager::ArgumentManager(int argc, char *argv[], char delimiter) {
     parse(argc, argv, delimiter);
 }
 
-ArgumentManager::ArgumentManager(string rawArguments, char delimiter) {
+ArgumentManager::ArgumentManager(std::string rawArguments, char delimiter) {
     parse(rawArguments, delimiter);
 }
 
-string ArgumentManager::get(string argumentName) {
-    map<string, string>::iterator iter = m_argumentMap.find(argumentName);
-
-    //If the argument is not found, return a blank string.
-    if (iter == m_argumentMap.end()) {
-        return "";
-    }
-    else {
-        return iter->second;
-    }
+std::string ArgumentManager::get(std::string argumentName) {
+    std::map<std::string, std::string>::iterator iter = m_argumentMap.find(argumentName);
+    if (iter == m_argumentMap.end()) return "";
+    else return iter->second;
 }
 
-string ArgumentManager::toString() {
-    stringstream ss;
-    for (map<string, string>::iterator iter = m_argumentMap.begin(); iter != m_argumentMap.end(); iter++) {
-        ss << "Argument name: " << iter->first << endl;
-        ss << "Argument value: " << iter->second << endl;
+void ArgumentManager::get(const std::string key, bool& value) {
+    auto str = get(key);
+    if (!str.empty()) value = str == "false" ? false : true;
+}
+
+void ArgumentManager::get(const std::string key, int& value) {
+    auto str = get(key);
+    if (!str.empty()) value = std::stoi(str);
+}
+
+void ArgumentManager::get(const std::string key, float& value) {
+    auto str = get(key);
+    if (!str.empty()) value = std::stof(str);
+}
+
+void ArgumentManager::get(const std::string key, double& value) {
+    auto str = get(key);
+    if (!str.empty()) value = std::stod(str);
+}
+
+void ArgumentManager::get(const std::string key, std::vector<size_t>& value) {
+    auto str = get(key);
+    std::stringstream ss(str);
+    size_t id;
+    while (ss >> id) value.push_back(id);
+}
+
+void ArgumentManager::get(const std::string key, std::vector<int>& value) {
+    auto str = get(key);
+    std::stringstream ss(str);
+    int id;
+    while (ss >> id) value.push_back(id);
+}
+
+void ArgumentManager::get(const std::string key, std::vector<float>& value) {
+    auto str = get(key);
+    std::stringstream ss(str);
+    float id;
+    while (ss >> id) value.push_back(id);
+}
+
+void ArgumentManager::get(const std::string key, std::vector<double>& value) {
+    auto str = get(key);
+    std::stringstream ss(str);
+    double id;
+    while (ss >> id) value.push_back(id);
+}
+
+std::string ArgumentManager::toString() {
+    std::stringstream ss;
+    for (std::map<std::string, std::string>::iterator iter = m_argumentMap.begin(); iter != m_argumentMap.end(); iter++) {
+        ss << "Argument name: " << iter->first << std::endl;
+        ss << "Argument value: " << iter->second << std::endl;
     }
     return ss.str();
 }
 
-ostream& operator << (ostream &out, ArgumentManager &am) {
+std::ostream& operator << (std::ostream &out, ArgumentManager &am) {
     out << am.toString();
     return out;
 }

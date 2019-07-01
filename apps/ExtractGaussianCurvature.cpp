@@ -16,8 +16,8 @@ size_t permutation[3][2] = {
         {2, 0}
 };
 
-const float PI2 = 3.1415926f * 2;
-float GetAngle(Mesh& mesh, const Vertex& v, const Face& c)
+const double PI2 = 3.1415926 * 2;
+double GetAngle(Mesh& mesh, const Vertex& v, const Face& c)
 {
     size_t vid1 = 0;
     size_t vid2 = 0;
@@ -28,8 +28,8 @@ float GetAngle(Mesh& mesh, const Vertex& v, const Face& c)
             break;
         }
     }
-    glm::vec3 v1 = mesh.V.at(vid1).xyz() - v.xyz();
-    glm::vec3 v2 = mesh.V.at(vid2).xyz() - v.xyz();
+    glm::dvec3 v1 = mesh.V.at(vid1).xyz() - v.xyz();
+    glm::dvec3 v2 = mesh.V.at(vid2).xyz() - v.xyz();
 
     return acos(glm::dot(v1, v2) / (glm::length(v1) * glm::length(v2)));
 }
@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
     mesh.BuildAllConnectivities();
     //mesh.ExtractBoundary();
 
-    std::vector<float> gaussianCurvatureOnVertices(mesh.V.size());
+    std::vector<double> gaussianCurvatureOnVertices(mesh.V.size());
     for (size_t i = 0; i < mesh.V.size(); i++) {
         const Vertex& v = mesh.V.at(i);
         for (size_t j = 0; j < v.N_Fids.size(); j++) {

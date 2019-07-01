@@ -49,8 +49,8 @@ int main(int argc, char* argv[])
     const size_t off = mesh.V.size();
     for (size_t i = 0; i < mesh.F.size(); i++) {
         const Face& f = mesh.F.at(i);
-        const glm::vec3 v = mesh.V[f.Vids[0]].xyz() + mesh.V[f.Vids[2]].xyz();
-        const glm::vec3 cv(0.5*v.x, 0.5*v.y, 0.5*v.z);
+        const glm::dvec3 v = mesh.V[f.Vids[0]].xyz() + mesh.V[f.Vids[2]].xyz();
+        const glm::dvec3 cv(0.5*v.x, 0.5*v.y, 0.5*v.z);
         V[off + i] = cv;
         V[off + i].id = off + i;
     }

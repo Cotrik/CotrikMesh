@@ -94,9 +94,9 @@ void Parametrization::BuildV() {
     for (float x = 0.1f; x < 0.95f; x += 0.1f)
         for (float y = 0.1f; y < 0.95f; y += 0.1f)
             for (float z = 0.1f; z < 0.95f; z += 0.1f)
-                innerV[id++] = glm::vec3(x, y, z);
+                innerV[id++] = glm::dvec3(x, y, z);
     id = 0;
-    std::vector<std::vector<glm::vec3>> w(9 * 9 * 9);
+    std::vector<std::vector<glm::dvec3>> w(9 * 9 * 9);
     for (auto i = 0; i < innerV.size(); ++i)
         Parametrize3DInnerPoint(innerV.at(i), cubeV, innerV.C, w, 1e-6);
 
@@ -104,10 +104,10 @@ void Parametrization::BuildV() {
         std::vector<Vertex> deformedTetV();
         for (int i = 0; i < origTetMesh.V.size(); i++)
         {
-            std::vector<glm::vec3> w;
+            std::vector<glm::dvec3> w;
             parametrizer.Parametrize3DInnerPoint(origTetMesh.V.at(i), origTriMesh.V, origTriMesh.C, w, 1e-6);
             double total_w = 0;
-            glm::vec3 total_p(0.0, 0.0, 0.0);
+            glm::dvec3 total_p(0.0, 0.0, 0.0);
             for (int j = 0; j < origTriMesh.C.size(); j++)
             {
                 const Cell& c = origTriMesh.C.at(j);
@@ -132,10 +132,10 @@ void MapBoundaryPointsToUnitSphere(const Vertex& center, const std::vector<Verte
     const std::vector<Vertex>& VB = boundaryVertices;
     for (size_t i = 0; i < VB.size(); i++) {
         const Vertex& v = VB.at(i);
-        const glm::vec3 d(v.x - center.x, v.y - center.y, v.z - center.z);
+        const glm::dvec3 d(v.x - center.x, v.y - center.y, v.z - center.z);
         const double l = glm::length(d);
         const double r = 1.0 / l;
-        const glm::vec3 newV(center.x + r * d.x, center.y + r * d.y, center.z + r * d.z);
+        const glm::dvec3 newV(center.x + r * d.x, center.y + r * d.y, center.z + r * d.z);
         V.at(i).x = newV.x;
         V.at(i).y = newV.y;
         V.at(i).z = newV.z;
@@ -146,7 +146,7 @@ int GetBoundaryVertexIndexThatIsCloseToInnerPoint(const Vertex& innerPoint, cons
     const std::vector<Vertex>& VB = boundaryVertices;
     for (size_t i = 0; i < VB.size(); i++) {
         const Vertex& v = VB.at(i);
-        const glm::vec3 d(v.x - innerPoint.x, v.y - innerPoint.y, v.z - innerPoint.z);
+        const glm::dvec3 d(v.x - innerPoint.x, v.y - innerPoint.y, v.z - innerPoint.z);
         const double l = glm::length(d);
         if (l < eps) {
 //          std::cout << "Boundary Vertex index <" << i << ">is Very Close To InnerPoint" << std::endl;
@@ -157,14 +157,14 @@ int GetBoundaryVertexIndexThatIsCloseToInnerPoint(const Vertex& innerPoint, cons
     return -1;
 }
 const double PI = 3.1415926536;
-void GetWeightsForAlltriangles(const Vertex& center, const std::vector<Vertex>& VB, const std::vector<Vertex>& V, const std::vector<Cell>& C, std::vector<glm::vec3>& W,
+void GetWeightsForAlltriangles(const Vertex& center, const std::vector<Vertex>& VB, const std::vector<Vertex>& V, const std::vector<Cell>& C, std::vector<glm::dvec3>& W,
         const double eps = 1e-8) {
-    glm::vec3 x(center.x, center.y, center.z);
-    glm::vec3 cc = x;
+    glm::dvec3 x(center.x, center.y, center.z);
+    glm::dvec3 cc = x;
     for (size_t j = 0; j < C.size(); j++) {
         const Cell& cell = C.at(j);
 
-        glm::vec3 u[3], p[3];
+        glm::dvec3 u[3], p[3];
         double d[3];
 
         for (size_t i = 0; i < 3; i++) {
@@ -192,9 +192,9 @@ void GetWeightsForAlltriangles(const Vertex& center, const std::vector<Vertex>& 
             for (size_t i = 0; i < 3; i++) {
                 w[i] = sin(theta[i]) * d[(3 + i - 1) % 3] * d[(i + 1) % 3];
             }
-            const glm::vec3 wi(w[0], w[1], w[2]);
+            const glm::dvec3 wi(w[0], w[1], w[2]);
             W.clear();
-            W.resize(C.size(), glm::vec3(0, 0, 0));
+            W.resize(C.size(), glm::dvec3(0, 0, 0));
             W.at(j) = wi;
 //          std::cout << "point lies on t, use 2D barycentric coordinates" << std::endl;
 //          std::cout << "(cell_index = " << j << " w1 = " << w[0] << " w2 = " << w[1] << " w3 = " << w[2] << ")\n";
@@ -229,7 +229,7 @@ void GetWeightsForAlltriangles(const Vertex& center, const std::vector<Vertex>& 
             //std::cout << "num = " << num << " denum = " << denum << "\n";
             //w[i] = (theta[i] - c[(i+1)%3]*theta[(3+i-1)%3] - c[(3+i-1)%3]*theta[(i+1)%3])/(di*sin(theta[i+1])*s[(3+i-1)%3]);
         }
-        glm::vec3 wi(w[0], w[1], w[2]);
+        glm::dvec3 wi(w[0], w[1], w[2]);
 //      if (wi.x < 0 || wi.y < 0 || wi.z < 0)
 //      {
 //          wi.x = 0;
@@ -242,9 +242,9 @@ void GetWeightsForAlltriangles(const Vertex& center, const std::vector<Vertex>& 
 }
 
 void Parametrization::Parametrize3DInnerPoint(const Vertex& innerPoint, const std::vector<Vertex>& boundaryVertices, const std::vector<Cell>& boundaryTriangles,
-        std::vector<glm::vec3>& w, const double eps) {
+        std::vector<glm::dvec3>& w, const double eps) {
     w.clear();
-    w.resize(boundaryTriangles.size(), glm::vec3(0, 0, 0));
+    w.resize(boundaryTriangles.size(), glm::dvec3(0, 0, 0));
     std::vector < Vertex > V = boundaryVertices;
     const std::vector<Cell>& C = boundaryTriangles;
     int index = GetBoundaryVertexIndexThatIsCloseToInnerPoint(innerPoint, boundaryVertices, eps);
@@ -265,7 +265,7 @@ void Parametrization::Parametrize3DInnerPoint(const Vertex& innerPoint, const st
                 break;
             }
         }
-        const glm::vec3 wi(wt[0], wt[1], wt[2]);
+        const glm::dvec3 wi(wt[0], wt[1], wt[2]);
         w.at(j) = wi;
 //      std::cout << "cell_index = " << j << " w1 = " << w[j].x << " w2 = " << w[j].y << " w3 = " << w[j].z << ")\n";
         return;

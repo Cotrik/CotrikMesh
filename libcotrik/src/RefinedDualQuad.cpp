@@ -50,7 +50,7 @@ Mesh GetRefineQuadMesh(const Mesh& quad_mesh, int clockwise)
         const Edge& e = new_mesh.E.at(i);
         const Vertex& v0 = new_mesh.V.at(e.Vids[0]);
         const Vertex& v1 = new_mesh.V.at(e.Vids[1]);
-        new_vertex.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        new_vertex.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = new_mesh.V.size() + new_mesh.E.size();
     for (size_t i = 0; i < new_mesh.F.size(); i++) {
@@ -59,7 +59,7 @@ Mesh GetRefineQuadMesh(const Mesh& quad_mesh, int clockwise)
         const Vertex& v1 = new_mesh.V.at(f.Vids[1]);
         const Vertex& v2 = new_mesh.V.at(f.Vids[2]);
         const Vertex& v3 = new_mesh.V.at(f.Vids[3]);
-        new_vertex.at(offset + i) = 0.25f * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
+        new_vertex.at(offset + i) = 0.25 * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
     }
 
     /////////////////////////////////////////////////////////////////
@@ -133,7 +133,7 @@ void RefinedDualQuad::BuildV() {
         const Edge& e = mesh.E.at(i);
         const Vertex& v0 = mesh.V.at(e.Vids[0]);
         const Vertex& v1 = mesh.V.at(e.Vids[1]);
-        V.at(offset + i) = 0.5f * (v0.xyz() + v1.xyz());
+        V.at(offset + i) = 0.5 * (v0.xyz() + v1.xyz());
     }
     offset = mesh.V.size() + mesh.E.size();
     for (size_t i = 0; i < mesh.F.size(); i++) {
@@ -142,7 +142,7 @@ void RefinedDualQuad::BuildV() {
         const Vertex& v1 = mesh.V.at(f.Vids[1]);
         const Vertex& v2 = mesh.V.at(f.Vids[2]);
         const Vertex& v3 = mesh.V.at(f.Vids[3]);
-        V.at(offset + i) = 0.25f * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
+        V.at(offset + i) = 0.25 * (v0.xyz() + v1.xyz() + v2.xyz() + v3.xyz());
     }
     size_t id = 0;
     for (auto& v : V)

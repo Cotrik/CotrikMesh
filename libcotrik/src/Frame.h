@@ -10,7 +10,7 @@
 
 #include "Mesh.h"
 
-typedef glm::vec3 FrameNode;
+typedef glm::dvec3 FrameNode;
 class FrameEdge : public GeoInfo
 {
 public:

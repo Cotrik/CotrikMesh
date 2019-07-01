@@ -72,7 +72,7 @@ void Smooth(Mesh& mesh, const std::vector<int>& fixedVertexData)
         {
             if (!mesh.V.at(i).isBoundary)
             {
-                glm::vec3 sum(0.0, 0.0, 0.0);
+                glm::dvec3 sum(0.0, 0.0, 0.0);
                 const size_t ns = mesh.V[i].N_Vids.size();
                 for (size_t j = 0; j < ns; j++)
                 {
@@ -88,7 +88,7 @@ void Smooth(Mesh& mesh, const std::vector<int>& fixedVertexData)
             }
             else
             {
-                glm::vec3 sum(0.0, 0.0, 0.0);
+                glm::dvec3 sum(0.0, 0.0, 0.0);
                 const size_t ns = mesh.V[i].N_Vids.size();
                 int sn = 0;
                 for (size_t j = 0; j < ns; j++)

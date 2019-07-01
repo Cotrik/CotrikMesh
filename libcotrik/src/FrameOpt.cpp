@@ -207,7 +207,7 @@ bool FrameOpt::OptimizeFrame()
     VectorXf X(col);
     X = chol.solve(ATB);
 
-    std::vector<glm::vec3> oldV(mesh.V.size());
+    std::vector<glm::dvec3> oldV(mesh.V.size());
     for (size_t i = 0; i < mesh.V.size(); i++)
     {
         oldV[i].x = mesh.V[i].x;
@@ -294,8 +294,8 @@ void FrameOpt::OptimizeOrthogonality(std::vector<Trip>& A_Entries, std::vector<f
             for (size_t j = 0; j < frame.ortho4Eids.at(i).size(); j++) {
                 const size_t jId = frame.ortho4Vids.at(i).at(j);
                 const Frame& framej = framefield.frameNodes.at(jId);
-                const glm::vec3 vj = glm::normalize(glm::vec3(frame.x - framej.x, frame.y - framej.y, frame.z - framej.z));
-                // const double length_vi = glm::length(glm::vec3(frame.x - framei.x, frame.y - framei.y, frame.z - framei.z));
+                const glm::dvec3 vj = glm::normalize(glm::dvec3(frame.x - framej.x, frame.y - framej.y, frame.z - framej.z));
+                // const double length_vi = glm::length(glm::dvec3(frame.x - framei.x, frame.y - framei.y, frame.z - framei.z));
                 // <vi/length_vi, vj> = 0
                 for (size_t n = 0; n < 3; n++){
                     //if (!frame.isBoundary)
@@ -358,10 +358,10 @@ void FrameOpt::OptimizeStraightness(std::vector<Trip>& A_Entries, std::vector<fl
             const Frame& frame1 = framefield.frameNodes.at(polyline.Vids.at(j));
             const Frame& frameC = framefield.frameNodes.at(polyline.Vids.at(j + 1));
             const Frame& frame2 = framefield.frameNodes.at(polyline.Vids.at(j + 2));
-            const glm::vec3 v2 = glm::vec3(frameC.x - frame2.x, frameC.y - frame2.y, frameC.z - frame2.z);
-            const glm::vec3 v2n = glm::normalize(v2);
+            const glm::dvec3 v2 = glm::dvec3(frameC.x - frame2.x, frameC.y - frame2.y, frameC.z - frame2.z);
+            const glm::dvec3 v2n = glm::normalize(v2);
             const double length_v1 = frameEdge1.length;
-            // const double length_v1 = glm::length(glm::vec3(frameC.x - frame1.x, frameC.y - frame1.y, frameC.z - frame1.z));
+            // const double length_v1 = glm::length(glm::dvec3(frameC.x - frame1.x, frameC.y - frame1.y, frameC.z - frame1.z));
             // v1 is variable, and use v2 as constant
             // <v1/length_v1, v2n> = -1
             for (size_t n = 0; n < 3; n++){
@@ -408,7 +408,7 @@ void FrameOpt::OptimizeFrameOrthogonality(std::vector<Trip>& A_Entries, std::vec
             const Frame& framei = framefield.frameNodes.at(iId);
             double length_vi = framefield.frameEdges.at(frame.N_Eids.at(i)).length;
             if (!useAverageTargetLength) {
-                length_vi = glm::length(glm::vec3(frame.x - framei.x, frame.y - framei.y, frame.z - framei.z));
+                length_vi = glm::length(glm::dvec3(frame.x - framei.x, frame.y - framei.y, frame.z - framei.z));
                 // length_vi = length_vi > 1e-4 ? length_vi : 1e-4;
                 length_vi = length_vi > avgFrameEdgeLength*anisotropy ? length_vi : avgFrameEdgeLength*anisotropy;
             }
@@ -416,9 +416,9 @@ void FrameOpt::OptimizeFrameOrthogonality(std::vector<Trip>& A_Entries, std::vec
             for (size_t j = 0; j < frame.ortho4Eids.at(i).size(); j++) {                                                      /*4*/
                 const size_t jId = frame.ortho4Vids.at(i).at(j);
                 const Frame& framej = framefield.frameNodes.at(jId);
-                const glm::vec3 vj = glm::vec3(frame.x - framej.x, frame.y - framej.y, frame.z - framej.z);
-                const glm::vec3 vjn = glm::normalize(vj);
-                //double length_vi = glm::length(glm::vec3(frame.x - framei.x, frame.y - framei.y, frame.z - framei.z));
+                const glm::dvec3 vj = glm::dvec3(frame.x - framej.x, frame.y - framej.y, frame.z - framej.z);
+                const glm::dvec3 vjn = glm::normalize(vj);
+                //double length_vi = glm::length(glm::dvec3(frame.x - framei.x, frame.y - framei.y, frame.z - framei.z));
                 //length_vi = length_vi > 1e-4 ? length_vi : 1e-4;
                 //double length_vi = framefield.frameEdges.at(frame.ortho4Eids.at(i).at(j)).length;
                 // <vi/length_vi, vjn> = 0
@@ -451,11 +451,11 @@ void FrameOpt::OptimizeFrameStraightness(std::vector<Trip>& A_Entries, std::vect
             const Frame& frame1 = framefield.frameNodes.at(polyline.Vids.at(j));
             const Frame& frameC = framefield.frameNodes.at(polyline.Vids.at(j + 1));
             const Frame& frame2 = framefield.frameNodes.at(polyline.Vids.at(j + 2));
-            const glm::vec3 v2 = glm::vec3(frameC.x - frame2.x, frameC.y - frame2.y, frameC.z - frame2.z);
-            const glm::vec3 v2n = glm::normalize(v2);
+            const glm::dvec3 v2 = glm::dvec3(frameC.x - frame2.x, frameC.y - frame2.y, frameC.z - frame2.z);
+            const glm::dvec3 v2n = glm::normalize(v2);
             double length_v1 = frameEdge1.length;
             if (!useAverageTargetLength) {
-                length_v1 = glm::length(glm::vec3(frameC.x - frame1.x, frameC.y - frame1.y, frameC.z - frame1.z));
+                length_v1 = glm::length(glm::dvec3(frameC.x - frame1.x, frameC.y - frame1.y, frameC.z - frame1.z));
                 //length_v1 = length_v1 > 1e-4 ? length_v1 : 1e-4;
                 length_v1 = length_v1 > avgFrameEdgeLength*anisotropy ? length_v1 : avgFrameEdgeLength*anisotropy;
             }
@@ -518,11 +518,11 @@ void FrameOpt::OptimizeFrameBoundary(std::vector<Trip>& A_Entries, std::vector<f
 //            const float l2 = glm::length(v3 - v2);
 //            const float l3 = glm::length(v0 - v3);
 //            const double avgl = 0.25 * (l0 + l1 + l2 + l3);
-//            const glm::vec3 dir = glm::cross(v2 - v1, v0 - v1); // + glm::cross(v0 - v3, v2 - v3);
-//            const glm::vec3 ndir = glm::normalize(dir);
-//            const glm::vec3 f(frame.x, frame.y, frame.z);
+//            const glm::dvec3 dir = glm::cross(v2 - v1, v0 - v1); // + glm::cross(v0 - v3, v2 - v3);
+//            const glm::dvec3 ndir = glm::normalize(dir);
+//            const glm::dvec3 f(frame.x, frame.y, frame.z);
 //            const double fvlen = 0.5 * avgl;
-//            const glm::vec3 v(f + glm::dot(glm::vec3(fvlen, fvlen, fvlen), ndir));  // innerFrame
+//            const glm::dvec3 v(f + glm::dot(glm::dvec3(fvlen, fvlen, fvlen), ndir));  // innerFrame
 //            Frame& innerFrame = framefield.frameNodes.at(frame.N_Vids.at(0)); // only 1 neighbor for the boundary frame;
 //            frameIds.push_back(innerFrame.id);
 //            for (size_t n = 0; n < 3; n++)
@@ -564,7 +564,7 @@ void FrameOpt::OptimizeFrameInnerVertices(std::vector<Trip>& A_Entries, std::vec
             Frame& innerFrame = framefield.frameNodes.at(frame.N_Vids.at(0)); // only 1 neighbor for the boundary frame;
             //frameIds.push_back(innerFrame.id);
             const Cell& c = hex.C.at(innerFrame.id);
-            glm::vec3 v(0.0f, 0.0f, 0.0f);
+            glm::dvec3 v(0.0, 0.0, 0.0);
             for (size_t i = 0; i < c.Vids.size(); i++)
                 v = v + hex.V.at(c.Vids[i]);
             v.x /= 8;

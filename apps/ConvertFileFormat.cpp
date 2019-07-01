@@ -20,6 +20,7 @@ int main(int argc, char* argv[])
     ArgumentManager argumentManager(argc, argv);
     MeshFileReader reader(argv[1]);
     Mesh& mesh = (Mesh&)reader.GetMesh();
+	mesh.BuildAllConnectivities();
     MeshFileWriter writer(mesh, argv[2]);
     writer.WriteFile();
     return 0;

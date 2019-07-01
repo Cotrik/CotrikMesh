@@ -49,17 +49,17 @@ int SmoothAlgorithm::Run(const size_t iters/* = 1e2*/, const double eps/* = 1e-4
     return error_code;
 }
 
-glm::vec3 SmoothAlgorithm::LapLace(const Vertex& v)
+glm::dvec3 SmoothAlgorithm::LapLace(const Vertex& v)
 {
     {
-        glm::vec3 sum(0.0, 0.0, 0.0);
+        glm::dvec3 sum(0.0, 0.0, 0.0);
         int count = 0;
         for (size_t j = 0; j < v.N_Vids.size(); j++) {
             const Vertex& n_v = mesh.V.at(v.N_Vids[j]);
             sum += n_v.xyz();
             count++;
         }
-        return glm::vec3(sum.x/count, sum.y/count, sum.z/count);
+        return glm::dvec3(sum.x/count, sum.y/count, sum.z/count);
     }
 }
 const int SJP[8][3] = {
@@ -73,17 +73,17 @@ const int SJP[8][3] = {
     { 6, 4, 3 }
 };
 
-glm::vec3 SmoothAlgorithm::ScaledJacobian(const Vertex& v)
+glm::dvec3 SmoothAlgorithm::ScaledJacobian(const Vertex& v)
 {
     {
         const std::vector<Vertex>& V = mesh.V;
         const std::vector<Cell>& C = mesh.C;
-//        glm::vec3 b;
+//        glm::dvec3 b;
 //        glm::mat3x3 m;
         Eigen::MatrixXd m(3, 3);
         Eigen::VectorXd b(3);
-        glm::vec3 sum(0.0, 0.0, 0.0);
-        glm::vec3 x;
+        glm::dvec3 sum(0.0, 0.0, 0.0);
+        glm::dvec3 x;
         int count = 0;
         for (size_t i = 0; i < v.N_Cids.size(); i++) {
             const Cell& c = C[v.N_Cids.at(i)];
@@ -93,16 +93,16 @@ glm::vec3 SmoothAlgorithm::ScaledJacobian(const Vertex& v)
                     vid = j;
                     break;
                 }
-            const glm::vec3& v1 = V.at(c.Vids.at(SJP[vid][0]));
-            const glm::vec3& v2 = V.at(c.Vids.at(SJP[vid][1]));
-            const glm::vec3& v3 = V.at(c.Vids.at(SJP[vid][2]));
+            const glm::dvec3& v1 = V.at(c.Vids.at(SJP[vid][0]));
+            const glm::dvec3& v2 = V.at(c.Vids.at(SJP[vid][1]));
+            const glm::dvec3& v3 = V.at(c.Vids.at(SJP[vid][2]));
 //            m[0][0] = v2.x - v3.x; m[0][1] = v2.y - v3.y; m[0][2] = v2.z - v3.z;
 //            m[1][0] = v1.x - v3.x; m[1][1] = v1.y - v3.y; m[1][2] = v1.z - v3.z;
 //            m[2][0] = v1.x - v2.x; m[2][1] = v1.y - v2.y; m[2][2] = v1.z - v2.z;
 //            b.x = v1.x * (v2.x - v3.x) + v1.y * (v2.y - v3.y) + v1.z * (v2.z - v3.z);
 //            b.y = v2.x * (v1.x - v3.x) + v2.y * (v1.y - v3.y) + v2.z * (v1.z - v3.z);
 //            b.z = v3.x * (v1.x - v2.x) + v3.y * (v1.y - v2.y) + v3.z * (v1.z - v2.z);
-//            const glm::vec3 x = glm::inverse(m)*b;
+//            const glm::dvec3 x = glm::inverse(m)*b;
 
             m(0,0) = v2.x - v3.x; m(0,1) = v2.y - v3.y; m(0,2) = v2.z - v3.z;
             m(1,0) = v1.x - v3.x; m(1,1) = v1.y - v3.y; m(1,2) = v1.z - v3.z;
@@ -121,15 +121,15 @@ glm::vec3 SmoothAlgorithm::ScaledJacobian(const Vertex& v)
             sum += x;
             count++;
         }
-        return glm::vec3(sum.x/count, sum.y/count, sum.z/count);
+        return glm::dvec3(sum.x/count, sum.y/count, sum.z/count);
     }
 }
 
 double SmoothAlgorithm::SmoothVolume(const Smooth_Algorithm smoothMethod/* = LAPLACE_EDGE*/)
 {
     std::vector<Vertex>& V = mesh.V;
-    std::vector<glm::vec3> oldV(mesh.V.size());
-    std::vector<glm::vec3> newV(mesh.V.size());
+    std::vector<glm::dvec3> oldV(mesh.V.size());
+    std::vector<glm::dvec3> newV(mesh.V.size());
     for (size_t i = 0; i < V.size(); i++) {
         oldV[i] = V[i];
     }
@@ -159,7 +159,7 @@ double SmoothAlgorithm::SmoothVolume(const Smooth_Algorithm smoothMethod/* = LAP
         const Vertex& v = V.at(i);
         if (v.isBoundary)
             continue;
-        const glm::vec3& oldv = oldV.at(i);
+        const glm::dvec3& oldv = oldV.at(i);
         const double distance = glm::length(v.xyz() - oldv);
         energy += distance * distance;
     }

@@ -12,56 +12,22 @@
 #include "FeatureLine.h"
 #include "MeshQuality.h"
 #include "Patches.h"
+#include "Util.h"
 #include "ArgumentManager.h"
-#include <iostream>
 
 const double PI = 3.1415926535;
 
-enum FACE_TYPE
-{
-    FACE_UNKNOWN = 0,
-    FACE_X = 1,
-    FACE_Y = 2,
-    FACE_Z = 3,
-};
-
-FACE_TYPE GetFaceType(const glm::vec3& normal)
-{
-    const float l = glm::length(normal);
-    if (fabs(normal.x/l) > 0.8)
-        return FACE_X;
-    else if (fabs(normal.y/l) > 0.8)
-        return FACE_Y;
-    else if (fabs(normal.z/l) > 0.8)
-        return FACE_Z;
-
-    FACE_TYPE faceType = FACE_X;
-    double max = fabs(normal.x / l);
-    if (fabs(normal.y / l) > max) {
-        max = fabs(normal.y / l);
-        faceType = FACE_Y;
-
-    }
-    if (fabs(normal.z / l) > max) {
-        max = fabs(normal.z / l);
-        faceType = FACE_Z;
-    }
-    return faceType;
-}
-
-void GetFaceTypes(const Mesh& mesh, std::vector<FACE_TYPE>& faceTypes)
-{
-    faceTypes.resize(mesh.F.size());
+std::vector<FACE_TYPE> GetFaceTypes(const Mesh& mesh) {
+    std::vector<FACE_TYPE> faceTypes(mesh.F.size());
     for (unsigned long i = 0; i < mesh.F.size(); i++) {
         const Face& face = mesh.F.at(i);
-        faceTypes.at(i) = GetFaceType(face.normal);
+        faceTypes.at(i) = Util::GetFaceType(face.normal);
     }
+    return faceTypes;
 }
 
-int main(int argc, char* argv[])
-{
-    if (argc < 3)
-    {
+int main(int argc, char* argv[]) {
+    if (argc < 3) {
         std::cout << "Usage: ExtractPatches <input_tri_file> <output_tri_vtk_file> min_numOfFaces_per_patch=<10> localangle=<170> globalangle=<90>" << std::endl;
         return -1;
     }
@@ -117,7 +83,7 @@ int main(int argc, char* argv[])
         const Patch& patch = patches.patches.at(i);
         std::copy(patch.edgeIds.begin(), patch.edgeIds.end(), back_inserter(edgeIds));
     }
-    //patches.WriteMeshFile(output_filename.substr(0, output_filename.size() - 4).c_str());
+    patches.WriteMeshFile(output_filename.substr(0, output_filename.size() - 4).c_str());
     std::vector<size_t> faceids;
     for (auto& f : mesh.F)
         if (f.isBoundary) faceids.push_back(f.id);
@@ -125,6 +91,45 @@ int main(int argc, char* argv[])
     facesFileWriter.WriteFacesVtk(faceids);
 //    MeshFileWriter edgesFileWriter(mesh, "PatchesEdges.vtk");
 //    edgesFileWriter.WriteEdgesVtk(edgeIds);
+
+    std::vector<size_t> roundVertexIds;
+    std::map<size_t, size_t> roundVertexIds_count;
+    for (const Patch& patch : patches.patches) {
+        for (auto eid : patch.edgeIds) {
+            auto& e = mesh.E.at(eid);
+            ++roundVertexIds_count[e.Vids[0]];
+            ++roundVertexIds_count[e.Vids[1]];
+        }
+    }
+    std::vector<std::vector<size_t>> sharpEdgeVertexIds;
+
+    for (auto& v : mesh.V)
+        if (v.type == CORNER || v.type == FEATURE) roundVertexIds.push_back(v.id);
+    for (auto& p : roundVertexIds_count) {
+        //std::cout << p.second << "\n";
+        if (p.second >=6) roundVertexIds.push_back(p.first);
+    }
+    for (auto& eid : edgeIds) {
+        auto& e = mesh.E.at(eid);
+//        for (auto& fid : e.N_Fids) {
+//            sharpEdgeVertexIds.push_back({fid, e.Vids[0]});
+//            sharpEdgeVertexIds.push_back({fid, e.Vids[1]});
+//        }
+          sharpEdgeVertexIds.push_back({e.Vids[0], e.Vids[1]});
+    }
+    {
+//        std::ofstream ofs("corners.txt");
+//        for (auto c : roundVertexIds)
+//            ofs << c << "\n";
+        MeshFileWriter writer(mesh, "Corners.vtk");
+        writer.WriteVerticesVtk(roundVertexIds);
+    }
+    {
+//        std::ofstream ofs("sharpEdges.txt");
+//        for (auto& e : sharpEdgeVertexIds)
+//            ofs << e.front() << " " << e.back() << "\n";
+    }
+    return 0;
 }
 
 
