@@ -1,0 +1,8 @@
+#include "/home/cotrik/svn/CotrikMesh/libigl/external/cgal/src/CGAL_Project/src/CGAL_Core/BigFloat.cpp"
+#include "/home/cotrik/svn/CotrikMesh/libigl/external/cgal/src/CGAL_Project/src/CGAL_Core/CoreAux.cpp"
+#include "/home/cotrik/svn/CotrikMesh/libigl/external/cgal/src/CGAL_Project/src/CGAL_Core/CoreDefs.cpp"
+#include "/home/cotrik/svn/CotrikMesh/libigl/external/cgal/src/CGAL_Project/src/CGAL_Core/CoreIO.cpp"
+#include "/home/cotrik/svn/CotrikMesh/libigl/external/cgal/src/CGAL_Project/src/CGAL_Core/Expr.cpp"
+#include "/home/cotrik/svn/CotrikMesh/libigl/external/cgal/src/CGAL_Project/src/CGAL_Core/GmpIO.cpp"
+#include "/home/cotrik/svn/CotrikMesh/libigl/external/cgal/src/CGAL_Project/src/CGAL_Core/Real.cpp"
+#include "/home/cotrik/svn/CotrikMesh/libigl/external/cgal/src/CGAL_Project/src/CGAL_Core/extLong.cpp"

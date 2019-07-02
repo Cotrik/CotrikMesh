@@ -1,0 +1,1 @@
+cmd='/usr/local/bin/cmake;-DCMAKE_PREFIX_PATH=/home/cotrik/svn/CotrikMesh/libigl/external/cgal/auxiliary/gmp;-DBOOST_ROOT=;-DBUILD_SHARED_LIBS=OFF;-DCMAKE_INSTALL_PREFIX=/home/cotrik/svn/CotrikMesh/libigl/external/cgal/;-DCMAKE_INSTALL_LIBDIR=lib;-GUnix Makefiles;<SOURCE_DIR><SOURCE_SUBDIR>'
