@@ -30,7 +30,7 @@ include_directories(
     #/usr/local/include/
     #/usr/local/include/vtk-6.3/
     ${PROJECT_SOURCE_DIR}/verdict/vtkverdict
-    ${PROJECT_SOURCE_DIR}/../libigl/include
+    ${PROJECT_SOURCE_DIR}/libigl/include
     ../
     #${PROJECT_SOURCE_DIR}/libgeodesic_heart/include
     ${VTK_INCLUDE_DIRS}

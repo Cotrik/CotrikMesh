@@ -1299,20 +1299,15 @@ void Mesh::ProjectToTargetSurface(const Mesh& refMesh, const Mesh& targetSurface
     }
 }
 
-double Mesh::GetAvgEdgeLength()
-{
-    if (avgEdgeLength != 0)
-        return avgEdgeLength;
+double Mesh::GetAvgEdgeLength() {
+    if (avgEdgeLength != 0) return avgEdgeLength;
     double sum = 0;
-    size_t count = 0;
-    for (size_t i = 0; i < E.size(); i++) {
-        const Edge& e = E.at(i);
-        if (!e.isBoundary)
-            continue;
-        sum += glm::length(V.at(e.Vids[0]).xyz() - V.at(e.Vids[1]).xyz());
-        count++;
+    for (auto& e : E) {
+        // if (!e.isBoundary) continue;
+        e.length = glm::length(V.at(e.Vids[0]).xyz() - V.at(e.Vids[1]).xyz());
+		sum += e.length;
     }
-    avgEdgeLength = sum/count;
+    avgEdgeLength = sum / E.size();
     return avgEdgeLength;
 }
 

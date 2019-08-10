@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
 		MeshFileWriter writer(mesh, "VertexFeature.vtk");
 		writer.WriteVertexFeatureVtk();
 	}
-	int i = 3;
+	int i = Simplifier::resolution;
 	while (i--/*mesh.V.size() < simplifier.origMesh.V.size()*/) {
 	    simplifier.init();
 	    mesh = simplifier.RefineWithFeaturePreserved(mesh, 0);

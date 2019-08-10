@@ -16,14 +16,14 @@ int main(int argc, char* argv[]) {
         std::cout << "Usage: ClosedQuadMeshSimplify quad.vtk simplified.vtk iters=<1> maxValence=<3> maxValence=<5> "
             << "featurePreserved=true smoothIters=20 angle=<160> userCorners=\"\" canceledCorners=\"\" checkCorner=true" <<
             " collapse=false split=true conformal=true global=true rotate=true remove_doublet=true collapse_diagnal=true" <<
-            " sheet_split=true half=false trip=true writeFile=true min_numOfFaces_per_patch=<10> localangle=<170> globalangle=<90>" << std::endl;
+            " sheet_split=true half=false trip=true writeFile=true min_numOfFaces_per_patch=<10> localangle=<160> globalangle=<90>" << std::endl;
         return -1;
     }
     ArgumentManager argumentManager(argc, argv);
     std::string input = argv[1];
     std::string output = argv[2];
     int min_numOfFaces_per_patch = 10;
-    double localangle = 170.0;
+    double localangle = 160.0;
     double globalangle = 90.0;
 
     double coslocalangle = cos((180.0 - localangle) * PI / 180.0);

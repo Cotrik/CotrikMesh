@@ -24,12 +24,22 @@ struct VertexUV : public Vertex {
 
 static std::unordered_map<size_t, size_t> refVids;
 
+void get_uv(const std::string& line, glm::dvec2& uv) {
+	auto pos = line.find("uv=(");
+	if (pos == std::string::npos) return;
+	auto strUV = line.substr(pos + 4);
+	for (auto& c : strUV)
+		if (c == '(' || c == ')') c = ' ';
+	std::istringstream ss(strUV);
+	ss >> uv.x >> uv.y;
+}
+
 void read(const char* filename, std::vector<VertexUV>& V, std::vector<Face>& F) {
 	std::ifstream ifs(filename);
 	std::string line;
 	size_t g_vid = 0;
 	while (getline(ifs, line)) {
-		std::stringstream ss(line);
+		std::istringstream ss(line);
 		std::string keyword;
 		VertexUV v;
 		ss >> keyword;
@@ -38,28 +48,13 @@ void read(const char* filename, std::vector<VertexUV>& V, std::vector<Face>& F) 
 			--v.id;
 			refVids[v.id] = g_vid;
 			v.id = g_vid++;
-			//std::string father, uv, vv;
-			//ss >> father >> uv >> vv;
-
-			//for (auto& c : father)
-			//	if (c == '(' || c == ')') c = ' ';
-			//std::istringstream ss_father(father);
-			//Vertex u_v;
-			//ss_father >> father >> v.father;
-			//--v.father;
-
-			//for (auto& c : uv)
-			//	if (c == '(' || c == ')') c = ' ';
-			//std::istringstream ss_uv(uv);
-			//ss_uv >> uv >> v.uv.x;
-
-			//for (auto& c : vv)
-			//	if (c == '(' || c == ')') c = ' ';
-			//std::istringstream ss_vv(vv);
-			//ss_vv >> v.uv.y;
+			
+			getline(ss, line);
+			get_uv(line, v.uv);
 
 			V.push_back(v);
-		} else if (keyword == "Face") {
+		}
+		else if (keyword == "Face") {
 			Face f;
 			ss >> f.id;
 			--f.id;
@@ -68,7 +63,8 @@ void read(const char* filename, std::vector<VertexUV>& V, std::vector<Face>& F) 
 				f.Vids.push_back(refVids[vid - 1]);
 
 			F.push_back(f);
-		} else if (keyword == "Edge") {
+		}
+		else if (keyword == "Edge") {
 			break;
 		}
 	}
@@ -79,9 +75,9 @@ void write(const char* filename, const std::vector<VertexUV>& V, const std::vect
 	Vertex x;
 	for (auto& v : V) {
 		x.id = v.id;
-		x.x = v.x;
-		x.y = v.y;
-		x.z = v.z;
+		x.x = v.uv.x;
+		x.y = v.uv.y;
+		x.z = 0.0;
 		triV.push_back(x);
 	}
 	std::vector<Cell> C;

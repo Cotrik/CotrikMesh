@@ -213,7 +213,7 @@ public:
     void WriteSingularEdge_NeighborSeparatedComponentFacePatches_VTK(const char *filename, const int singularEdgeId) const;
     void WriteAllSingularEdge_NeighborSeparatedComponentFacePatches_VTK(const char *filename_prefix) const;
 
-    void Build();
+    virtual void Build();
 
 protected:
     virtual void BuildV();

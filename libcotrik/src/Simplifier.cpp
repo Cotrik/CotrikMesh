@@ -1664,6 +1664,7 @@ void Simplifier::loose_simplify_reverse(BaseComplexQuad& baseComplex, std::set<s
         }
     }
 }
+#include <ctime>
 #include <stdlib.h>     /* srand, rand */
 int Simplifier::get_id(std::unordered_set<int>& ids, int n) {
     while (true) {

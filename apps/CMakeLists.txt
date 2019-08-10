@@ -22,12 +22,12 @@ include(${VTK_USE_FILE})
 include_directories(
     ${PROJECT_SOURCE_DIR}/libcotrik/src/ 
     ${PROJECT_SOURCE_DIR}/eigen3
-    ${PROJECT_SOURCE_DIR}/../libigl/include
-    ${PROJECT_SOURCE_DIR}/../libigl/external
+    ${PROJECT_SOURCE_DIR}/libigl/include
+    ${PROJECT_SOURCE_DIR}/libigl/external
     ../
     )
     
-#link_directories(/usr/local/lib)    
+link_directories(/usr/local/lib)    
 
 foreach(app 
     Align
@@ -44,6 +44,7 @@ foreach(app
     ConvertQuadToTriangle
     #CotrikClustering
     DisplayFrameField
+    ExtractBaseMesh
     ExtractBaseComplex
     ExtractBaseComplexQuad
     ExtractSheetDecompositions
@@ -73,10 +74,12 @@ foreach(app
     MeshOpt
     MeshOptFixBoundary
     OpenQuadMeshOpt
+	QuadMeshOpt2D
     MeshProject
     MeshQuality
     MeshScale
     MeshShrink
+	MeshMap
     #MIQ
     PerturbInnerVertices
     #QuadGen
@@ -113,6 +116,7 @@ foreach(app
 	ExtractBaseComplexSeparatedSurfaces
     KillHighValenceSingularities
 	m2vtk
+	uv2vtk
 	vtk2m
 	Quad2Tri
 	Tri2Quad
