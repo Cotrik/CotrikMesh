@@ -37,17 +37,14 @@ FrameOpt::FrameOpt(const Mesh& mesh, const FrameField& framefield, const PolyLin
 
 }
 
-FrameOpt::~FrameOpt()
-{
+FrameOpt::~FrameOpt() {
     // TODO Auto-generated destructor stub
 }
 
-void FrameOpt::Run(const size_t iters/* = 1*/)
-{
+void FrameOpt::Run(const size_t iters/* = 1*/) {
     double sumEdgeLength = 0.0;
     size_t numOfBoundaryEdges = 0;
-    for (size_t i = 0; i < mesh.E.size(); i++)
-    {
+    for (size_t i = 0; i < mesh.E.size(); i++) {
         if (mesh.E.at(i).isBoundary){
             const Vertex& v1 = mesh.V.at(mesh.E.at(i).Vids.at(0));
             const Vertex& v2 = mesh.V.at(mesh.E.at(i).Vids.at(1));
@@ -66,8 +63,7 @@ void FrameOpt::Run(const size_t iters/* = 1*/)
     bool initUseAverageTargetLength = useAverageTargetLength;
     //if (useAverageTargetLength)
         ComputeMeshTargetLength();
-    while (!converged && iter++ < iters)
-    {
+    while (!converged && iter++ < iters) {
         if (!initUseAverageTargetLength  && iter == 1)
             useAverageTargetLength = true;
         std::cout << "stepSize = " << stepSize << std::endl;
@@ -117,8 +113,7 @@ void FrameOpt::Run(const size_t iters/* = 1*/)
     }
 }
 
-bool FrameOpt::Optimize()
-{
+bool FrameOpt::Optimize() {
     std::vector<Trip> A_Entries;
     std::vector<float> b;
     size_t row = 0;
@@ -150,8 +145,7 @@ bool FrameOpt::Optimize()
 
     bool converged = true;
     std::vector<float> changes;
-    for (size_t i = 0; i < mesh.V.size(); i++)
-    {
+    for (size_t i = 0; i < mesh.V.size(); i++) {
         if (fabs(mesh.V[i].x - X[3 * i + 0]) > 1e-6
             || fabs(mesh.V[i].y - X[3 * i + 1]) > 1e-6
             || fabs(mesh.V[i].z - X[3 * i + 2]) > 1e-6)
@@ -166,8 +160,7 @@ bool FrameOpt::Optimize()
     return converged;
 }
 
-bool FrameOpt::OptimizeFrame()
-{
+bool FrameOpt::OptimizeFrame() {
     std::vector<Trip> A_Entries;
     std::vector<float> b;
     size_t row = 0;
@@ -208,8 +201,7 @@ bool FrameOpt::OptimizeFrame()
     X = chol.solve(ATB);
 
     std::vector<glm::dvec3> oldV(mesh.V.size());
-    for (size_t i = 0; i < mesh.V.size(); i++)
-    {
+    for (size_t i = 0; i < mesh.V.size(); i++) {
         oldV[i].x = mesh.V[i].x;
         oldV[i].y = mesh.V[i].y;
         oldV[i].z = mesh.V[i].z;
@@ -218,8 +210,7 @@ bool FrameOpt::OptimizeFrame()
     bool converged = true;
 
     if (recoverable) {
-        for (size_t i = 0; i < framefield.frameNodes.size(); i++)
-        {
+        for (size_t i = 0; i < framefield.frameNodes.size(); i++) {
             if (fabs(double(framefield.frameNodes[i].x - X[3 * i + 0])) > 1e-6
                 || fabs(double(framefield.frameNodes[i].y - X[3 * i + 1])) > 1e-6
                 || fabs(double(framefield.frameNodes[i].z - X[3 * i + 2])) > 1e-6)
@@ -280,8 +271,7 @@ bool FrameOpt::OptimizeFrame()
     return converged;
 }
 
-void FrameOpt::OptimizeOrthogonality(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row)
-{
+void FrameOpt::OptimizeOrthogonality(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row) {
     for (size_t k = 0; k < framefield.frameNodes.size(); k++){
         const Frame& frame = framefield.frameNodes.at(k);
         if (frame.isBoundary)
@@ -310,8 +300,7 @@ void FrameOpt::OptimizeOrthogonality(std::vector<Trip>& A_Entries, std::vector<f
                         const double v = -vj[n] / length_vi * 0.125;
                         for (size_t m = 0; m < 8; m++)
                             A_Entries.push_back(Trip(row, 3 * celli.Vids[m] + n, v));
-                    }
-                    else {
+                    } else {
                         const size_t eiId = frame.N_Eids.at(i);
                         const FrameEdge& frameEdgei = framefield.frameEdges.at(eiId);
                         const Face& facei = mesh.F.at(frameEdgei.id);
@@ -326,18 +315,15 @@ void FrameOpt::OptimizeOrthogonality(std::vector<Trip>& A_Entries, std::vector<f
         }
     }
 }
-void FrameOpt::OptimizeBoundary(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row)
-{
+void FrameOpt::OptimizeBoundary(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row) {
     for (size_t k = 0; k < framefield.frameNodes.size(); k++){
         const Frame& frame = framefield.frameNodes.at(k);
         if (frame.isBoundary){
-            for (size_t n = 0; n < 3; n++)
-            {
+            for (size_t n = 0; n < 3; n++) {
                 const size_t eiId = frame.N_Eids.at(0);
                 const FrameEdge& frameEdgei = framefield.frameEdges.at(eiId);
                 const Face& facei = mesh.F.at(frameEdgei.id);
-                for (size_t m = 0; m < facei.Vids.size(); m++)
-                {
+                for (size_t m = 0; m < facei.Vids.size(); m++) {
                     A_Entries.push_back(Trip(row, 3 * facei.Vids[m] + n, alpha));
                     b.push_back(alpha * mesh.V.at(facei.Vids[m])[n]);
                     row++;
@@ -346,8 +332,7 @@ void FrameOpt::OptimizeBoundary(std::vector<Trip>& A_Entries, std::vector<float>
         }
     }
 }
-void FrameOpt::OptimizeStraightness(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row)
-{
+void FrameOpt::OptimizeStraightness(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row) {
     for (size_t k = 0; k < polyLines.polyLines.size(); k++) {
         const PolyLine& polyline = polyLines.polyLines.at(k);
         for (size_t j = 0; j < polyline.Eids.size() - 1; j++) {
@@ -378,8 +363,7 @@ void FrameOpt::OptimizeStraightness(std::vector<Trip>& A_Entries, std::vector<fl
                     const double v = -v2n[n] / length_v1 * 0.125;
                     for (size_t m = 0; m < 8; m++)
                         A_Entries.push_back(Trip(row, 3 * cell1.Vids[m] + n, v));
-                }
-                else {
+                } else {
                     const Face& face1 = mesh.F.at(frameEdge1.id);
                     const double v = -v2n[n] / length_v1 * 0.25;
                     for (size_t m = 0; m < 4; m++)
@@ -393,8 +377,7 @@ void FrameOpt::OptimizeStraightness(std::vector<Trip>& A_Entries, std::vector<fl
 }
 
 
-void FrameOpt::OptimizeFrameOrthogonality(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row)
-{
+void FrameOpt::OptimizeFrameOrthogonality(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row) {
     const size_t prevA_EntriesSize = A_Entries.size();
     A_Entries.resize(prevA_EntriesSize + mesh.C.size() * 6 * 4 * 3 * 2);
     size_t id = prevA_EntriesSize;
@@ -439,8 +422,7 @@ void FrameOpt::OptimizeFrameOrthogonality(std::vector<Trip>& A_Entries, std::vec
     }
 }
 
-void FrameOpt::OptimizeFrameStraightness(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row)
-{
+void FrameOpt::OptimizeFrameStraightness(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row) {
     for (size_t k = 0; k < polyLines.polyLines.size(); k++) {
         const PolyLine& polyline = polyLines.polyLines.at(k);
         for (size_t j = 0; j < polyline.Eids.size() - 1; j++) {
@@ -472,13 +454,11 @@ void FrameOpt::OptimizeFrameStraightness(std::vector<Trip>& A_Entries, std::vect
     }
 }
 
-void FrameOpt::OptimizeFrameBoundary(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row)
-{
+void FrameOpt::OptimizeFrameBoundary(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row) {
     for (size_t k = 0; k < framefield.frameNodes.size(); k++){
         const Frame& frame = framefield.frameNodes.at(k);
         if (frame.isBoundary){
-            for (size_t n = 0; n < 3; n++)
-            {
+            for (size_t n = 0; n < 3; n++) {
                 A_Entries.push_back(Trip(row, 3 * frame.id + n, alpha));
                 b.push_back(alpha * frame[n]);
                 row++;
@@ -537,8 +517,7 @@ void FrameOpt::OptimizeFrameBoundary(std::vector<Trip>& A_Entries, std::vector<f
 //    framefield.WriteFile("innerframe.vtk", frameIds);
 //}
 
-void FrameOpt::OptimizeFrameInnerVertices(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row)
-{
+void FrameOpt::OptimizeFrameInnerVertices(std::vector<Trip>& A_Entries, std::vector<float>& b, size_t& row) {
     /*
      *      3
      *     /|
@@ -570,8 +549,7 @@ void FrameOpt::OptimizeFrameInnerVertices(std::vector<Trip>& A_Entries, std::vec
             v.x /= 8;
             v.y /= 8;
             v.z /= 8;
-            for (size_t n = 0; n < 3; n++)
-            {
+            for (size_t n = 0; n < 3; n++) {
                 A_Entries.push_back(Trip(row, 3 * innerFrame.id + n, alpha));
                 b.push_back(alpha * v[n]);
                 row++;
@@ -582,16 +560,13 @@ void FrameOpt::OptimizeFrameInnerVertices(std::vector<Trip>& A_Entries, std::vec
 }
 
 
-void FrameOpt::UpdateMeshFromFrameField()
-{
-    for (size_t i = 0; i < mesh.V.size(); i++)
-    {
+void FrameOpt::UpdateMeshFromFrameField() {
+    for (size_t i = 0; i < mesh.V.size(); i++) {
         if (mesh.V[i].isBoundary)
             continue;
         for (size_t j = 0; j < 3; j++)
             mesh.V[i][j] = 0;
-        for (size_t j = 0; j < mesh.V[i].N_Cids.size(); j++)
-        {
+        for (size_t j = 0; j < mesh.V[i].N_Cids.size(); j++) {
             int hid = mesh.V[i].N_Cids[j];
             for (size_t k = 0; k < 3; k++)
                 mesh.V[i][k] += framefield.frameNodes[hid][k];
@@ -601,10 +576,8 @@ void FrameOpt::UpdateMeshFromFrameField()
     }
 }
 
-void FrameOpt::UpdateFrameFieldFromMesh()
-{
-    for (size_t i = 0; i < framefield.frameNodes.size(); i++)
-    {
+void FrameOpt::UpdateFrameFieldFromMesh() {
+    for (size_t i = 0; i < framefield.frameNodes.size(); i++) {
         Frame& frame = framefield.frameNodes.at(i);
         if (frame.isBoundary) {
             const Face& face = mesh.F.at(frame.id);
@@ -620,8 +593,7 @@ void FrameOpt::UpdateFrameFieldFromMesh()
             frame.x /= face.Vids.size();
             frame.y /= face.Vids.size();
             frame.z /= face.Vids.size();
-        }
-        else {
+        } else {
             const Cell& cell = mesh.C.at(frame.id);
             frame.x = 0.0;
             frame.y = 0.0;
@@ -636,12 +608,10 @@ void FrameOpt::UpdateFrameFieldFromMesh()
             frame.y /= cell.Vids.size();
             frame.z /= cell.Vids.size();
         }
-
     }
 }
 
-void FrameOpt::ComputeMeshTargetLength()
-{
+void FrameOpt::ComputeMeshTargetLength() {
     std::cout << "=============================\n";
     std::vector<Trip> coefficients;
     std::vector<float> b;
@@ -711,8 +681,7 @@ void FrameOpt::ComputeMeshTargetLength()
 
     double sum_len = 0.0;
     std::vector<float> length(framefield.frameEdges.size());
-    for (size_t i = 0; i < framefield.frameEdges.size(); i++)
-    {
+    for (size_t i = 0; i < framefield.frameEdges.size(); i++) {
         FrameEdge& frameEdge = framefield.frameEdges.at(i);
 
         const Frame& frame1 = framefield.frameNodes.at(frameEdge.Vids[0]);
@@ -727,26 +696,23 @@ void FrameOpt::ComputeMeshTargetLength()
 
         std::vector<size_t> es_f;
         std::vector<size_t> vs_f;
-        for (size_t j = 0; j < 4; j++)
-        {
+        for (size_t j = 0; j < 4; j++) {
             es_f.push_back(mesh.F[shared_fid].Eids[j]);
             vs_f.push_back(mesh.F[shared_fid].Vids[j]);
         }
 
-        for (size_t j = 0; j < hs.size(); j++)
-        {
+        for (size_t j = 0; j < hs.size(); j++) {
             double ave_len = 0;
             std::vector<size_t> es;
             for (size_t k = 0; k < 6; k++)
                 for (size_t m = 0; m < 4; m++)
                     es.push_back(mesh.F[mesh.C[hs[j]].Fids[k]].Eids[m]);
-            set_redundent_clearn(es);
+			Util::set_redundent_clearn(es);
             std::vector<size_t> es_left;
-            set_exclusion(es, es_f, es_left);
+			Util::set_exclusion(es, es_f, es_left);
             es.clear();
-            for (size_t k = 0; k < es_left.size(); k++)
-            {
-                if (set_contain(vs_f, mesh.E[es_left[k]].Vids[0]) || set_contain(vs_f, mesh.E[es_left[k]].Vids[1]))
+            for (size_t k = 0; k < es_left.size(); k++) {
+                if (Util::set_contain(vs_f, mesh.E[es_left[k]].Vids[0]) || Util::set_contain(vs_f, mesh.E[es_left[k]].Vids[1]))
                     es.push_back(es_left[k]);
             }
             for (size_t k = 0; k < es.size(); k++)
@@ -768,48 +734,39 @@ void FrameOpt::ComputeMeshTargetLength()
     std::cout << "=============================\n";
 }
 
-void FrameOpt::SetAlpha(const double value/* = 100.0*/)
-{
+void FrameOpt::SetAlpha(const double value/* = 100.0*/) {
     alpha = value;
 }
 
-void FrameOpt::SetBeta(const double value/* = 100.0*/)
-{
+void FrameOpt::SetBeta(const double value/* = 100.0*/) {
     beta = value;
 }
 
-void FrameOpt::SetGamma(const double value/* = 100.0*/)
-{
+void FrameOpt::SetGamma(const double value/* = 100.0*/) {
     gamma = value;
 }
 
-void FrameOpt::SetStepSize(const double value/* = 1.0*/)
-{
+void FrameOpt::SetStepSize(const double value/* = 1.0*/) {
     stepSize = value;
 }
 
-void FrameOpt::SetAnisotropy(const double value/* = 100.0*/)
-{
+void FrameOpt::SetAnisotropy(const double value/* = 100.0*/) {
     anisotropy = value;
 }
 
-void FrameOpt::SetUseAverageTargetLength(bool value)
-{
+void FrameOpt::SetUseAverageTargetLength(bool value) {
     useAverageTargetLength = value;
 }
 
-void FrameOpt::SetRecoverable(bool value)
-{
+void FrameOpt::SetRecoverable(bool value) {
     recoverable = value;
 }
 
-void FrameOpt::SetAllowBigStep(bool value)
-{
+void FrameOpt::SetAllowBigStep(bool value) {
     allowBigStep = value;
 }
 
-void FrameOpt::OutputBadCells(const std::vector<size_t>& badCellIds, const char* filename)
-{
+void FrameOpt::OutputBadCells(const std::vector<size_t>& badCellIds, const char* filename) {
     std::vector<Cell> cells(badCellIds.size());
     for (size_t i = 0; i < badCellIds.size(); i++)
         cells.at(i) = mesh.C.at(badCellIds.at(i));
@@ -817,8 +774,7 @@ void FrameOpt::OutputBadCells(const std::vector<size_t>& badCellIds, const char*
     writer.WriteFile();
 }
 
-void FrameOpt::OutputFramesOfBadCells(const std::vector<size_t>& badCellIds, const char* filename)
-{
+void FrameOpt::OutputFramesOfBadCells(const std::vector<size_t>& badCellIds, const char* filename) {
     std::vector<Cell> cells(badCellIds.size());
     std::vector<size_t> frameIds;
     for (size_t i = 0; i < badCellIds.size(); i++) {

@@ -492,6 +492,8 @@ public:
     void BuildAllConnectivities(); // Get Neighboring Info, including, E, F, C, V_V, V_E, V_F, V_C, E_V, E_F, E_C, F_V, F_E, F_F, F_C, C_V, C_E, C_F, C_C
     void ExtractBoundary();
     inline bool HasBoundary() const;
+	inline bool IsSurfaceMesh() const;
+	inline bool IsVolumetricMesh() const;
     size_t ExtractLayers();
     void ExtractSingularities();
     void ExtractTwoRingNeighborSurfaceFaceIdsForEachVertex(int N = 2);
@@ -504,10 +506,12 @@ public:
     void CompressWithFeaturePreserved();
     void ClassifyVertexTypes();
     void LabelSurface();
+	void Label2DSurfaceVertices();
     void ClearLabelOfSurface();
     void LabelSharpEdges(const bool breakAtConrer = false);
     void ProjectSharpEdgesTo(const std::vector<FeatureLine>& featureLines);
     void SetCosAngleThreshold(const double cos_angle = 0.91);
+	void SetFeatureAngleThreshold(const double angle = 170.0);
     //bool IsPointInTriangle(const glm::dvec3& P, const glm::dvec3& A, const glm::dvec3& B, const glm::dvec3& C) const;
     bool IsPointInTriangle(const Vertex& p, const Vertex& p0, const Vertex& p1, const Vertex& p2) const;
     bool IsPointInTriangle(const glm::dvec3& p, const glm::dvec3& p0, const glm::dvec3& p1, const glm::dvec3& p2) const;
@@ -572,6 +576,7 @@ protected:
 public:
 	virtual void FixOrientation();
     double GetCosAngle(const Edge& edge, const Face& face1, const Face& face2);
+	double Get2DAngle(const Vertex& v, const Edge& e1, const Edge& e2);
 public:
     void GetQuality(const Vertex& v, double& minSJ, double& avgSJ);
     size_t GetQuality(const char* filename, double& minValue, double& avgValue, const double minSJ = 0.0);
@@ -599,19 +604,10 @@ public:
     glm::dvec3 m_center;
     std::vector<size_t> m_refIds;
     double cos_angle_threshold = 0.984807753;
+	double feature_angle_threshold = 170.0;
     size_t numberOfPatches = 0;
 
     bool hasBoundary = false;
 };
-
-void set_redundent_clearn(std::vector<size_t>& set);
-bool set_contain(std::vector<size_t>& large_set, size_t element);
-void set_exclusion(std::vector<size_t>& large_set, std::vector<size_t>& small_set, std::vector<size_t> &result_set);
-bool IsOverlap(const Face& f1, const Face& f2);
-bool Find(const std::vector<size_t>& Ids, const size_t targetId);
-size_t GetoppositeFaceId(const Mesh& mesh, const size_t cellId, const size_t faceId);
-bool IsEdgeInCell(const Mesh& mesh, const size_t cellId, const size_t edgeId);
-glm::dvec3 GetCenter(const std::vector<Vertex>& V);
-void GetBoundingBox(const std::vector<Vertex>& V, glm::dvec3& Max, glm::dvec3& Min);
 
 #endif /* MESH_H_ */

@@ -277,7 +277,7 @@ void WeightedMeshOptFixBoundary::OptimizeSingularity(std::vector<Trip>& A_Entrie
 
                 bool inTheSameCell = false;
                 for (size_t n = 0; n < edge.N_Cids.size(); n++)
-                    if (IsEdgeInCell(mesh, edge.N_Cids.at(n), edgeId1) && IsEdgeInCell(mesh, edge.N_Cids.at(n), edgeId2)) {
+                    if (Util::IsEdgeInCell(mesh, edge.N_Cids.at(n), edgeId1) && Util::IsEdgeInCell(mesh, edge.N_Cids.at(n), edgeId2)) {
                         inTheSameCell = true;
                         break;
                     }

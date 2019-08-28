@@ -93,7 +93,7 @@ int main(int argc, char* argv[])
             scale = mesh.avgEdgeLength / scale;
         }
 
-        mesh.m_center = GetCenter(mesh.V);
+        mesh.m_center = Util::GetCenter(mesh.V);
         mesh.Zoom(mesh.m_center, 1.0/scale);
         std::cout << "center = (" << mesh.m_center.x << ", " << mesh.m_center.y << ", " << mesh.m_center.z << ")\n";
         std::cout << "scale = " << scale << " 1.0/scale = " << 1.0/scale << "\n";
@@ -114,7 +114,7 @@ int main(int argc, char* argv[])
             scale = origMesh.avgEdgeLength / scale;
             //cout << "scale = " << scale << "\n";
         }
-        mesh.m_center = GetCenter(origMesh.V);
+        mesh.m_center = Util::GetCenter(origMesh.V);
         if (Auto) mesh.Zoom(mesh.m_center, scale);
         else
             mesh.Zoom(mesh.m_center, 1.0 / scale);

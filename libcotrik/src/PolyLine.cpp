@@ -62,7 +62,7 @@ size_t PolyLine::BuildFrom(const Mesh& mesh, const FrameField& framefield, size_
 
         const size_t cellId = nextFrameNodeId;
         const size_t faceId = framefield.frameEdges.at(startFrameEdgeId).id;
-        const size_t nextFrameEdgeId = GetoppositeFaceId(mesh, cellId, faceId);
+        const size_t nextFrameEdgeId = Util::GetOppositeFaceId(mesh, cellId, faceId);
 
         startFrameNodeId = nextFrameNodeId;
         startFrameEdgeId = nextFrameEdgeId;
@@ -91,7 +91,7 @@ void PolyLines::Build()
             const size_t startFrameNodeId = frameNode1.isBoundary ? frameNode1.id : frameNode2.id;
             for (size_t j = 0; j < frameNode.N_Eids.size(); j++){
                 const size_t startFrameEdgeId = frameNode.N_Eids.at(j);
-                if (!Find(visitedFrameEdgeIds, startFrameEdgeId)){
+                if (!Util::Find(visitedFrameEdgeIds, startFrameEdgeId)){
                     visitedFrameEdgeIds.push_back(startFrameEdgeId);
                     PolyLine polyline;
                     polyline.id = polylineId++;
@@ -103,7 +103,7 @@ void PolyLines::Build()
                     for (size_t k = 0; k < polyline.Eids.size(); k++)
                         edgesLabels.at(polyline.Eids.at(k)) = polyline.id;
                     polyLines.push_back(polyline);
-                    if (!Find(visitedFrameEdgeIds, endFrameEdgeId)){
+                    if (!Util::Find(visitedFrameEdgeIds, endFrameEdgeId)){
                         visitedFrameEdgeIds.push_back(endFrameEdgeId);
                     }
                 }
@@ -121,7 +121,7 @@ void PolyLines::Build()
             //for (size_t j = 0; j < frameNode.N_Eids.size(); j++)
             {
                 //const size_t startFrameEdgeId = frameNode.N_Eids.at(j);
-                if (!Find(visitedFrameEdgeIds, startFrameEdgeId)){
+                if (!Util::Find(visitedFrameEdgeIds, startFrameEdgeId)){
                     visitedFrameEdgeIds.push_back(startFrameEdgeId);
                     PolyLine polyline;
                     polyline.id = polylineId++;
@@ -130,7 +130,7 @@ void PolyLines::Build()
                     for (size_t k = 0; k < polyline.Eids.size(); k++)
                         edgesLabels.at(polyline.Eids.at(k)) = polyline.id;
                     polyLines.push_back(polyline);
-                    if (!Find(visitedFrameEdgeIds, endFrameEdgeId)){
+                    if (!Util::Find(visitedFrameEdgeIds, endFrameEdgeId)){
                         visitedFrameEdgeIds.push_back(endFrameEdgeId);
                     }
                 }

@@ -84,7 +84,7 @@ size_t EdgeLine::BuildFrom(const Mesh& mesh, size_t startVId, size_t startEdgeId
     {
         const Face& startFace = mesh.F.at(startFaceId);
         size_t cellId = startFace.N_Cids.at(0);
-        const size_t nextFaceId = GetoppositeFaceId(mesh, cellId, startFaceId);
+        const size_t nextFaceId = Util::GetOppositeFaceId(mesh, cellId, startFaceId);
         const Face& nextFace = mesh.F.at(nextFaceId);
 
         size_t nextVId = mesh.E.at(startEdgeId).Vids.at(1);
@@ -198,7 +198,7 @@ void EdgeLines::Build()
                 const size_t startEdgeId = face.N_Ortho_4Eids.at(j).at(k);
                 const Edge& startEdge = mesh.E.at(startEdgeId);
                 const size_t startVId = mesh.V.at(startEdge.Vids.at(0)).isBoundary ? startEdge.Vids.at(0) : startEdge.Vids.at(1);
-                if (!Find(visitedEdgeIds, startEdgeId)) {
+                if (!Util::Find(visitedEdgeIds, startEdgeId)) {
                     visitedEdgeIds.push_back(startEdgeId);
                     EdgeLine edgeline;
                     edgeline.id = edgelineId++;
@@ -206,7 +206,7 @@ void EdgeLines::Build()
                     for (size_t k = 0; k < edgeline.Eids.size(); k++)
                         edgesLabels.at(edgeline.Eids.at(k)) = edgeline.id;
                     edgeLines.push_back(edgeline);
-                    if (!Find(visitedEdgeIds, endEdgeId)) {
+                    if (!Util::Find(visitedEdgeIds, endEdgeId)) {
                         visitedEdgeIds.push_back(endEdgeId);
                     }
                 }
@@ -224,7 +224,7 @@ void EdgeLines::Build()
             const size_t startVId = v1.isSingularity ? v1Id : v2Id;
             const Vertex& v = mesh.V.at(startVId);
             if (v.isSingularity)
-            if (!Find(visitedEdgeIds, startEdgeId)) {
+            if (!Util::Find(visitedEdgeIds, startEdgeId)) {
                 visitedEdgeIds.push_back(startEdgeId);
                 EdgeLine edgeline;
                 edgeline.id = edgelineId++;
@@ -232,7 +232,7 @@ void EdgeLines::Build()
                 for (size_t k = 0; k < edgeline.Eids.size(); k++)
                     edgesLabels.at(edgeline.Eids.at(k)) = edgeline.id;
                 edgeLines.push_back(edgeline);
-                if (!Find(visitedEdgeIds, endEdgeId)) {
+                if (!Util::Find(visitedEdgeIds, endEdgeId)) {
                     visitedEdgeIds.push_back(endEdgeId);
                 }
             }

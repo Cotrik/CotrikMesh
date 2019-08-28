@@ -311,13 +311,6 @@ void RemoveSingularities(const Mesh& mesh, std::vector<std::vector<size_t>>& bas
 	}
 }
 
-
-std::set<size_t> Util::get_intersect(const std::set<size_t>& s1, const std::set<size_t>& s2) {
-    std::set<size_t> intersect;
-    std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(), std::inserter(intersect, intersect.begin()));
-	return intersect;
-}
-
 int GetHolonomyGroup(const Mesh& dualMesh, const std::vector<size_t>& baseLinkVids) {
 	int res = 0;
 	auto& fids = baseLinkVids;

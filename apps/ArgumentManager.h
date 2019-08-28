@@ -16,6 +16,7 @@ public:
     void parse(std::string rawArguments, char delimiter=';');
     std::string get(std::string argumentName);
     void get(const std::string key, bool& value);
+	void get(const std::string key, size_t& value);
     void get(const std::string key, int& value);
     void get(const std::string key, float& value);
     void get(const std::string key, double& value);
@@ -76,6 +77,11 @@ std::string ArgumentManager::get(std::string argumentName) {
 void ArgumentManager::get(const std::string key, bool& value) {
     auto str = get(key);
     if (!str.empty()) value = str == "false" ? false : true;
+}
+
+void ArgumentManager::get(const std::string key, size_t& value) {
+	auto str = get(key);
+	if (!str.empty()) value = std::stoi(str);
 }
 
 void ArgumentManager::get(const std::string key, int& value) {
