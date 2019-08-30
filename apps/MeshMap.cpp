@@ -475,7 +475,7 @@ std::vector<Vertex> Get2DVertices(Mesh& mesh, const bool useLocalPolarCoordinate
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        std::cerr << "Usage: MeshMap open_surface_patch_file 2d_patch_file\n";
+        std::cerr << "Usage: MeshMap open_surface_patch_file 2d_patch_file local=false v0id=0\n";
         return -1;
     }
 	ArgumentManager am(argc, argv);
