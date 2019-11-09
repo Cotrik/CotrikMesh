@@ -13,7 +13,7 @@ const double PI = 3.1415926535;
 std::vector<size_t> Simplifier::userCorners = {};
 std::vector<size_t> Simplifier::canceledCorners = {};
 double Simplifier::angle = 160;
-int Simplifier::maxValence = 5;
+int Simplifier::maxValence = 6;
 int Simplifier::minValence = 3;
 int Simplifier::iters = 10000;
 int Simplifier::smoothIters = 20;
@@ -27,10 +27,10 @@ bool Simplifier::ROTATE = true;
 bool Simplifier::COLLAPSE_DIAGNAL = true;
 bool Simplifier::REMOVE_DOUBLET = true;
 bool Simplifier::SHEET_SPLIT = true;
-bool Simplifier::HALF = false;
+bool Simplifier::HALF = true;
 bool Simplifier::TRIP = false;
 bool Simplifier::checkCorner = true;
-bool Simplifier::writeFile = true;
+bool Simplifier::writeFile = false;
 
 Simplifier::Simplifier(Mesh& mesh) : mesh(mesh) {
 
