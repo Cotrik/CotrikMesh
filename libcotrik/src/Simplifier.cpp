@@ -1736,8 +1736,8 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
         const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(++id);
         auto& v_front = mesh.V.at(link.front());
         auto& v_back = mesh.V.at(link.back());
-        //if (!v_front.isBoundary && !v_back.isBoundary) continue;
-        if (v_front.isBoundary || !v_back.isBoundary) continue;
+        if (!(v_front.isBoundary ^ v_back.isBoundary)) continue;
+        //if (v_front.isBoundary || !v_back.isBoundary) continue;
         if (v_front.N_Fids.size() == 3 && v_back.N_Fids.size() == 2) {
             bool onthesameline = true;
             for (auto nvid : v_back.N_Vids) {
@@ -1756,7 +1756,7 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
                 MeshFileWriter writer(mesh, "error.vtk");
                 writer.WriteFile();
             }
-            if (v_front_fv.N_Fids.size() > Simplifier::minValence + 1) {
+            if (v_front_fv.N_Fids.size() >= Simplifier::minValence + 1) {
                 if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid)) {
                     for (auto vid : link) {
                         auto& v = mesh.V.at(vid);
@@ -1786,7 +1786,7 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
                 MeshFileWriter writer(mesh, "error.vtk");
                 writer.WriteFile();
             }
-            if (mesh.V.at(v_front_fvid).N_Fids.size() > Simplifier::minValence + 1) {
+            if (mesh.V.at(v_front_fvid).N_Fids.size() >= Simplifier::minValence + 1) {
                 if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid)) {
                     for (auto vid : link) {
                         auto& v = mesh.V.at(vid);

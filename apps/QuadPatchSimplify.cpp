@@ -13,10 +13,10 @@ void setup(ArgumentManager& argumentManager, Simplifier& s);
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::cout << "Usage: QuadPatchSimplify quad.vtk simplified.vtk iters=<1> maxValence=<3> maxValence=<5> " 
+        std::cout << "Usage: QuadPatchSimplify quad.vtk simplified.vtk iters=<10000> maxValence=<3> maxValence=<6> " 
 			<< "featurePreserved=true smoothIters=20 angle=<160> userCorners=\"\" canceledCorners=\"\" checkCorner=true" <<
-			" collapse=false split=true conformal=true global=true rotate=true remove_doublet=true collapse_diagnal=true" <<
-			" sheet_split=true half=false trip=true writeFile=true" << std::endl;
+			" collapse=true split=false conformal=true global=true rotate=true remove_doublet=true collapse_diagnal=true" <<
+			" sheet_split=true half=false trip=false writeFile=false" << std::endl;
         return -1;
     }
 	
