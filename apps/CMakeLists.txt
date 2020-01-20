@@ -62,6 +62,7 @@ foreach(app
     ExtractSurface
     ExtractSingularities
     ExtractSingularitiesGraphs
+    Fix2DMeshVertices
     HexRefine
     HexSmooth
     #HexGen

@@ -147,6 +147,26 @@ void MeshFileWriter::WriteVtkFile() {
     else
         for (auto cellType : m_mesh.m_cellTypes)
             ofs << cellType << "\n";
+
+    ofs << "POINT_DATA " << vnum << "\n";
+    ofs << "SCALARS fixed int\n";
+    ofs << "LOOKUP_TABLE default\n";
+
+    for (auto& v: m_mesh.V) {
+        if (v.isBoundary) {
+            if (v.N_Fids.size() != 2) {
+              ofs << v.N_Fids.size() << "\n";  
+            } else {
+                ofs << 0 << "\n";
+            }
+        } else {
+            if (v.N_Fids.size() != 4) {
+              ofs << v.N_Fids.size() << "\n";  
+            } else {
+                ofs << 0 << "\n";
+            }
+        }
+    }
 }
 
 void MeshFileWriter::WriteVtuFile() {
@@ -299,7 +319,23 @@ void MeshFileWriter::WriteOffFile()
 
 void MeshFileWriter::WriteObjFile()
 {
+    const std::vector<Vertex>& V = m_mesh.V;
+    const std::vector<Face>& F = m_mesh.F;
+    const size_t vnum = V.size();
+    const size_t fnum = F.size();
 
+    std::ofstream ofs(m_strFileName.c_str());
+    for (size_t i = 0; i < vnum; i++) {
+        ofs << std::fixed << setprecision(7) << "v " << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << endl;
+    }
+
+    for (size_t i = 0; i < fnum; i++) {
+        ofs << "f";
+        for (size_t j = 0; j < F.at(i).Vids.size(); j++) {
+            ofs << " " << F.at(i).Vids.at(j) + 1; 
+        }
+        ofs << "\n";
+    }
 }
 
 void MeshFileWriter::WriteStlFile()

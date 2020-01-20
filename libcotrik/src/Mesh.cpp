@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
+#include <glm/gtx/vector_angle.hpp>
+#include <math.h>
 
 #include <vtkVersion.h>
 #include <vtkSmartPointer.h>
@@ -56,6 +58,7 @@
 //using namespace Eigen;
 
 const size_t MAXID = 0xffffffffffffffff;
+const double PI = 3.1415926535;
 
 Mesh::Mesh()
 : m_cellType(HEXAHEDRA)
@@ -351,6 +354,79 @@ void Mesh::BuildOrthogonalE() {
                 if (faceEdge.Vids.at(k) == vid2) hasVid2 = true;
             }
             if (hasVid1 ^ hasVid2) edge.orthogonalEids.push_back(faceEdge.id);
+        }
+    }
+}
+
+double Mesh::getConvexVerdict(std::vector<size_t> Vids) {
+    // bool result = true;
+    const Vertex& v01 = V[Vids[0]];
+    const Vertex& v11 = V[Vids[1]];
+    const Vertex& v21 = V[Vids[2]];
+    const glm::dvec3 v101 = v01.xyz() - v11.xyz();
+    const glm::dvec3 v121 = v21.xyz() - v11.xyz();
+    const glm::dvec3 n1 = glm::normalize(glm::cross(v121, v101));
+
+    
+    const Vertex& v02 = V[Vids[1]];
+    const Vertex& v12 = V[Vids[2]];
+    const Vertex& v22 = V[Vids[3]];
+    const glm::dvec3 v102 = v02.xyz() - v12.xyz();
+    const glm::dvec3 v122 = v22.xyz() - v12.xyz();
+    const glm::dvec3 n2 = glm::normalize(glm::cross(v122, v102));
+    double dot_ab = glm::dot(n1, n2);
+    // if (dot_ab < 0.f) {
+    //     std::cout << dot_ab << std::endl;
+    //     // return true;
+    // }
+
+    return dot_ab;
+    
+}
+
+void Mesh::unifyOrientation() {
+    
+    Vertex& v0_r_f = V[F.at(0).Vids[0]];
+    Vertex& v1_r_f = V[F.at(0).Vids[1]];
+    Vertex& v2_r_f = V[F.at(0).Vids[2]];
+    
+    const glm::dvec3 v10_r_f = v0_r_f.xyz() - v1_r_f.xyz();
+    const glm::dvec3 v12_r_f = v2_r_f.xyz() - v1_r_f.xyz();
+    const glm::dvec3 n_r_f = glm::normalize(glm::cross(v12_r_f, v10_r_f));
+    
+    int fsize = F.size();
+    for (int i = 1; i < fsize; i++) {
+        Vertex& v0 = V[F.at(i).Vids[0]];
+        Vertex& v1 = V[F.at(i).Vids[1]];
+        Vertex& v2 = V[F.at(i).Vids[2]];
+
+        const glm::dvec3 v10 = v0.xyz() - v1.xyz();
+        const glm::dvec3 v12 = v2.xyz() - v1.xyz();
+        const glm::dvec3 n = glm::normalize(glm::cross(v12, v10));
+        if (glm::dot(n_r_f, n) < 0.f) {
+            std::reverse(F.at(i).Vids.begin(), F.at(i).Vids.end());
+        }
+    }
+
+    Vertex& v0_r = V[C.at(0).Vids[0]];
+    Vertex& v1_r = V[C.at(0).Vids[1]];
+    Vertex& v2_r = V[C.at(0).Vids[2]];
+
+    const glm::dvec3 v10_r = v0_r.xyz() - v1_r.xyz();
+    const glm::dvec3 v12_r = v2_r.xyz() - v1_r.xyz();
+    const glm::dvec3 n_r = glm::normalize(glm::cross(v12_r, v10_r));
+    int csize = C.size();
+    for (int i = 1; i < csize; i++) {
+        Vertex& v0 = V[C.at(i).Vids[0]];
+        Vertex& v1 = V[C.at(i).Vids[1]];
+        Vertex& v2 = V[C.at(i).Vids[2]];
+
+        const glm::dvec3 v10 = v0.xyz() - v1.xyz();
+        const glm::dvec3 v12 = v2.xyz() - v1.xyz();
+        const glm::dvec3 n = glm::normalize(glm::cross(v12, v10));
+        
+        if (glm::dot(n_r, n) < 0.f) {
+            std::reverse(C.at(i).Vids.begin(), C.at(i).Vids.end());
         }
     }
 }

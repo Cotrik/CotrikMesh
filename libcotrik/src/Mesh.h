@@ -500,6 +500,9 @@ public:
     void BuildParallelE();
     void BuildConsecutiveE();
     void BuildOrthogonalE();
+    void ReOrientSurfaceFaces();
+    double getConvexVerdict(std::vector<size_t> Vids);
+    void unifyOrientation();
     void GetNormalOfSurfaceFaces();             // must ExtractBoundary(); first
     void GetNormalOfSurfaceVertices();          // must ExtractBoundary(); first
     void RemoveUselessVertices();
