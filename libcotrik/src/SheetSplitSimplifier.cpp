@@ -50,7 +50,7 @@ void SheetSplitSimplifier::Split(const Vertex& v, const std::set<size_t>& parale
 std::map<size_t, size_t> SheetSplitSimplifier::GetInsertEdgeVertices(const std::set<size_t>& paralell_eids) {
     auto orig_patch_id = MAXID;
     for (auto& v : origMesh.V) {
-        if (v.patch_id != MAXID) {
+        if (!v.isBoundary && v.patch_id != MAXID) {
             orig_patch_id = v.patch_id;
             break;
         }
@@ -63,7 +63,11 @@ std::map<size_t, size_t> SheetSplitSimplifier::GetInsertEdgeVertices(const std::
         Vertex v = 0.5 * (v0 + v1);
         v.id = mesh.V.size();
         v.patch_id = GetPatchid(v0, v1);
-        if (v.patch_id == MAXID) v.patch_ids.insert(orig_patch_id);
+        if (v.patch_id == MAXID || v.patch_ids.empty()) v.patch_ids.insert(orig_patch_id);
+		for (auto fvid : e.Vids) {
+			auto& fv = mesh.V.at(fvid);
+			v.patch_ids.insert(fv.patch_ids.begin(), fv.patch_ids.end());
+		}
         v.label = GetLabel(v0, v1, v);
         mesh.V.push_back(v);
         res[eid] = v.id;
@@ -90,6 +94,10 @@ std::map<size_t, size_t> SheetSplitSimplifier::GetInsertFaceVertices(const std::
         v.id = mesh.V.size();
         v.patch_id = GetPatchid(v0, v1, v2, v3);
         if (v.patch_id == MAXID) v.patch_id = orig_patch_id;
+		for (auto fvid : f.Vids) {
+			auto& fv = mesh.V.at(fvid);
+			v.patch_ids.insert(fv.patch_ids.begin(), fv.patch_ids.end());
+		}
         mesh.V.push_back(v);
         res[fid] = v.id;
     }
@@ -227,15 +235,31 @@ size_t SheetSplitSimplifier::GetPatchid(const Vertex& v0, const Vertex& v1, cons
         auto intersections1 = Util::get_intersect(v0.patch_ids, v1.patch_ids);
         auto intersections2 = Util::get_intersect(v2.patch_ids, v3.patch_ids);
         auto intersections = Util::get_intersect(intersections1, intersections2);
-        if (intersections.size() != 1)
-            std::cerr << "Err in SheetSplitSimplifier::GetPatchid!\n";
+		if (intersections.size() != 1) {
+			std::cerr << "Err in SheetSplitSimplifier::GetPatchid!\n";
+			{
+				static int num = 0;
+				std::string fname = std::string("ErrGetPatchid") + std::to_string(num++) + ".vtk";
+				std::cout << "writing " << fname << std::endl;
+				MeshFileWriter writer(mesh, fname.c_str());
+				writer.WriteFile();
+			}
+		}
         else patch_id = *intersections.begin();
     } else if (!v0.isBoundary) patch_id = v0.patch_id;
     else if (!v1.isBoundary) patch_id = v1.patch_id;
     else if (!v2.isBoundary) patch_id = v2.patch_id;
     else if (!v3.isBoundary) patch_id = v3.patch_id;
-    else
-        std::cerr << "Err in SheetSplitSimplifier::GetPatchid!\n";
+	else {
+		std::cerr << "Err in SheetSplitSimplifier::GetPatchid!\n";
+		{
+			static int num = 0;
+			std::string fname = std::string("ErrGetPatchid_") + std::to_string(num++) + ".vtk";
+			std::cout << "writing " << fname << std::endl;
+			MeshFileWriter writer(mesh, fname.c_str());
+			writer.WriteFile();
+		}
+	}
     return patch_id;
 }
 
@@ -243,7 +267,16 @@ size_t SheetSplitSimplifier::GetPatchid(const Vertex& v0, const Vertex& v1) {
     auto patch_id = MAXID;
     if (v0.isBoundary && v1.isBoundary) {
         auto intersections = Util::get_intersect(v0.patch_ids, v1.patch_ids);
-        if (intersections.size() != 1) std::cerr << "Err in SheetSplitSimplifier::GetPatchid!\n";
+		if (intersections.size() != 1) {
+			std::cerr << "Err in SheetSplitSimplifier::GetPatchid!\n";
+			{
+				static int num = 0;
+				std::string fname = std::string("ErrGetPatchid__") + std::to_string(num++) + ".vtk";
+				std::cout << "writing " << fname << std::endl;
+				MeshFileWriter writer(mesh, fname.c_str());
+				writer.WriteFile();
+			}
+		}
         else patch_id = *intersections.begin();
     } else patch_id = v0.isBoundary ? v1.patch_id : v0.patch_id;
     return patch_id;

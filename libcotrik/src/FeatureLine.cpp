@@ -109,6 +109,6 @@ size_t FeatureLine::FindNextVid(const size_t vid, std::vector<bool>& visited, si
                 return v.N_Vids[i];
             }
 
-    //std::cout << "Error in FindNextVid! vid = " << vid << std::endl;
+    std::cout << "Error in FindNextVid! vid = " << vid << std::endl;
     return MAXID;
 }

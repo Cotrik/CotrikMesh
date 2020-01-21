@@ -13,7 +13,7 @@ void setup(ArgumentManager& argumentManager, Simplifier& s);
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {
-        std::cout << "Usage: ClosedQuadMeshSimplify quad.vtk simplified.vtk iters=<1> maxValence=<3> maxValence=<5> "
+        std::cout << "Usage: ClosedQuadMeshSimplify quad.vtk simplified.vtk iters=<1> minValence=<3> maxValence=<5> "
             << "featurePreserved=true smoothIters=20 angle=<160> userCorners=\"\" canceledCorners=\"\" checkCorner=true" <<
             " collapse=false split=true conformal=true global=true rotate=true remove_doublet=true collapse_diagnal=true" <<
             " sheet_split=true half=false trip=true writeFile=true min_numOfFaces_per_patch=<10> localangle=<160> globalangle=<90>" << std::endl;
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
         PatchSimplifier simplifier(patch_mesh);
         setup(argumentManager, simplifier);
         simplifier.Run();
-        int i = 2;
+        int i = 1;
         while (i--/*mesh.V.size() < simplifier.origMesh.V.size()*/) {
             simplifier.init();
             patch_mesh = simplifier.RefineWithFeaturePreserved(patch_mesh, 0);
