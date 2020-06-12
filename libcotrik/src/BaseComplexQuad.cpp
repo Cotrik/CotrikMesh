@@ -2223,7 +2223,7 @@ void BaseComplexQuad::WriteBaseComplexComponentsVTK(const char *filename) const
 {
     const std::vector<Vertex>& V = mesh.V;
     const std::vector<Edge>& E = mesh.E;
-    const std::vector<Face>& F = F;
+    const std::vector<Face>& F = mesh.F;
 
     std::ofstream ofs(filename);
     ofs << "# vtk DataFile Version 2.0" << std::endl

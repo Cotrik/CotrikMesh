@@ -7,10 +7,11 @@
 #include "SingleSheetSimplifier.h"
 #include "SheetSplitSimplifier.h"
 #include "DiagnalCollapseSimplifier.h"
+#include "AngleBasedSmoothQuadMesh.h"
 
 
 PatchSimplifier::PatchSimplifier(Mesh& mesh) : Simplifier(mesh) {
-
+    smoothing_algorithm = new SmoothAlgorithm(mesh, 10000, 0.001);
 }
 
 PatchSimplifier::~PatchSimplifier() {
@@ -21,17 +22,20 @@ void PatchSimplifier::Run() {
     auto maxValence_copy = Simplifier::maxValence;
     if (maxValence_copy > 5) Simplifier::maxValence = 5;
     int iter = 0;
+    // smoothing_algorithm->setOriginalVertices();
     while (Simplifier::maxValence <= maxValence_copy) {
         while (iters-- > 0) {
             if (!Simplify(iter)) break;
         }
         ++Simplifier::maxValence;
     }
+    
 }
 
 bool PatchSimplifier::Simplify(int& iter) {
     std::set<size_t> canceledFids;
     init();
+    
     if (iter == 0 && featurePreserved) get_feature();
     if (iter == 0)
     {
@@ -39,6 +43,24 @@ bool PatchSimplifier::Simplify(int& iter) {
         MeshFileWriter writer(mesh, "rotate_eids.vtk");
         writer.WriteEdgesVtk(eids);
     }
+    // if (iter % 50 == 0)
+    // {
+    //     std::string fname = std::string("simplified_") +  std::to_string(iter) + ".vtk";
+    //     MeshFileWriter writer(mesh, fname.c_str());
+    //     writer.WriteFile();
+    // }
+    
+    if (smoothing_algorithm->original_vertices.empty()) {
+        smoothing_algorithm->setOriginalVertices();
+    }
+    // smoothing_algorithm->resampleBoundaryVertices();
+    smoothing_algorithm->smoothLaplacianScaleBased();
+    // if (iter % 50 == 0)
+    // {
+    //     std::string fname = std::string("smoothed_") +  std::to_string(iter) + ".vtk";
+    //     MeshFileWriter writer(mesh, fname.c_str());
+    //     writer.WriteFile();
+    // }
     if (checkCorner && !CheckCorners()) {
         std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
         update(canceledFids);
@@ -165,6 +187,9 @@ bool PatchSimplifier::Simplify(int& iter) {
 //            writer.WriteVertexFeatureVtk();
 //        }
     }
+    
+    // init();
+    
     std::cout << "iter = " << iter++ << std::endl;
     std::cout << "---------------------------------------------------\n";
     return true;

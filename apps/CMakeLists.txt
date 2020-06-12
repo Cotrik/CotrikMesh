@@ -21,6 +21,7 @@ include(${VTK_USE_FILE})
 
 include_directories(
     ${PROJECT_SOURCE_DIR}/libcotrik/src/ 
+    ${PROJECT_SOURCE_DIR}/libnaeem/src/ 
     ${PROJECT_SOURCE_DIR}/eigen3
     ${PROJECT_SOURCE_DIR}/libigl/include
     ${PROJECT_SOURCE_DIR}/libigl/external
@@ -92,6 +93,7 @@ foreach(app
     SlimTri
     #Smooth
     SmoothMap
+    SmoothMesh
     SurfaceMeshOpt
     WeightedMeshOptFixBoundary
     tet2hex
@@ -137,7 +139,7 @@ foreach(app
 	ConvexCut
 )
     add_executable(${app} ${app}.cpp)
-    target_link_libraries(${app} cotrik
+    target_link_libraries(${app} cotrik naeem
     #CoMISo pthread
     )	#install(FILES ${app} DESTINATION D:/Program\ Files/CotrikMesh/)
 endforeach()

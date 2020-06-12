@@ -27,6 +27,7 @@ find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})   
 include_directories(
     ${PROJECT_SOURCE_DIR}/eigen3
+    ${PROJECT_SOURCE_DIR}/libnaeem/src/
     #/usr/local/include/
     #/usr/local/include/vtk-6.3/
     ${PROJECT_SOURCE_DIR}/verdict/vtkverdict
@@ -157,5 +158,5 @@ add_library(cotrik SHARED STATIC
 	src/Util.h
 	src/Util.cpp
 )
-target_link_libraries(cotrik ${ALL_LIBS})
+target_link_libraries(cotrik naeem ${ALL_LIBS})
 #install(FILES cotrik DESTINATION D:/Program\ Files/CotrikMesh/)

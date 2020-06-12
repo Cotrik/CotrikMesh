@@ -916,23 +916,45 @@ void Mesh::SetFeatureAngleThreshold(const double angle/* = 170.0*/) {
 }
 
 void Mesh::LabelFace(Face& face, size_t& label) {
-    face.label = label;
-    for (size_t i = 0; i < face.Eids.size(); i++) {
-        auto& edge = E.at(face.Eids.at(i));
-        std::vector<Face*> faces;
-        for (size_t j = 0; j < edge.N_Fids.size(); j++) {
-            Face& face2 = F.at(edge.N_Fids.at(j));
-            if (face2.isBoundary && face2.id != face.id && face2.label == MAXID) {
-                const double cos_angle = GetCosAngle(edge, face, face2);
-                //std::cout << "cos_angle = " << cos_angle << std::endl;
-                if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
-					faces.push_back(&face2);
-				//else edge.isSharpFeature = true;
+    std::vector<Face*> queue;
+    queue.push_back(&face);
+
+    while (!queue.empty()) {
+        Face& f = *queue.back();
+        queue.pop_back();
+        f.label = label;
+
+        for (size_t i = 0; i < f.Eids.size(); i++) {
+            auto& edge = E.at(f.Eids.at(i));
+            for (size_t j = 0; j < edge.N_Fids.size(); j++) {
+                Face& face2 = F.at(edge.N_Fids.at(j));
+                if (face2.isBoundary && face2.id != f.id && face2.label == MAXID) {
+                    const double cos_angle = GetCosAngle(edge, f, face2);
+                    if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
+                        queue.push_back(&face2);
+                    //else edge.isSharpFeature = true;
+                }
             }
         }
-        for (size_t i = 0; i < faces.size(); i++)
-            LabelFace(*faces.at(i), label);
+
     }
+    // face.label = label;
+    // // std::cout << face.id << std::endl;
+    // for (size_t i = 0; i < face.Eids.size(); i++) {
+    //     auto& edge = E.at(face.Eids.at(i));
+    //     std::vector<Face*> faces;
+    //     for (size_t j = 0; j < edge.N_Fids.size(); j++) {
+    //         Face& face2 = F.at(edge.N_Fids.at(j));
+    //         if (face2.isBoundary && face2.id != face.id && face2.label == MAXID) {
+    //             const double cos_angle = GetCosAngle(edge, face, face2);
+    //             if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
+	// 				faces.push_back(&face2);
+	// 			//else edge.isSharpFeature = true;
+    //         }
+    //     }
+    //     for (size_t i = 0; i < faces.size(); i++)
+    //         LabelFace(*faces.at(i), label);
+    // }
 }
 
 void Mesh::RemoveUselessVertices() {
@@ -3515,6 +3537,126 @@ void Mesh::ExtractTwoRingNeighborSurfaceFaceIdsForEachVertex(int N/* = 2*/)
 //        std::vector<size_t>::iterator iter = std::unique(v.twoRingNeighborSurfaceFaceIds.begin(), v.twoRingNeighborSurfaceFaceIds.end());
 //        v.twoRingNeighborSurfaceFaceIds.resize(std::distance(v.twoRingNeighborSurfaceFaceIds.begin(), iter));
 //    }
+}
+
+void Mesh::SetOneRingNeighborhood() {
+    ArrangeFaceVerticesAntiClockwise();
+    for (auto& v: V) {
+        ExtractOneRingNeighbors(v);
+    }
+}
+
+void Mesh::ArrangeFaceVerticesAntiClockwise() {
+    // Arrange face vertices in anti clockwise direction
+    for (auto& f: F) {
+        int sign = 0;
+        for (int i = 0; i < f.Vids.size(); i++) {
+            Vertex& a = V.at(f.Vids.at(i));
+            Vertex& b = V.at(f.Vids.at((i + 1) % f.Vids.size()));
+            Vertex& c = V.at(f.Vids.at((i + 2) % f.Vids.size()));
+            double det = ((b.x - a.x) * (c.y - a.y)) - ((c.x - a.x) * (b.y - a.y));
+            if (det > 0) {
+                sign += 1;
+            } else if (det < 0) {
+                sign -= 1;
+            }
+        }
+        if (sign < 0) {
+            std::reverse(f.Vids.begin(), f.Vids.end());
+        }
+    }
+}
+
+void Mesh::ExtractOneRingNeighbors(Vertex& source) {
+    // Arrange neighboring vertices in anti clokcwise direction
+    std::vector<double> N_V_angles;
+    N_V_angles.resize(source.N_Vids.size());
+    Vertex& v_a = V.at(source.N_Vids.at(0));
+    glm::dvec3 a = glm::normalize(glm::dvec3(v_a.x - source.x, v_a.y - source.y, v_a.z - source.y));
+    for (int i = 0; i < source.N_Vids.size(); i++) {
+        Vertex& v_b = V.at(source.N_Vids.at(i));
+        glm::dvec3 b = glm::normalize(glm::dvec3(v_b.x - source.x, v_b.y - source.y, v_b.z - source.z));
+
+        double angle = (atan2(glm::cross(a, b).z, glm::dot(a, b))) * 180 / PI;
+        if (angle < 0) {
+            angle += 360;
+        }
+        N_V_angles.at(i) = angle;
+    }
+    for (int i = source.N_Vids.size() - 1; i >= 0; i--) {
+        double max = 0;
+        int index = -1;
+        for (int j = 0; j < N_V_angles.size(); j++) {
+            if (N_V_angles.at(j) >= max) {
+                max = N_V_angles.at(j);
+                index = j;
+            }
+        }
+        std::iter_swap(N_V_angles.begin() + i, N_V_angles.begin() + index);
+        std::iter_swap(source.N_Vids.begin() + i, source.N_Vids.begin() + index);
+        N_V_angles.at(i) = -1;
+    }
+
+    // Arrange neighboring faces in anti clockwise direction
+    std::vector<size_t> new_N_Fids;
+    for (int i = 0; i < source.N_Vids.size(); i++) {
+        // int index = -1;
+        for (int j = 0; j < source.N_Fids.size(); j++) {
+            Face& f = F.at(source.N_Fids.at(j));
+            int index_a = source.N_Vids.at(i);
+            int index_b = source.N_Vids.at((i + 1) % source.N_Vids.size());
+            if (std::find(f.Vids.begin(), f.Vids.end(), index_a) != f.Vids.end() && 
+                std::find(f.Vids.begin(), f.Vids.end(), index_b) != f.Vids.end() &&
+                std::find(new_N_Fids.begin(), new_N_Fids.end(), f.id) == new_N_Fids.end()) {
+                new_N_Fids.push_back(f.id);
+                break;
+            }
+        }
+    }
+    source.N_Fids.swap(new_N_Fids);
+
+    // Get one ring neighbors in sorted order
+    source.oneRingNeighborVertices.clear();
+    for (int i = 0; i < source.N_Fids.size(); i++) {
+        Face& f = F.at(source.N_Fids.at(i));
+        int start_index = -1;
+        for (int j = 0; j < f.Vids.size(); j++) {
+            if (f.Vids.at(j) == source.id) {
+                start_index = j + 1;
+                break;
+            }
+        }
+        int end_index = start_index + 3;
+        for (int j = start_index; j < end_index; j++) {
+            int id = f.Vids.at(j % f.Vids.size());
+            if (std::find(source.oneRingNeighborVertices.begin(), source.oneRingNeighborVertices.end(), id) == source.oneRingNeighborVertices.end()) {
+                source.oneRingNeighborVertices.push_back(id);
+            }
+        }
+    }
+
+    // check if they are arranged in order
+    // if (!source.isBoundary) {        
+    //     std::cout << "Vertex: " << source.id << std::endl;
+    //     Vertex& v_v_a = V.at(source.oneRingNeighborVertices.at(0));
+    //     glm::dvec3 a_a = glm::normalize(glm::dvec3(v_v_a.x - source.x, v_v_a.y - source.y, v_v_a.z - source.y));
+    //     double prev_angle = 0;
+    //     for (int i = 0; i < source.oneRingNeighborVertices.size(); i++) {
+    //         Vertex& v_v_b = V.at(source.oneRingNeighborVertices.at(i));
+    //         glm::dvec3 b_b = glm::normalize(glm::dvec3(v_v_b.x - source.x, v_v_b.y - source.y, v_v_b.z - source.z));
+
+    //         double angle = (atan2(glm::cross(a_a, b_b).z, glm::dot(a_a, b_b))) * 180 / PI;
+    //         if (angle < 0) {
+    //             angle = std::fmod(angle + 360, 360);
+    //         }
+    //         std::cout << angle << std::endl;
+    //         if (angle < prev_angle) {
+    //             std::cout << "fault in our arrangements" << std::endl;
+    //         }
+    //         prev_angle = angle;
+    //     }
+    //     std::cout << "----------------------------------------" << std::endl;
+    // }
 }
 
 void Mesh::Zoom(const glm::dvec3& ref, const double scale/* = 1*/) {

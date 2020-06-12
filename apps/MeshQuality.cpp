@@ -228,7 +228,8 @@ int main(int argc, char *argv[]) {
     //qualityFilter->SetHexQualityMeasureToOddy()
     //qualityFilter->SetHexQualityMeasureToCondition()
     //qualityFilter->SetHexQualityMeasureToJacobian()
-    qualityFilter->SetHexQualityMeasureToScaledJacobian();
+    // qualityFilter->SetHexQualityMeasureToScaledJacobian();
+    qualityFilter->SetQuadQualityMeasureToScaledJacobian();
     //qualityFilter->SetHexQualityMeasureToShear()
     //qualityFilter->SetHexQualityMeasureToShape()
     //qualityFilter->SetHexQualityMeasureToRelativeSizeSquared()

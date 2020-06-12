@@ -39,14 +39,14 @@ int main(int argc, char* argv[]) {
 		writer.WriteVertexFeatureVtk();
 	}
 	simplifier.init();
-	simplifier.smooth_project();
-	{
+	// simplifier.smooth_project();
+	// {
 		MeshFileWriter writer(mesh, output.c_str());
 		writer.WriteFile();
 		std::cout << "V = " << mesh.V.size() << std::endl;
 		std::cout << "E = " << mesh.E.size() << std::endl;
 		std::cout << "F = " << mesh.F.size() << std::endl;
-	}
+	// }
     return 0;
 }
 

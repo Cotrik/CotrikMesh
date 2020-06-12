@@ -216,8 +216,10 @@ public:
     bool isCorner;
 	bool isSpecial;
 	bool isConvex;
+    bool isVisited;
 	size_t idealValence = 0;
     std::vector<size_t> twoRingNeighborSurfaceFaceIds; // for surface projecting;
+    std::vector<size_t> oneRingNeighborVertices; // for 2D surface smoothing
 };
 
 class Edge : public GeoInfo, public NeighborInfo
@@ -585,6 +587,10 @@ public:
     size_t GetQuality(const char* filename, double& minValue, double& avgValue, const double minSJ = 0.0);
     size_t GetQualityVerdict(double& minValue, double& avgValue, const double minSJ = 0.0);
     void OutputBadCells(const std::vector<size_t>& badCellIds, const char* filename);
+public:
+    void SetOneRingNeighborhood(); // 2D surface smoothing
+    void ArrangeFaceVerticesAntiClockwise();
+    void ExtractOneRingNeighbors(Vertex& source);
 public:
     std::vector<Vertex> V;
     std::vector<Edge> E;
