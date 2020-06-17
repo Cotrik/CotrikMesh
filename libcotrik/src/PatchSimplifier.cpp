@@ -11,7 +11,7 @@
 
 
 PatchSimplifier::PatchSimplifier(Mesh& mesh) : Simplifier(mesh) {
-    smoothing_algorithm = new SmoothAlgorithm(mesh, 10000, 0.001);
+    smoothing_algorithm = new SmoothAlgorithm(mesh, 100, 0.001);
 }
 
 PatchSimplifier::~PatchSimplifier() {
@@ -43,6 +43,7 @@ bool PatchSimplifier::Simplify(int& iter) {
         MeshFileWriter writer(mesh, "rotate_eids.vtk");
         writer.WriteEdgesVtk(eids);
     }
+    smoothing_algorithm->smoothMesh();
     // if (iter % 50 == 0)
     // {
     //     std::string fname = std::string("simplified_") +  std::to_string(iter) + ".vtk";
@@ -50,11 +51,8 @@ bool PatchSimplifier::Simplify(int& iter) {
     //     writer.WriteFile();
     // }
     
-    if (smoothing_algorithm->original_vertices.empty()) {
-        smoothing_algorithm->setOriginalVertices();
-    }
     // smoothing_algorithm->resampleBoundaryVertices();
-    smoothing_algorithm->smoothLaplacianScaleBased();
+    // smoothing_algorithm->smoothLaplacianScaleBased();
     // if (iter % 50 == 0)
     // {
     //     std::string fname = std::string("smoothed_") +  std::to_string(iter) + ".vtk";
@@ -189,7 +187,6 @@ bool PatchSimplifier::Simplify(int& iter) {
     }
     
     // init();
-    
     std::cout << "iter = " << iter++ << std::endl;
     std::cout << "---------------------------------------------------\n";
     return true;

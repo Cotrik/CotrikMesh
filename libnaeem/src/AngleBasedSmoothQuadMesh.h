@@ -22,7 +22,6 @@ public:
 
     void setOriginalVertices();
     double getMinEdgeLength();
-    void smoothBoundary();
     void resampleBoundaryVertices();
     void smoothLaplacianSimple();
     void smoothLaplacianScaleBased();
@@ -31,7 +30,6 @@ public:
     void calculateMeshAngles();
     void angleBasedSmoothing();
     void smoothMesh();
-    void remapBoundaryVertices();
 };
 
 #endif

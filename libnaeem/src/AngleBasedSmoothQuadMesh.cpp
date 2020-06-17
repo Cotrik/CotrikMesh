@@ -20,8 +20,11 @@ SmoothAlgorithm::SmoothAlgorithm(Mesh& mesh, int it, double l_r) : mesh(mesh) {
 SmoothAlgorithm::~SmoothAlgorithm() {}
 
 void SmoothAlgorithm::setOriginalVertices() {
-     original_vertices.resize(mesh.V.size());
-     for (int i = 0; i < mesh.V.size(); i++) {
+    original_vertices.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
+    for (int i = 0; i < mesh.V.size(); i++) {
+        if (!mesh.V.at(i).isBoundary) {
+            continue;
+        }
         original_vertices.at(i).x = mesh.V.at(i).x;
         original_vertices.at(i).y = mesh.V.at(i).y;
         original_vertices.at(i).z = mesh.V.at(i).z;
@@ -51,90 +54,50 @@ double SmoothAlgorithm::getMinEdgeLength() {
 }
 
 void SmoothAlgorithm::resampleBoundaryVertices() {
-    // std::cout << "Resampling boundary vertices" << std::endl;
-    std::vector<Vertex> buffer_V(mesh.V.size());
-    std::vector<Vertex> new_V(mesh.V.size());
     for (int i = 0; i < mesh.V.size(); i++) {
-        new_V.at(i).x = mesh.V.at(i).x;
-        new_V.at(i).y = mesh.V.at(i).y;
-        new_V.at(i).z = mesh.V.at(i).z;
-        buffer_V.at(i).isVisited = false;
-    }
-    int it = 0;
-    while (it < iters) {
-        for (int i = 0; i < mesh.V.size(); i++) {
-            Vertex& v = mesh.V.at(i);
-            Vertex& new_v = new_V.at(i);
-            if (v.isBoundary) {
-                // std::vector<size_t> boundary_neighbors;
-                int nb_n_index = 0;
-                for (int j = 0; j < v.N_Vids.size(); j++) {
-                    if (!mesh.V.at(v.N_Vids.at(j)).isBoundary) {
-                        nb_n_index = j;
-                        break;
-                        // boundary_neighbors.push_back(v.N_Vids.at(j));
-                    }                    
-                }
-                int a_ = nb_n_index;
-                int b_ = v.N_Vids.size();
-                int index = (a_ % b_ + b_) % b_;
-                Vertex& b0 = new_V.at(v.N_Vids.at(index));
-
-                a_ = nb_n_index - 1;
-                index = (a_ % b_ + b_) % b_;
-                Vertex& b1 = new_V.at(v.N_Vids.at(index));
-
-                a_ = nb_n_index + 1;
-                index = (a_ % b_ + b_) % b_;
-                Vertex& b2 = new_V.at(v.N_Vids.at(index));
-
-                glm::vec3 a(b1.x - new_v.x, b1.y - new_v.y, b1.z - new_v.z);
-                glm::vec3 b(b2.x - new_v.x, b2.y - new_v.y, b2.z - new_v.z);
-
-                double angle = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b))) * 180.0 / PI;
-                // if (angle < 160.0) {
-                //     continue;
-                // }
-                // if (glm::length(a) > glm::length(b)) {
-                //     double magnitude = (glm::length(a) - glm::length(b)) / 2;
-                //     a = glm::normalize(a);
-                //     buffer_V.at(i).x = (magnitude * a.x);
-                //     buffer_V.at(i).y = (magnitude * a.y);
-                //     buffer_V.at(i).isVisited = true;
-                // } else if (glm::length(b) > glm::length(a)) {
-                //     double magnitude = (glm::length(b) - glm::length(a)) / 2;
-                //     b = glm::normalize(b);
-                //     buffer_V.at(i).x = (magnitude * b.x);
-                //     buffer_V.at(i).y = (magnitude * b.y);
-                //     buffer_V.at(i).isVisited = true;
-                // }
-                glm::dvec3 V_j(v.x - b0.x, v.y - b0.y, v.z - b0.z);
-                glm::dvec3 V_j_minus_1(b1.x - b0.x, b1.y - b0.y, b1.z - b0.z);
-                glm::dvec3 V_j_plus_1(b2.x - b0.x, b2.y - b0.y, b2.z - b0.z);
-
-                double alpha1 = acos(glm::dot(V_j, V_j_plus_1) / (glm::length(V_j) * glm::length(V_j_plus_1)));
-                double alpha2 = acos(glm::dot(V_j, V_j_minus_1) / (glm::length(V_j) * glm::length(V_j_minus_1)));
-
-                double beta = (alpha2 - alpha1) / 2;
-                buffer_V.at(i).x = (b0.x + (V_j.x * cos(beta)) - (V_j.y * sin(beta))); 
-                buffer_V.at(i).y = (b0.y + (V_j.x * sin(beta)) + (V_j.y * cos(beta)));
-                buffer_V.at(i).isVisited = true;
+        Vertex& v = mesh.V.at(i);
+        if (v.isBoundary) {
+            int nb_n_index = 0;
+            for (int j = 0; j < v.N_Vids.size(); j++) {
+                if (!mesh.V.at(v.N_Vids.at(j)).isBoundary) {
+                    nb_n_index = j;
+                    break;
+                }                    
             }
+            int a_ = nb_n_index;
+            int b_ = v.N_Vids.size();
+            int index = (a_ % b_ + b_) % b_;
+            Vertex& b0 = mesh.V.at(v.N_Vids.at(index));
+
+            a_ = nb_n_index - 1;
+            index = (a_ % b_ + b_) % b_;
+            Vertex& b1 = mesh.V.at(v.N_Vids.at(index));
+
+            a_ = nb_n_index + 1;
+            index = (a_ % b_ + b_) % b_;
+            Vertex& b2 = mesh.V.at(v.N_Vids.at(index));
+
+            glm::vec3 a(b1.x - v.x, b1.y - v.y, b1.z - v.z);
+            glm::vec3 b(b2.x - v.x, b2.y - v.y, b2.z - v.z);
+
+            double angle = acos(glm::dot(a, b) / (glm::length(a) * glm::length(b))) * 180.0 / PI;
+
+            glm::dvec3 V_j(v.x - b0.x, v.y - b0.y, v.z - b0.z);
+            glm::dvec3 V_j_minus_1(b1.x - b0.x, b1.y - b0.y, b1.z - b0.z);
+            glm::dvec3 V_j_plus_1(b2.x - b0.x, b2.y - b0.y, b2.z - b0.z);
+
+            double alpha1 = acos(glm::dot(V_j, V_j_plus_1) / (glm::length(V_j) * glm::length(V_j_plus_1)));
+            double alpha2 = acos(glm::dot(V_j, V_j_minus_1) / (glm::length(V_j) * glm::length(V_j_minus_1)));
+
+            double beta = (alpha2 - alpha1) / 2;
+            delta_coords.at(i).x = (b0.x + (V_j.x * cos(beta)) - (V_j.y * sin(beta))); 
+            delta_coords.at(i).y = (b0.y + (V_j.x * sin(beta)) + (V_j.y * cos(beta)));
         }
-        for (int i = 0; i < mesh.V.size(); i++) {
-            if (buffer_V.at(i).isVisited) {
-                new_V.at(i).x = buffer_V.at(i).x;
-                new_V.at(i).y = buffer_V.at(i).y;
-                new_V.at(i).isVisited = true;
-                buffer_V.at(i).isVisited = false;
-            }
-        }
-        it += 1;
     }
     // std::cout << "Remapping vertices to original boundary" << std::endl;
     for (int i = 0; i < mesh.V.size(); i++) {
-        if (new_V.at(i).isVisited) {
-            Vertex& new_v = new_V.at(i);
+        if (mesh.V.at(i).isBoundary) {
+            glm::dvec3 new_v = delta_coords.at(i);
             double min_length = std::numeric_limits<double>::max();
             int min_index = i;
             // std::cout << "original vertices size: " << original_vertices.size() << std::endl;
@@ -177,143 +140,15 @@ void SmoothAlgorithm::resampleBoundaryVertices() {
 
             if (dot_a_b >= 0) {
                 b = glm::normalize(b);
-                new_v.x = v.x + (dot_a_b * b.x);
-                new_v.y = v.y + (dot_a_b * b.y);
+                delta_coords.at(i).x = v.x + (dot_a_b * b.x);
+                delta_coords.at(i).y = v.y + (dot_a_b * b.y);
             } else if (dot_a_c >= 0){
                 c = glm::normalize(c);
-                new_v.x = v.x + (dot_a_c * c.x);
-                new_v.y = v.y + (dot_a_c * c.y);
+                delta_coords.at(i).x = v.x + (dot_a_c * c.x);
+                delta_coords.at(i).y = v.y + (dot_a_c * c.y);
             }
         }
     }
-
-    for (int i = 0; i < mesh.V.size(); i++) {
-        Vertex& v = mesh.V.at(i);
-        if (v.isBoundary) {
-            Vertex& new_v = new_V.at(i);
-            v.x = new_v.x;
-            v.y = new_v.y;
-        }
-    }
-}
-
-void SmoothAlgorithm::smoothBoundary() {
-    std::vector<Vertex> buffer_V(mesh.V.size());
-    for (auto&v: buffer_V) {
-        v.isVisited = false;
-    }
-
-    for (auto& v: mesh.V) {
-        if (v.isBoundary && v.N_Vids.size() > 2) {
-            for (int i = 0; i < v.N_Vids.size(); i++) {
-                if (!mesh.V.at(v.N_Vids.at(i)).isBoundary) {
-                    Vertex& non_boundary = mesh.V.at(v.N_Vids.at(i));
-                    Vertex& b1 = mesh.V.at(v.N_Vids.at((i + 1) % v.N_Vids.size()));
-                    Vertex& b2 = mesh.V.at(v.N_Vids.at((i + 2) % v.N_Vids.size()));
-
-                    glm::vec3 lhs;
-                    glm::vec3 rhs;
-                    glm::vec3 mid(non_boundary.x - v.x, non_boundary.y - v.y, non_boundary.z - v.z);
-                    if (((b1.x - v.x) * (non_boundary.y - v.y)) - ((b1.y - v.y) * (non_boundary.x - v.x)) < 0) {
-                        rhs = glm::vec3(b1.x - v.x, b1.y - v.y, b1.z - v.z);
-                        lhs = glm::vec3(b2.x - v.x, b2.y - v.y, b2.z - v.z);
-                    } else {
-                        rhs = glm::vec3(b2.x - v.x, b2.y - v.y, b2.z - v.z);
-                        lhs = glm::vec3(b1.x - v.x, b1.y - v.y, b1.z - v.z);
-                    }
-
-                    double alpha1 = acos(glm::dot(rhs, mid) / (glm::length(rhs) * glm::length(mid)));
-                    double alpha2 = acos(glm::dot(lhs, mid) / (glm::length(lhs) * glm::length(mid)));
-
-                    double beta = (alpha2 - alpha1) / 2;
-                    std::cout << "beta: " << beta << std::endl;
-
-                    buffer_V.at(v.N_Vids.at(i)).x += (v.x + (mid.x * cos(beta) - mid.y * sin(beta)));
-                    buffer_V.at(v.N_Vids.at(i)).y += (v.y + (mid.x * sin(beta) + mid.y * cos(beta)));
-                    buffer_V.at(v.N_Vids.at(i)).isVisited = true;
-                    break;
-                }
-            }
-        }
-    }
-    for (int i = 0; i < buffer_V.size(); i++) {
-        Vertex& v = buffer_V.at(i);
-        Vertex& orig_v = mesh.V.at(i);
-        if (v.isVisited) {
-            double num_boundary_neighbors = 0;
-            for (int j = 0; j < orig_v.N_Vids.size(); j++) {
-                if (mesh.V.at(orig_v.N_Vids.at(j)).isBoundary) {
-                    num_boundary_neighbors += 1;
-                }
-            }
-            orig_v.x = v.x / num_boundary_neighbors;
-            orig_v.y = v.y / num_boundary_neighbors;
-        }
-    }
-    // for (auto& v: mesh.V) {
-    //     if (v.isBoundary && v.N_Vids.size() > 2) {
-    //         for (int i = 0; i < v.N_Vids.size(); i++) {
-    //             if (!mesh.V.at(v.N_Vids.at(i)).isBoundary) {
-    //                 Vertex& n_b = mesh.V.at(v.N_Vids.at(i));
-    //                 Vertex& b1 = mesh.V.at(v.N_Vids.at((i + 1) % v.N_Vids.size()));
-    //                 Vertex& b2 = mesh.V.at(v.N_Vids.at((i + 2) % v.N_Vids.size()));
-
-    //                 glm::vec3 a = glm::normalize(glm::vec3(b1.x - v.x, b1.y - v.y, b1.z - v.z));
-    //                 glm::vec3 b = glm::normalize(glm::vec3(b2.x - v.x, b2.y - v.y, b2.z - v.z));
-
-    //                 double bisector_magnitude = glm::length(glm::vec3(n_b.x - v.x, n_b.y - v.y, n_b.z - v.z));
-    //                 glm::vec3 bisector = a + b;
-    //                 if (glm::length(bisector) != 0) {
-    //                     // bisector = glm::normalize(bisector);                    
-    //                     // buffer_V.at(v.N_Vids.at(i)).x = v.x + (bisector.x * bisector_magnitude);
-    //                     // buffer_V.at(v.N_Vids.at(i)).y = v.y + (bisector.y * bisector_magnitude);
-    //                 } else {
-    //                     std::cout << "b1: " << b1.x << " " << b1.y << std::endl;
-    //                     std::cout << "b2: " << b2.x << " " << b2.y << std::endl;
-    //                     std::cout << "n_b: " << n_b.x << " " << n_b.y << std::endl;
-    //                     glm::vec3 line = glm::vec3(b2.x - b1.x, b2.y - b1.y, b2.z - b1.z);
-    //                     std::cout << "line magnitude: " << glm::length(line) << std::endl;
-    //                     std::cout << "normalized line: " << line.x / glm::length(line) << " " << line.y / glm::length(line) << std::endl;
-    //                     glm::vec3 line_direction = glm::normalize(line);
-    //                     std::cout << "line: " << line.x << " " << line.y << std::endl;
-    //                     std::cout << "line direction: " << line_direction.x << " " << line_direction.y << std::endl;
-    //                     glm::vec3 point_to_line(n_b.x - b1.x, n_b.y - b1.y, n_b.z - b1.z);
-
-    //                     double p_l_mag = glm::dot(point_to_line, line);
-    //                     std::cout << p_l_mag << std::endl;
-    //                     glm::vec3 p_l(b1.x + (p_l_mag * line_direction.x), b1.y + (p_l_mag * line_direction.y), b1.z + (p_l_mag * line_direction.z));
-    //                     glm::vec3 perpendicular_vec = glm::normalize(glm::vec3(n_b.x - p_l.x, n_b.y - p_l.y, n_b.z - p_l.z));
-    //                     // glm::vec3 perpendicular_vec(n_b.x - p_l.x, n_b.y - p_l.y, n_b.z - p_l.z);
-
-    //                     // buffer_V.at(v.N_Vids.at(i)).x = v.x + (perpendicular_vec.x * bisector_magnitude);
-    //                     // buffer_V.at(v.N_Vids.at(i)).y = v.y + (perpendicular_vec.y * bisector_magnitude);
-    //                     buffer_V.at(v.N_Vids.at(i)).x = perpendicular_vec.x;
-    //                     buffer_V.at(v.N_Vids.at(i)).y = perpendicular_vec.y;
-    //                     buffer_V.at(v.N_Vids.at(i)).isVisited = true;
-    //                 }
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
-    // for (int i = 0; i < buffer_V.size(); i++) {
-    //     Vertex& v = buffer_V.at(i);
-    //     Vertex& orig_v = mesh.V.at(i);
-    //     if (v.isVisited) {
-    //         double num_boundary_neighbors = 0;
-    //         for (int j = 0; j < orig_v.N_Vids.size(); j++) {
-    //             if (mesh.V.at(orig_v.N_Vids.at(j)).isBoundary) {
-    //                 num_boundary_neighbors += 1;
-    //             }
-    //         }
-    //         // orig_v.x = v.x / num_boundary_neighbors;
-    //         // orig_v.y = v.y / num_boundary_neighbors;
-    //         orig_v.x = v.x;
-    //         orig_v.y = v.y;
-            
-    //         std::cout << orig_v.x << " " << orig_v.y << std::endl;
-    //     }
-    // }
 }
 
 void SmoothAlgorithm::smoothLaplacianSimple() {
@@ -447,86 +282,37 @@ void SmoothAlgorithm::smoothLaplacianScaleBased() {
 }
 
 void SmoothAlgorithm::smoothMesh() {
-    int it = 0;
+    mesh.BuildAllConnectivities();
+	mesh.ExtractBoundary();
+	mesh.ExtractSingularities();
+	mesh.BuildParallelE();
+	mesh.unifyOrientation();
+    mesh.SetOneRingNeighborhood();
     setOriginalVertices();
+    calculateMeshAngles();
+    int it = 0;
     while (it < iters) {
         delta_coords.clear();
         delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
         // smoothLaplacianCotangentBased();
         // SmoothAngleBased();
         angleBasedSmoothing();
+        resampleBoundaryVertices();
         for (int i = 0; i < mesh.V.size(); i++) {
             Vertex& v = mesh.V.at(i);
-            if (v.isBoundary) {
-                continue;
-            }
+            // if (!v.isBoundary) {
+            //     v.x = delta_coords.at(i).x / 2;
+            //     v.y = delta_coords.at(i).y / 2;
+            // } else {
             v.x = delta_coords.at(i).x;
             v.y = delta_coords.at(i).y;
+            // }
             // break;
         }
-        resampleBoundaryVertices();
         it++;
     }
-}
-
-void SmoothAlgorithm::remapBoundaryVertices() {
-    // std::cout << "Remapping vertices to original boundary" << std::endl;
-    for (int i = 0; i < mesh.V.size(); i++) {
-        if (mesh.V.at(i).isBoundary) {
-            if (mesh.V.at(i).isSpecial) {
-                continue;
-            }
-            double min_length = std::numeric_limits<double>::max();
-            int min_index = i;
-            // std::cout << "original vertices size: " << original_vertices.size() << std::endl;
-            // std::cout << "min_index: " << min_index << std::endl;
-            int nBoundaryVertices = 0;
-            for (int j = 0; j < original_vertices.size(); j++) {
-                if (original_vertices.at(j).isBoundary) {
-                    nBoundaryVertices += 1;
-                    double length = glm::length(glm::vec3(delta_coords.at(i).x - original_vertices.at(j).x, delta_coords.at(i).y - original_vertices.at(j).y, delta_coords.at(i).z - original_vertices.at(j).z));
-                    if (length < min_length) {
-                        min_length = length;
-                        min_index = j;
-                    }
-                }
-            }
-            // std::cout << "num bounadry vertices: " << nBoundaryVertices << std::endl;
-            // std::cout << "min index" << min_index << std::endl;
-            Vertex& v = original_vertices.at(min_index);
-            // std::cout << "v neighbors: " << v.N_Vids.size() << std::endl;
-            std::vector<size_t> boundary_neighbors;
-            for (int j = 0; j < v.N_Vids.size(); j++) {
-                if (original_vertices.at(v.N_Vids.at(j)).isBoundary) {
-                    boundary_neighbors.push_back(v.N_Vids.at(j));
-                }                    
-            }
-            // std::cout << "boundary neighbor size: " << boundary_neighbors.size() << std::endl;
-            Vertex& b1 = original_vertices.at(boundary_neighbors.at(0));
-            Vertex& b2 = original_vertices.at(boundary_neighbors.at(1));
-            
-            glm::vec3 a(delta_coords.at(i).x - v.x, delta_coords.at(i).y - v.y, delta_coords.at(i).z - v.z);
-            glm::vec3 b(b1.x - v.x, b1.y - v.y, b1.z - v.z);
-            glm::vec3 c(b2.x - v.x, b2.y - v.y, b2.z - v.z);
-
-            double length_a = glm::dot(a, a);
-            double length_b = glm::dot(b, b);
-            double length_c = glm::dot(c, c);
-
-            double dot_a_b = glm::dot(a, b) / glm::length(b);
-            double dot_a_c = glm::dot(a, c) / glm::length(c);
-
-            if (dot_a_b >= 0) {
-                b = glm::normalize(b);
-                delta_coords.at(i).x = v.x + (dot_a_b * b.x);
-                delta_coords.at(i).y = v.y + (dot_a_b * b.y);
-            } else if (dot_a_c >= 0){
-                c = glm::normalize(c);
-                delta_coords.at(i).x = v.x + (dot_a_c * c.x);
-                delta_coords.at(i).y = v.y + (dot_a_c * c.y);
-            }
-        }
-    }
+    std::cout << "Finished Mesh Smoothing" << std::endl;
+    calculateMeshAngles();
 }
 
 void SmoothAlgorithm::smoothLaplacianCotangentBased() {
