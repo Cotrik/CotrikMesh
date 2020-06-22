@@ -3564,6 +3564,9 @@ void Mesh::ArrangeFaceVerticesAntiClockwise() {
         if (sign < 0) {
             std::reverse(f.Vids.begin(), f.Vids.end());
         }
+        if (sign == 0) {
+            isManifold = false;
+        }
     }
 }
 

@@ -282,12 +282,14 @@ void SmoothAlgorithm::smoothLaplacianScaleBased() {
 }
 
 void SmoothAlgorithm::smoothMesh() {
-    mesh.BuildAllConnectivities();
-	mesh.ExtractBoundary();
-	mesh.ExtractSingularities();
-	mesh.BuildParallelE();
-	mesh.unifyOrientation();
+	// mesh.RemoveUselessVertices();
+    // mesh.BuildAllConnectivities();
+	// mesh.ExtractBoundary();
+	// mesh.ExtractSingularities();
+	// mesh.BuildParallelE();
+	// mesh.unifyOrientation();
     mesh.SetOneRingNeighborhood();
+    std::cout << "Started Mesh Smoothing" << std::endl;
     setOriginalVertices();
     calculateMeshAngles();
     int it = 0;
@@ -295,15 +297,17 @@ void SmoothAlgorithm::smoothMesh() {
         delta_coords.clear();
         delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
         // smoothLaplacianCotangentBased();
-        // SmoothAngleBased();
-        angleBasedSmoothing();
+        SmoothAngleBased();
+        // angleBasedSmoothing();
         resampleBoundaryVertices();
         for (int i = 0; i < mesh.V.size(); i++) {
             Vertex& v = mesh.V.at(i);
-            // if (!v.isBoundary) {
+            if (v.isBoundary) {
             //     v.x = delta_coords.at(i).x / 2;
             //     v.y = delta_coords.at(i).y / 2;
-            // } else {
+                continue;
+            } 
+            // else {
             v.x = delta_coords.at(i).x;
             v.y = delta_coords.at(i).y;
             // }
@@ -568,4 +572,92 @@ void SmoothAlgorithm::calculateMeshAngles() {
     // for (int i = 0; i < angles_histogram.size(); i++) {
     //     std::cout << angles_histogram[i] << std::endl;
     // }
+}
+
+bool SmoothAlgorithm::isMeshNonManifold() {
+    std::cout << "checking mesh manifold" << std::endl;
+    std::vector<int> vs;
+    bool non_mainfold = false;
+    for (int i = 0; i < mesh.V.size(); i++) {
+        Vertex& v = mesh.V.at(i);
+        int nFaces = v.N_Fids.size();
+        int nVertices = v.N_Vids.size();
+        if (v.isBoundary) {
+            nVertices = nVertices - 1;
+            // continue;
+        }
+        if (nFaces != nVertices) {
+            vs.push_back(i);
+            non_mainfold = true;
+            // return true;
+        }
+    }
+
+    if (non_mainfold) {
+        std::cout << "Mesh has non-manifold vertices" << std::endl;
+        std::cout << "Writing output file" << std::endl;
+        std::ofstream ofs("output_v.vtk");
+        ofs << "# vtk DataFile Version 3.0\n"
+            << "output.vtk\n"
+            << "ASCII\n\n"
+            << "DATASET UNSTRUCTURED_GRID\n";
+        ofs << "POINTS " << vs.size() << " double\n";
+        for (auto id: vs) {
+            ofs <<  mesh.V.at(id).x << " " <<  mesh.V.at(id).y << " " <<  mesh.V.at(id).z << "\n";
+        } 
+        ofs << "CELLS " << vs.size() << " " << vs.size() * 2  << std::endl;
+        for (int i = 0; i < vs.size(); i++) {
+            ofs << "1 " << i << std::endl;
+        }
+        ofs << "CELL_TYPES " << vs.size() << "\n";
+        for (int i = 0; i < vs.size(); i++) {
+            ofs << "1 " << std::endl;
+        }
+    }
+
+    for (int i = 0; i < mesh.E.size(); i++) {
+        Edge& e = mesh.E.at(i);
+        if (!e.isBoundary) {
+            Face& f1 = mesh.F.at(e.N_Fids.at(0));
+            Face& f2 = mesh.F.at(e.N_Fids.at(1));
+            int id1 = 0, id2 = 0, id3 = 0, id4 = 0;
+            for (int j = 0; j < f1.Vids.size(); j++) {
+                int index1 = j;
+                int index2 = (j + 1) % f1.Vids.size();
+                if (std::find(e.Vids.begin(), e.Vids.end(), f1.Vids.at(index1)) != e.Vids.end() &&
+                    std::find(e.Vids.begin(), e.Vids.end(), f1.Vids.at(index2)) != e.Vids.end()) {
+                    id1 = f1.Vids.at(j);
+                    id2 = f1.Vids.at((j + 1) % f1.Vids.size());
+                    break;
+                }
+            }
+            for (int j = 0; j < f2.Vids.size(); j++) {
+                int index1 = j;
+                int index2 = (j + 1) % f2.Vids.size();
+                if (std::find(e.Vids.begin(), e.Vids.end(), f2.Vids.at(index1)) != e.Vids.end() &&
+                    std::find(e.Vids.begin(), e.Vids.end(), f2.Vids.at(index2)) != e.Vids.end()) {
+                    id3 = f2.Vids.at(j);
+                    id4 = f2.Vids.at((j + 1) % f2.Vids.size());
+                    break;
+                }
+            }
+            if (id1 != id4 && id2 != id3) {
+                std::cout << "Mesh has non-manifold edges" << std::endl;
+                return true;
+            }
+        }
+    }
+
+    for (int i = 0; i < mesh.E.size(); i++) {
+        Edge& e = mesh.E.at(i);
+        if (e.N_Fids.size() > 2) {
+            std::cout << "Mesh has non-manifold edges" << std::endl;
+            return true;
+        }
+    }
+
+    if (!mesh.isManifold) {
+        return true;
+    }
+    return false;
 }

@@ -20,10 +20,12 @@ int main(int argc, char* argv[])
     ArgumentManager argumentManager(argc, argv);
     MeshFileReader reader(argv[1]);
     Mesh& mesh = (Mesh&)reader.GetMesh();
-    // mesh.RemoveUselessVertices();
-    // mesh.BuildAllConnectivities();
-    // mesh.ExtractBoundary();
-    // mesh.unifyOrientation();
+    mesh.RemoveUselessVertices();
+    mesh.BuildAllConnectivities();
+    mesh.ExtractBoundary();
+    mesh.ExtractSingularities();
+    mesh.unifyOrientation();
+    // mesh.SetOneRingNeighborhood();
 
     MeshFileWriter writer(mesh, argv[2]);
     writer.WriteFile();

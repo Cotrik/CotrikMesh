@@ -617,6 +617,7 @@ public:
     size_t numberOfPatches = 0;
 
     bool hasBoundary = false;
+    bool isManifold = true;
 };
 
 #endif /* MESH_H_ */

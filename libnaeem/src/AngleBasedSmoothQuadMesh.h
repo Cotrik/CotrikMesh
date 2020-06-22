@@ -30,6 +30,7 @@ public:
     void calculateMeshAngles();
     void angleBasedSmoothing();
     void smoothMesh();
+    bool isMeshNonManifold();
 };
 
 #endif

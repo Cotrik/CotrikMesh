@@ -3090,10 +3090,13 @@ void Simplifier::collapse_diagnal(std::set<size_t>& canceledFids) {
 
 void Simplifier::init() {
 	mesh.CompressWithFeaturePreserved();
+	mesh.RemoveUselessVertices();
 	mesh.BuildAllConnectivities();
 	mesh.ExtractBoundary();
 	mesh.ExtractSingularities();
 	mesh.BuildParallelE();
+	// mesh.unifyOrientation();
+	// mesh.SetOneRingNeighborhood();
 	mesh.V.resize(mesh.V.size());
     for (auto& v : mesh.V)
         if (v.isCorner) {

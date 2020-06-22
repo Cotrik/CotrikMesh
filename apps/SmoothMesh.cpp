@@ -121,6 +121,49 @@
     return 0;
 }*/
 
+void resetMesh(Mesh& mesh) {
+    std::vector<size_t> FaceIds;
+	FaceIds.reserve(mesh.F.size());
+	for (auto& f : mesh.F)
+		// if (canceledFids.find(f.id) == canceledFids.end())
+			FaceIds.push_back(f.id);
+	std::vector<Vertex> newV(mesh.V.size());
+//	std::vector<Face> newF(FaceIds.size());
+	std::vector<Cell> newC(FaceIds.size());
+	for (size_t i = 0; i < mesh.V.size(); ++i) {
+	    auto& v = mesh.V.at(i);
+	    auto& newv = newV.at(i);
+		newv.id = i;
+		newv = v.xyz();
+		newv.type = v.type;
+		newv.isCorner = v.isCorner;
+		newv.isConvex = v.isConvex;
+		newv.label = v.label;
+		newv.patch_id = v.patch_id;
+		newv.isSpecial = v.isSpecial;
+		newv.labels = v.labels;
+		newv.patch_ids = v.patch_ids;
+		newv.idealValence = v.idealValence;
+	}
+//	for (size_t i = 0; i < FaceIds.size(); ++i) {
+//		newF.at(i).id = i;
+//		newF.at(i).Vids = mesh.F.at(FaceIds[i]).Vids;
+//	}
+	for (size_t i = 0; i < FaceIds.size(); ++i) {
+		newC.at(i).id = i;
+		newC.at(i).Vids = mesh.F.at(FaceIds[i]).Vids;
+		newC.at(i).cellType = VTK_QUAD;
+	}
+	mesh.V.clear();
+	mesh.E.clear();
+	mesh.F.clear();
+	mesh.C.clear();
+
+	mesh.V = newV;
+//	mesh.F = newF;
+	mesh.C = newC;
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 5) {
         std::cout << "Usage: SmoothMesh <input_vtk_file> <output_vtk_file> smoothing_algorithm=<LAPLACIAN,ANGLE_BASED> ";
@@ -151,8 +194,10 @@ int main(int argc, char* argv[]) {
     mesh.BuildAllConnectivities();
     mesh.ExtractBoundary();
     mesh.ExtractSingularities();
-    mesh.unifyOrientation();
-    mesh.SetOneRingNeighborhood();
+    mesh.BuildParallelE();
+    // mesh.FixOrientation();
+    // mesh.unifyOrientation();
+    // mesh.SetOneRingNeighborhood();
 
     for (auto& v: mesh.V) {
         v.isVisited = false;
@@ -170,6 +215,9 @@ int main(int argc, char* argv[]) {
         // algorithm.SmoothAngleBased();
         // algorithm.angleBasedSmoothing();
         algorithm.smoothMesh();
+        // if (algorithm.isMeshNonManifold()) {
+        //     std::cout << "Mesh is non-manifold" << std::endl;
+        // }
         // algorithm.smoothInteriorVertices();
         // algorithm.smoothDiagonalVertices();
         // for (auto& v: mesh.V) {

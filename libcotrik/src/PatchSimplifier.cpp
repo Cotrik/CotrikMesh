@@ -11,7 +11,7 @@
 
 
 PatchSimplifier::PatchSimplifier(Mesh& mesh) : Simplifier(mesh) {
-    smoothing_algorithm = new SmoothAlgorithm(mesh, 100, 0.001);
+    smoothing_algorithm = new SmoothAlgorithm(mesh, 200, 1);
 }
 
 PatchSimplifier::~PatchSimplifier() {
@@ -22,7 +22,6 @@ void PatchSimplifier::Run() {
     auto maxValence_copy = Simplifier::maxValence;
     if (maxValence_copy > 5) Simplifier::maxValence = 5;
     int iter = 0;
-    // smoothing_algorithm->setOriginalVertices();
     while (Simplifier::maxValence <= maxValence_copy) {
         while (iters-- > 0) {
             if (!Simplify(iter)) break;
@@ -35,7 +34,6 @@ void PatchSimplifier::Run() {
 bool PatchSimplifier::Simplify(int& iter) {
     std::set<size_t> canceledFids;
     init();
-    
     if (iter == 0 && featurePreserved) get_feature();
     if (iter == 0)
     {
@@ -43,7 +41,7 @@ bool PatchSimplifier::Simplify(int& iter) {
         MeshFileWriter writer(mesh, "rotate_eids.vtk");
         writer.WriteEdgesVtk(eids);
     }
-    smoothing_algorithm->smoothMesh();
+
     // if (iter % 50 == 0)
     // {
     //     std::string fname = std::string("simplified_") +  std::to_string(iter) + ".vtk";
@@ -168,6 +166,12 @@ bool PatchSimplifier::Simplify(int& iter) {
         return false;
     }
     update(canceledFids);
+    // init();
+    // std::cout << mesh.V.size() << " " << mesh.E.size() << " " << mesh.F.size() << " " << mesh.C.size() << std::endl;
+    // if (smoothing_algorithm->isMeshNonManifold()) {
+    //     std::cout << "iter: " << iter << std::endl;
+    //     return false;
+    // }
     if (Simplifier::writeFile)
     {
         auto num = std::to_string(iter);
@@ -185,8 +189,10 @@ bool PatchSimplifier::Simplify(int& iter) {
 //            writer.WriteVertexFeatureVtk();
 //        }
     }
-    
+
     // init();
+    // smoothing_algorithm->smoothMesh();
+    
     std::cout << "iter = " << iter++ << std::endl;
     std::cout << "---------------------------------------------------\n";
     return true;
