@@ -31,6 +31,9 @@ public:
     void angleBasedSmoothing();
     void smoothMesh();
     bool isMeshNonManifold();
+    void setBoundaryVerticesMovable();
+    void findNegativeElements();
+    void fixNegativeElements();
 };
 
 #endif

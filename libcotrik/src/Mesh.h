@@ -217,6 +217,7 @@ public:
 	bool isSpecial;
 	bool isConvex;
     bool isVisited;
+    bool isMovable = true;
 	size_t idealValence = 0;
     std::vector<size_t> twoRingNeighborSurfaceFaceIds; // for surface projecting;
     std::vector<size_t> oneRingNeighborVertices; // for 2D surface smoothing
@@ -349,6 +350,7 @@ public:
     glm::dvec3 normal;
     size_t label;     // patch number starting from 0, MAXID is invalid
     size_t componentFid = MAXID;
+    bool isNegative = false;
 };
 
 class Cell : public GeoInfo, public NeighborInfo
