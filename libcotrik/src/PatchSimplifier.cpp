@@ -11,7 +11,7 @@
 
 
 PatchSimplifier::PatchSimplifier(Mesh& mesh) : Simplifier(mesh) {
-    smoothing_algorithm = new SmoothAlgorithm(mesh, 200, 1);
+    // smoothing_algorithm = new SmoothAlgorithm(mesh, 200, 1);
 }
 
 PatchSimplifier::~PatchSimplifier() {

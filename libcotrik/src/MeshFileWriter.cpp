@@ -117,9 +117,11 @@ void MeshFileWriter::WriteVtkFile() {
         << m_strFileName.c_str() << "\n"
         << "ASCII\n\n"
         << "DATASET UNSTRUCTURED_GRID\n";
-    ofs << "POINTS " << vnum << " double\n";
+    // ofs << "POINTS " << vnum << " double\n";
+    ofs << "POINTS " << vnum << " float\n";
     for (size_t i = 0; i < vnum; i++)
-        ofs << std::fixed << setprecision(7) << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << "\n";
+        // ofs << std::fixed << setprecision(7) << V.at(i).x << " " << V.at(i).y << " " << V.at(i).z << "\n";
+        ofs << (float) V.at(i).x << " " << (float) V.at(i).y << " " << (float) V.at(i).z << "\n";
     ofs << "CELLS " << cnum << " ";
 
     vtkIdType idType = VTK_TRIANGLE;
@@ -157,13 +159,13 @@ void MeshFileWriter::WriteVtkFile() {
             if (v.N_Fids.size() != 2) {
               ofs << v.N_Fids.size() << "\n";  
             } else {
-                ofs << 0 << "\n";
+                ofs << -1 << "\n";
             }
         } else {
             if (v.N_Fids.size() != 4) {
               ofs << v.N_Fids.size() << "\n";  
             } else {
-                ofs << 0 << "\n";
+                ofs << -1 << "\n";
             }
         }
     }

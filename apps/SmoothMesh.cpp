@@ -165,15 +165,16 @@ void resetMesh(Mesh& mesh) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 5) {
-        std::cout << "Usage: SmoothMesh <input_vtk_file> <output_vtk_file> smoothing_algorithm=<LAPLACIAN,ANGLE_BASED> ";
+    if (argc < 6) {
+        std::cout << "Usage: SmoothMesh <input_vtk_file> <boundary_file.vtk> <output_vtk_file> smoothing_algorithm=<LAPLACIAN,ANGLE_BASED> ";
         std::cout << "iterations=<number_of_iterations> lambda=<value>" << std::endl;
         return -1;
     }
 
     ArgumentManager argumentManager(argc, argv);
     std::string filename = argv[1];
-    std::string output_filename = argv[2];
+    std::string filename2 = argv[2];
+    std::string output_filename = argv[3];
     std::string smoothing_algorithm = argumentManager.get("smoothing_algorithm");
     int iterations;
     double lambda;
@@ -195,37 +196,33 @@ int main(int argc, char* argv[]) {
     mesh.ExtractBoundary();
     mesh.ExtractSingularities();
     mesh.BuildParallelE();
-    // mesh.FixOrientation();
     // mesh.unifyOrientation();
     mesh.SetOneRingNeighborhood();
-
+    // std::cout << "Initialized mesh" << std::endl;
     for (auto& v: mesh.V) {
         v.isVisited = false;
     }
 
+    MeshFileReader reader2(filename2.c_str());
+    Mesh& boundary_mesh = (Mesh&)reader2.GetMesh();
+    boundary_mesh.RemoveUselessVertices();
+    boundary_mesh.BuildAllConnectivities();
+    boundary_mesh.ExtractBoundary();
+    boundary_mesh.ExtractSingularities();
+
     std::vector<size_t> v_;
     if (smoothing_algorithm.compare("LAPLACIAN") == 0) {
-        SmoothAlgorithm algorithm(mesh, iterations, lambda);
-        // algorithm.setOriginalVertices();
-        // algorithm.resampleBoundaryVertices();
-        // algorithm.smoothBoundary();
+        SmoothAlgorithm algorithm(mesh, boundary_mesh, iterations, lambda);
         // algorithm.smoothLaplacianSimple();
         // algorithm.smoothLaplacianScaleBased();
         // algorithm.smoothLaplacianCotangentBased();
-        // algorithm.SmoothAngleBased();
-        // algorithm.angleBasedSmoothing();
+        std::cout << "Smoothing" << std::endl;
+        // algorithm.setOriginalVertices();
+        // algorithm.extractBoundary();
+        // algorithm.findNegativeElements();
+        // mesh.SetOneRingNeighborhood();
+        // algorithm.remapToOriginalBoundary();
         algorithm.smoothMesh();
-        // int it = 0;
-        // while (it < 1000) {
-            algorithm.findNegativeElements();
-        //     algorithm.fixNegativeElements();
-        //     it += 1;
-        // }
-        // if (algorithm.isMeshNonManifold()) {
-        //     std::cout << "Mesh is non-manifold" << std::endl;
-        // }
-        // algorithm.smoothInteriorVertices();
-        // algorithm.smoothDiagonalVertices();
         for (auto& f: mesh.F) {
             if (f.isNegative) {
                 v_.push_back(f.id);
@@ -249,13 +246,8 @@ int main(int argc, char* argv[]) {
     ofs << "POINTS " << mesh.V.size() << " double\n";
     std::vector<size_t> c_indices = v_;
     std::cout << c_indices.size() << std::endl;
-    // // std::vector<size_t> c_indices = mesh.F.at(v_.at(iterations)).Vids;
     for (size_t i = 0; i < mesh.V.size(); i++) {
         ofs << std::fixed << std::setprecision(7) <<  mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
-        // if (mesh.V.at(i).isVisited) {
-        //     std::cout << mesh.V.at(i).id << " is visited" << std::endl;
-        //     c_indices.push_back(i);
-        // }
     }
     // ofs << "CELLS " << c_indices.size() << " " << 2 * c_indices.size() << std::endl;
     // for (size_t i = 0; i < c_indices.size(); i++) {
@@ -275,34 +267,6 @@ int main(int argc, char* argv[]) {
     for (size_t i = 0; i < c_indices.size(); i++) {
         ofs << "9" << std::endl;
     }
-
-
-    // ofs << "CELLS " << 1 << " " << 5  << std::endl;
-    // ofs << "4 " << c_indices.at(0) << " " << c_indices.at(1) << " " << c_indices.at(2) << " " << c_indices.at(3) << std::endl;
-    // ofs << "CELL_TYPES " << 1 << "\n";
-    // ofs << "9" << std::endl;
-
-    // ofs << "CELLS " << 1 << " " << 2  << std::endl;
-    // ofs << "1 " << c_indices.at(iterations) << std::endl;
-    // ofs << "CELL_TYPES " << 1 << "\n";
-    // ofs << "1" << std::endl;
-
-    // std::vector<size_t> c_indices = v_;
-    // for (int i = 0; i < v_.size(); i++) {
-    //      std::ofstream ofs(("output_" + std::to_string(i) + ".vtk").c_str());
-    //      ofs << "# vtk DataFile Version 3.0\n"
-    //         << "output.vtk\n"
-    //         << "ASCII\n\n"
-    //         << "DATASET UNSTRUCTURED_GRID\n";
-    //     ofs << "POINTS " << mesh.V.size() << " double\n";
-    //     for (size_t i = 0; i < mesh.V.size(); i++) {
-    //         ofs << std::fixed << std::setprecision(7) <<  mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
-    //     }
-    //     ofs << "CELLS " << 1 << " " << 2  << std::endl;
-    //     ofs << "1 " << c_indices.at(i) << std::endl;
-    //     ofs << "CELL_TYPES " << 1 << "\n";
-    //     ofs << "1" << std::endl;
-    // }
 
     MeshFileWriter writer(mesh, output_filename.c_str());
     writer.WriteFile();

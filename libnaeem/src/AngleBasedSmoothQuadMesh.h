@@ -8,21 +8,29 @@ class SmoothAlgorithm {
 
 private:
     Mesh& mesh;
+    Mesh& boundary_mesh;
     std::vector<glm::dvec3> delta_coords;
     int iters;
     double lambda;
     float min_displacement_limit = 1e-6;
+    double interiorE = 0.0;
+    double boundaryE = 0.0;
 
 public:
-    SmoothAlgorithm(Mesh& mesh, int it, double l_r);
+    SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double l_r);
     ~SmoothAlgorithm();
 
     std::vector<Vertex> original_vertices;
-
+    std::vector<Vertex> input_vertices;
+    std::vector<std::vector<int>> input_boundary; 
+    std::vector<std::vector<int>> original_boundary; 
 
     void setOriginalVertices();
     double getMinEdgeLength();
     void resampleBoundaryVertices();
+    void remapBoundaryVertices();
+    void remapToOriginalBoundary();
+    void extractBoundary();
     void smoothLaplacianSimple();
     void smoothLaplacianScaleBased();
     void smoothLaplacianCotangentBased();
@@ -33,7 +41,10 @@ public:
     bool isMeshNonManifold();
     void setBoundaryVerticesMovable();
     void findNegativeElements();
-    void fixNegativeElements();
+    void fixCrossQuad(int fid);
+    double getMeshEnergy();
+    double getVertexEnergy(int vid);
+    bool isFaceNegative(int fid, int vid, glm::dvec3 false_coord);
 };
 
 #endif

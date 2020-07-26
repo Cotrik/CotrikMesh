@@ -3015,12 +3015,30 @@ void Mesh::BuildF_F()
                 Face& neighborFace = F.at(vertex.N_Fids.at(k));
                 if (neighborFace.id != face.id)
                     face.N_Fids.push_back(neighborFace.id);
+                    if (IsSurfaceMesh()) {
+                        face.N_Cids.push_back(neighborFace.id);
+                        C.at(i).N_Cids.push_back(neighborFace.id);
+                        C.at(i).N_Fids.push_back(neighborFace.id);
+                    }
             }
         }
 
         std::sort(face.N_Fids.begin(), face.N_Fids.end());
         std::vector<size_t>::iterator iter = std::unique(face.N_Fids.begin(), face.N_Fids.end());
         face.N_Fids.resize(std::distance(face.N_Fids.begin(), iter));
+        if (IsSurfaceMesh()) {
+            std::sort(face.N_Cids.begin(), face.N_Cids.end());
+            iter = std::unique(face.N_Cids.begin(), face.N_Cids.end());
+            face.N_Cids.resize(std::distance(face.N_Cids.begin(), iter));
+
+            std::sort(C.at(i).N_Cids.begin(), C.at(i).N_Cids.end());
+            iter = std::unique(C.at(i).N_Cids.begin(), C.at(i).N_Cids.end());
+            C.at(i).N_Cids.resize(std::distance(C.at(i).N_Cids.begin(), iter));
+
+            std::sort(C.at(i).N_Fids.begin(), C.at(i).N_Fids.end());
+            iter = std::unique(C.at(i).N_Fids.begin(), C.at(i).N_Fids.end());
+            C.at(i).N_Fids.resize(std::distance(C.at(i).N_Fids.begin(), iter));    
+        }
     }
 }
 void Mesh::BuildF_C()
@@ -3579,7 +3597,6 @@ void Mesh::ExtractOneRingNeighbors(Vertex& source) {
     for (int i = 0; i < source.N_Vids.size(); i++) {
         Vertex& v_b = V.at(source.N_Vids.at(i));
         glm::dvec3 b = glm::normalize(glm::dvec3(v_b.x - source.x, v_b.y - source.y, v_b.z - source.z));
-
         double angle = (atan2(glm::cross(a, b).z, glm::dot(a, b))) * 180 / PI;
         if (angle < 0) {
             angle += 360;
@@ -3639,27 +3656,27 @@ void Mesh::ExtractOneRingNeighbors(Vertex& source) {
     }
 
     // check if they are arranged in order
-    // if (!source.isBoundary) {        
-    //     std::cout << "Vertex: " << source.id << std::endl;
-    //     Vertex& v_v_a = V.at(source.oneRingNeighborVertices.at(0));
-    //     glm::dvec3 a_a = glm::normalize(glm::dvec3(v_v_a.x - source.x, v_v_a.y - source.y, v_v_a.z - source.y));
-    //     double prev_angle = 0;
-    //     for (int i = 0; i < source.oneRingNeighborVertices.size(); i++) {
-    //         Vertex& v_v_b = V.at(source.oneRingNeighborVertices.at(i));
-    //         glm::dvec3 b_b = glm::normalize(glm::dvec3(v_v_b.x - source.x, v_v_b.y - source.y, v_v_b.z - source.z));
+        // if (!source.isBoundary) {        
+        //     std::cout << "Vertex: " << source.id << std::endl;
+        //     Vertex& v_v_a = V.at(source.oneRingNeighborVertices.at(0));
+        //     glm::dvec3 a_a = glm::normalize(glm::dvec3(v_v_a.x - source.x, v_v_a.y - source.y, v_v_a.z - source.y));
+        //     double prev_angle = 0;
+        //     for (int i = 0; i < source.oneRingNeighborVertices.size(); i++) {
+        //         Vertex& v_v_b = V.at(source.oneRingNeighborVertices.at(i));
+        //         glm::dvec3 b_b = glm::normalize(glm::dvec3(v_v_b.x - source.x, v_v_b.y - source.y, v_v_b.z - source.z));
 
-    //         double angle = (atan2(glm::cross(a_a, b_b).z, glm::dot(a_a, b_b))) * 180 / PI;
-    //         if (angle < 0) {
-    //             angle = std::fmod(angle + 360, 360);
-    //         }
-    //         std::cout << angle << std::endl;
-    //         if (angle < prev_angle) {
-    //             std::cout << "fault in our arrangements" << std::endl;
-    //         }
-    //         prev_angle = angle;
-    //     }
-    //     std::cout << "----------------------------------------" << std::endl;
-    // }
+        //         double angle = (atan2(glm::cross(a_a, b_b).z, glm::dot(a_a, b_b))) * 180 / PI;
+        //         if (angle < 0) {
+        //             angle = std::fmod(angle + 360, 360);
+        //         }
+        //         std::cout << angle << std::endl;
+        //         if (angle < prev_angle) {
+        //             std::cout << "fault in our arrangements" << std::endl;
+        //         }
+        //         prev_angle = angle;
+        //     }
+        //     std::cout << "----------------------------------------" << std::endl;
+        // }
 }
 
 void Mesh::Zoom(const glm::dvec3& ref, const double scale/* = 1*/) {
