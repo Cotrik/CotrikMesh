@@ -3593,10 +3593,16 @@ void Mesh::ExtractOneRingNeighbors(Vertex& source) {
     std::vector<double> N_V_angles;
     N_V_angles.resize(source.N_Vids.size());
     Vertex& v_a = V.at(source.N_Vids.at(0));
-    glm::dvec3 a = glm::normalize(glm::dvec3(v_a.x - source.x, v_a.y - source.y, v_a.z - source.y));
+    glm::dvec3 a(v_a.x - source.x, v_a.y - source.y, v_a.z - source.z);
+    if (glm::length(a) > 0) {
+        a = glm::normalize(a);
+    }
     for (int i = 0; i < source.N_Vids.size(); i++) {
         Vertex& v_b = V.at(source.N_Vids.at(i));
-        glm::dvec3 b = glm::normalize(glm::dvec3(v_b.x - source.x, v_b.y - source.y, v_b.z - source.z));
+        glm::dvec3 b(v_b.x - source.x, v_b.y - source.y, v_b.z - source.z);
+        if (glm::length(b) > 0) {
+            b = glm::normalize(b);
+        }
         double angle = (atan2(glm::cross(a, b).z, glm::dot(a, b))) * 180 / PI;
         if (angle < 0) {
             angle += 360;
@@ -3616,7 +3622,6 @@ void Mesh::ExtractOneRingNeighbors(Vertex& source) {
         std::iter_swap(source.N_Vids.begin() + i, source.N_Vids.begin() + index);
         N_V_angles.at(i) = -1;
     }
-
     // Arrange neighboring faces in anti clockwise direction
     std::vector<size_t> new_N_Fids;
     for (int i = 0; i < source.N_Vids.size(); i++) {

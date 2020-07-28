@@ -244,7 +244,8 @@ int main(int argc, char* argv[]) {
         << "ASCII\n\n"
         << "DATASET UNSTRUCTURED_GRID\n";
     ofs << "POINTS " << mesh.V.size() << " double\n";
-    std::vector<size_t> c_indices = v_;
+    // std::vector<size_t> c_indices = v_;
+    std::vector<size_t> c_indices = {12, 296};
     std::cout << c_indices.size() << std::endl;
     for (size_t i = 0; i < mesh.V.size(); i++) {
         ofs << std::fixed << std::setprecision(7) <<  mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
