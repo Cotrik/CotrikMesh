@@ -17,7 +17,7 @@ SmoothAlgorithm::SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double
     }
     std::cout << "min displacement limit: " << min_displacement_limit << std::endl;
 }
-SmoothAlgorithm::~SmoothAlgorithm() {}
+//SmoothAlgorithm::~SmoothAlgorithm() {}
 
 void SmoothAlgorithm::setOriginalVertices() {
     original_vertices.resize(boundary_mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
@@ -301,17 +301,17 @@ void SmoothAlgorithm::resampleBoundaryVertices() {
                 delta_coords.at(i).x = v.x;
                 delta_coords.at(i).y = v.y;
             }
-            // double currentE = getVertexEnergy(v.id);
-            // glm::dvec3 temp_coord(v.x, v.y, 0.0);
-            // v.x = delta_coords.at(i).x;
-            // v.y = delta_coords.at(i).y;
-            // double newE = getVertexEnergy(v.id);
-            // v.x = temp_coord.x;
-            // v.y = temp_coord.y;
-            // if (newE >= currentE) {
-            //     delta_coords.at(i).x = v.x;
-            //     delta_coords.at(i).y = v.y;
-            // }
+            double currentE = getVertexEnergy(v.id);
+            glm::dvec3 temp_coord(v.x, v.y, 0.0);
+            v.x = delta_coords.at(i).x;
+            v.y = delta_coords.at(i).y;
+            double newE = getVertexEnergy(v.id);
+            v.x = temp_coord.x;
+            v.y = temp_coord.y;
+            if (newE >= currentE) {
+                delta_coords.at(i).x = v.x;
+                delta_coords.at(i).y = v.y;
+            }
         }
     }
 }
@@ -322,7 +322,7 @@ void SmoothAlgorithm::remapBoundaryVertices() {
             glm::dvec3 new_v = delta_coords.at(i);
             // glm::dvec3 new_v(mesh.V.at(i).x, mesh.V.at(i).y, 0.0);
             double min_length = std::numeric_limits<double>::max();
-            int min_index = i;
+            int min_index = -1;
             int nBoundaryVertices = 0;
             for (int j = 0; j < original_vertices.size(); j++) {
                 if (original_vertices.at(j).isBoundary) {
@@ -334,7 +334,7 @@ void SmoothAlgorithm::remapBoundaryVertices() {
                     }
                 }
             }
-            if (min_index == i) {
+            if (min_index == -1) {
                 continue;
             }
             Vertex& v = original_vertices.at(min_index);
@@ -364,11 +364,11 @@ void SmoothAlgorithm::remapBoundaryVertices() {
 
             double new_x = new_v.x;
             double new_y = new_v.y;
-            if (dot_a_b > 0) {
+            if (dot_a_b >= 0) {
                 b = glm::normalize(b);
                 new_x = v.x + (dot_a_b * b.x);
                 new_y = v.y + (dot_a_b * b.y);
-            } else if (dot_a_c > 0){
+            } else if (dot_a_c >= 0){
                 c = glm::normalize(c);
                 new_x = v.x + (dot_a_c * c.x);
                 new_y = v.y + (dot_a_c * c.y);
@@ -381,33 +381,33 @@ void SmoothAlgorithm::remapBoundaryVertices() {
             // mesh.V.at(i).x = v.x + new_x;
             // mesh.V.at(i).y = v.y + new_y;
             
-            // bool isNegativeElementPresent = false;
-            // for (auto id: v.N_Fids) {
-            //     if (isFaceNegative(fid, v.id, glm::dvec3(new_x, new_y, 0.0))) {
-            //         isNegativeElementPresent = true;
-            //     }
-            // }
-            // if (isNegativeElementPresent) {
-            //     // delta_coords.at(i).x = mesh.V.at(i).x;
-            //     // delta_coords.at(i).y = mesh.V.at(i).y;
-            //     continue;
-            // }
+            bool isNegativeElementPresent = false;
+            for (auto fid: v.N_Fids) {
+                if (isFaceNegative(fid, v.id, glm::dvec3(new_x, new_y, 0.0))) {
+                    isNegativeElementPresent = true;
+                }
+            }
+            if (isNegativeElementPresent) {
+                delta_coords.at(i).x = mesh.V.at(i).x;
+                delta_coords.at(i).y = mesh.V.at(i).y;
+                continue;
+            }
 
             delta_coords.at(i).x = new_x;
             delta_coords.at(i).y = new_y;
             // mesh.V.at(i).x = new_x;
             // mesh.V.at(i).y = new_y;
-            // double currentE = getVertexEnergy(mesh.V.at(i).id);
-            // glm::dvec3 temp_coord(mesh.V.at(i).x, mesh.V.at(i).y, 0.0);
-            // mesh.V.at(i).x = new_x;
-            // mesh.V.at(i).y = new_y;
-            // double newE = getVertexEnergy(mesh.V.at(i).id);
-            // mesh.V.at(i).x = temp_coord.x;
-            // mesh.V.at(i).y = temp_coord.y;
-            // if (newE <= currentE) {
-            //     mesh.V.at(i).x = new_x;
-            //     mesh.V.at(i).y = new_y;
-            // }
+            double currentE = getVertexEnergy(mesh.V.at(i).id);
+            glm::dvec3 temp_coord(mesh.V.at(i).x, mesh.V.at(i).y, 0.0);
+            mesh.V.at(i).x = new_x;
+            mesh.V.at(i).y = new_y;
+            double newE = getVertexEnergy(mesh.V.at(i).id);
+            mesh.V.at(i).x = temp_coord.x;
+            mesh.V.at(i).y = temp_coord.y;
+            if (newE >= currentE) {
+                delta_coords.at(i).x = mesh.V.at(i).x;
+                delta_coords.at(i).y = mesh.V.at(i).y;
+            }
         }
     }
 }
@@ -743,7 +743,8 @@ void SmoothAlgorithm::smoothMesh() {
                 delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
                 currentE = getMeshEnergy();
                 resampleBoundaryVertices();
-                for (int i = 0; i < mesh.V.size(); i++) {
+                remapBoundaryVertices();
+		        for (int i = 0; i < mesh.V.size(); i++) {
                     Vertex& v = mesh.V.at(i);
                     if (!v.isBoundary || !v.isMovable) {
                         continue;
@@ -753,7 +754,7 @@ void SmoothAlgorithm::smoothMesh() {
                     v.y = delta_coords.at(i).y;
                     delta_coords.at(i) = temp_coord;
                 }
-                remapBoundaryVertices();
+                //remapBoundaryVertices();
                 double newE = getMeshEnergy();
                 // std::cout << "it2: " << it2 << " oldE: " << currentE << " newE: " << newE << std::endl;
                 // if (currentE - newE < 1e-4) {
@@ -1010,7 +1011,7 @@ void SmoothAlgorithm::angleBasedSmoothing() {
             if (!hasNegativeElementsPresentAlready && isNegativeElementPresent) {
                 neighbor_coords.at(j).x = v_i.x;
                 neighbor_coords.at(j).y = v_i.y;
-                neighbor_weights.at(j) = 0;
+                neighbor_weights.at(j) = 1;
             }
             weight_agg += neighbor_weights.at(j);
         }
@@ -1028,17 +1029,17 @@ void SmoothAlgorithm::angleBasedSmoothing() {
         }
         new_coords.at(i).x = lambda * ((new_coords.at(i).x / vertex_weights.at(i)) - v_i.x);
         new_coords.at(i).y = lambda * ((new_coords.at(i).y / vertex_weights.at(i)) - v_i.y);
-        // double currentE = getVertexEnergy(v_i.id);
-        // glm::dvec3 temp_coord(v_i.x, v_i.y, 0.0);
-        // v_i.x += new_coords.at(i).x;
-        // v_i.y += new_coords.at(i).y;
-        // double newE = getVertexEnergy(v_i.id);
-        // v_i.x = temp_coord.x;
-        // v_i.y = temp_coord.y;
-        // if (newE >= currentE) {
-        //     new_coords.at(i).x = 0;
-        //     new_coords.at(i).y = 0;
-        // }
+        double currentE = getVertexEnergy(v_i.id);
+        glm::dvec3 temp_coord(v_i.x, v_i.y, 0.0);
+        v_i.x += new_coords.at(i).x;
+        v_i.y += new_coords.at(i).y;
+        double newE = getVertexEnergy(v_i.id);
+        v_i.x = temp_coord.x;
+        v_i.y = temp_coord.y;
+        if (newE >= currentE) {
+             new_coords.at(i).x = 0;
+             new_coords.at(i).y = 0;
+        }
     }
 
     for (int i = 0; i < mesh.V.size(); i++) {

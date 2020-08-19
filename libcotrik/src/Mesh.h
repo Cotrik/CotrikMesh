@@ -299,6 +299,7 @@ public:
     size_t label;     // patch number starting from 0, MAXID is invalid
     size_t componentEid = MAXID;
     size_t singularEid = MAXID;
+    bool isVisited = false;
 };
 
 class Face : public GeoInfo, public NeighborInfo

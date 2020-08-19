@@ -17,7 +17,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/eigen3
     ${PROJECT_SOURCE_DIR}/verdict/vtkverdict
     ${PROJECT_SOURCE_DIR}/libigl/include
-    ${PROJECT_SOURCE_DIR}/libcotrik/src/
+    ${PROJECT_SOURCE_DIR}/libcotrik/src
     ../
     ${VTK_INCLUDE_DIRS}
 )

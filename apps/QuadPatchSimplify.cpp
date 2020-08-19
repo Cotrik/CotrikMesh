@@ -8,6 +8,7 @@
 #include "Simplifier.h"
 #include "PatchSimplifier.h"
 #include "ArgumentManager.h"
+#include <ctime>
 
 void setup(ArgumentManager& argumentManager, Simplifier& s);
 
@@ -33,12 +34,20 @@ int main(int argc, char* argv[]) {
     mesh.RemoveUselessVertices();
     PatchSimplifier simplifier(mesh);
     setup(argumentManager, simplifier);
+
+    std::clock_t start;
+    double duration;
+    start = std::clock();
+
     simplifier.Run();
 	{
 		MeshFileWriter writer(mesh, "VertexFeature.vtk");
 		writer.WriteVertexFeatureVtk();
 	}
 	simplifier.init();
+
+    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    std::cout << "Simplification time: " << duration << " seconds" << std::endl;
 	// simplifier.smooth_project();
 	// {
 		MeshFileWriter writer(mesh, output.c_str());

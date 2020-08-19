@@ -7,6 +7,7 @@
 
 #include "Simplifier.h"
 #include <unordered_set>
+#include <iostream>
 
 const double PI = 3.1415926535;
 
@@ -262,6 +263,7 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 				if (canceledEdgeIds.find(eid) != canceledEdgeIds.end()) canceledEdgeIds.erase(eid);
 		}
 	}
+
 	for (auto edgeId : canceledEdgeIds) {
 		auto& e = mesh.E[edgeId];
 		auto& v0 = mesh.V[e.Vids[0]];
@@ -291,6 +293,9 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 					if (n_vid == vid) n_vid = centerVid;
 			}
 		}
+		// mesh.V.at(centerVid).x = (v1.x + v0.x) / 2;
+		// mesh.V.at(centerVid).y = (v1.y + v0.y) / 2;
+		// mesh.V.at(centerVid).z = (v1.z + v0.z) / 2;
 	}
 }
 
