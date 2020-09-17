@@ -18,7 +18,7 @@ PatchSimplifier::~PatchSimplifier() {
 
 }
 
-void PatchSimplifier::Run() {
+/*void PatchSimplifier::Run() {
     auto maxValence_copy = Simplifier::maxValence;
     if (maxValence_copy > 5) Simplifier::maxValence = 5;
     int iter = 0;
@@ -28,7 +28,414 @@ void PatchSimplifier::Run() {
         }
         ++Simplifier::maxValence;
     }
+}*/
+
+void PatchSimplifier::Run() {
+    init();
+    if (featurePreserved) {
+        get_feature();
+        auto eids = get_rotate_eids();
+        MeshFileWriter writer(mesh, "rotate_eids.vtk");
+        writer.WriteEdgesVtk(eids);
+    }
+    auto maxValence_copy = Simplifier::maxValence;
+    while (iters >= 0) {
+        int iter = 0;
+        if (maxValence_copy > 5) Simplifier::maxValence = 5;
+        while (Simplifier::maxValence <= maxValence_copy) {
+            std::cout << "Chord Collapse Loop" << std::endl;
+            while (iters-- > 0) {
+                if (!ChordCollapseSimplify(iter)) break;
+            }
+            ++Simplifier::maxValence;
+            // std::cout << "maxValence copy: " << maxValence_copy << " maxValence: " << Simplifier::maxValence << " iter: " << iter << std::endl;
+        }
+        // std::cout << "end chord collapsing, iter = " << iter << std::endl;
+        Simplifier::maxValence = maxValence_copy;
+        if (maxValence_copy > 5) Simplifier::maxValence = 5;
+        // iter = 0;
+        while (Simplifier::maxValence <= maxValence_copy) {
+            std::cout << "Separatrix Collapse Loop" << std::endl;
+            while (iters-- > 0) {
+                if (!SeparatrixCollapseSimplify(iter)) break;
+                // if (!Simplify(iter)) break;
+            }
+            ++Simplifier::maxValence;
+        }
+        Simplifier::maxValence = maxValence_copy;
+        if (maxValence_copy > 5) Simplifier::maxValence = 5;
+        // iter = 0;
+        while (Simplifier::maxValence <= maxValence_copy) {
+            std::cout << "Half Separatrix Collapse Loop" << std::endl;
+            while (iters-- > 0) {
+                if (!HalfSeparatrixCollapseSimplify(iter)) break;
+                // if (!Simplify(iter)) break;
+            }
+            ++Simplifier::maxValence;
+        }
+
+        Simplifier::maxValence = maxValence_copy;
+        if (maxValence_copy > 5) Simplifier::maxValence = 5;
+        std::cout << "Edge Rotation Loop" << std::endl;
+        while (Simplifier::maxValence <= maxValence_copy) {
+            while (iters-- > 0) {
+                if (!EdgeRotateSimplify(iter)) break;
+                // if (!Simplify(iter)) break;
+            }
+            ++Simplifier::maxValence;
+        }
+        if (iter == 0) {
+            break;
+        }
+    }
+}
+
+bool PatchSimplifier::ChordCollapseSimplify(int& iter) {
+    std::set<size_t> canceledFids;
+    init();
+    // if (iter == 0 && featurePreserved) get_feature();
+    // if (iter == 0)
+    // {
+    //     auto eids = get_rotate_eids();
+    //     MeshFileWriter writer(mesh, "rotate_eids.vtk");
+    //     writer.WriteEdgesVtk(eids);
+    // }
+
+    if (checkCorner && !CheckCorners()) {
+        std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
+        update(canceledFids);
+        return false;
+    }
+
+    if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+        DoubletSimplifier doubletSimplifier(mesh);
+        doubletSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    }
+
+    if (canceledFids.empty() && Simplifier::ROTATE) {
+        EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+        edgeRotateSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    }    
+
+    // Step 6 -- chord collapsing
+    if (canceledFids.empty() && Simplifier::GLOBAL) {
+        SingleSheetSimplifier sheetSimplifier(mesh);
+        sheetSimplifier.ExtractAndCollapse(canceledFids);
+        if (!canceledFids.empty()) std::cout << "chord collapsing" << std::endl;
+    }
+
+    // if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+    //     DoubletSimplifier doubletSimplifier(mesh);
+    //     doubletSimplifier.RunCollective(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    // }
+
+    // if (canceledFids.empty() && Simplifier::ROTATE) {
+    //     EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+    //     edgeRotateSimplifier.RunCollective(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    // }
+
+
+    if (canceledFids.empty()) {
+        update(canceledFids);
+        return false;
+    }
+    update(canceledFids);
+    if (Simplifier::writeFile)
+    {
+        auto num = std::to_string(iter);
+        while (num.size() < 3) num.insert(num.begin(), '0');
+        {
+            std::string fname = std::string("iter") + num + ".vtk";
+            std::cout << "writing " << fname << std::endl;
+            MeshFileWriter writer(mesh, fname.c_str());
+            writer.WriteFile();
+        }
+    }
     
+    std::cout << "iter = " << iter++ << std::endl;
+    std::cout << "---------------------------------------------------\n";
+    return true;
+}
+
+bool PatchSimplifier::SeparatrixSplitSimplify(int& iter) {
+    std::set<size_t> canceledFids;
+    init();
+    if (iter == 0 && featurePreserved) get_feature();
+    if (iter == 0)
+    {
+        auto eids = get_rotate_eids();
+        MeshFileWriter writer(mesh, "rotate_eids.vtk");
+        writer.WriteEdgesVtk(eids);
+    }
+
+    if (checkCorner && !CheckCorners()) {
+        std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
+        update(canceledFids);
+        return false;
+    }
+
+    if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+        DoubletSimplifier doubletSimplifier(mesh);
+        doubletSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    }
+
+    if (canceledFids.empty() && Simplifier::ROTATE) {
+        EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+        edgeRotateSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    }    
+
+    if (canceledFids.empty() && Simplifier::SPLIT) {
+        BaseComplexQuad baseComplex(mesh);
+        baseComplex.ExtractSingularVandE();
+        baseComplex.BuildE();
+
+        five_connections_split(baseComplex, canceledFids, false);
+        if (canceledFids.empty()) {
+            five_connections_split(baseComplex, canceledFids, true);
+            if (!canceledFids.empty()) std::cout << "loose_simplify\n";
+        } else std::cout << "strict_simplify\n";
+    }
+
+    // if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+    //     DoubletSimplifier doubletSimplifier(mesh);
+    //     doubletSimplifier.RunCollective(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    // }
+
+    // if (canceledFids.empty() && Simplifier::ROTATE) {
+    //     EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+    //     edgeRotateSimplifier.RunCollective(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    // } 
+
+    if (canceledFids.empty()) {
+        update(canceledFids);
+        return false;
+    }
+    update(canceledFids);
+
+    if (Simplifier::writeFile)
+    {
+        auto num = std::to_string(iter);
+        while (num.size() < 3) num.insert(num.begin(), '0');
+        {
+            std::string fname = std::string("iter") + num + ".vtk";
+            std::cout << "writing " << fname << std::endl;
+            MeshFileWriter writer(mesh, fname.c_str());
+            writer.WriteFile();
+        }
+    }
+
+    std::cout << "iter = " << iter++ << std::endl;
+    std::cout << "---------------------------------------------------\n";
+    return true;
+}
+
+bool PatchSimplifier::SeparatrixCollapseSimplify(int& iter) {
+    std::set<size_t> canceledFids;
+    init();
+    // if (iter == 0 && featurePreserved) get_feature();
+    // if (iter == 0)
+    // {
+    //     auto eids = get_rotate_eids();
+    //     MeshFileWriter writer(mesh, "rotate_eids.vtk");
+    //     writer.WriteEdgesVtk(eids);
+    // }
+
+    if (checkCorner && !CheckCorners()) {
+        std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
+        update(canceledFids);
+        return false;
+    }
+    
+    if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+        DoubletSimplifier doubletSimplifier(mesh);
+        doubletSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    }
+
+    if (canceledFids.empty() && Simplifier::ROTATE) {
+        EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+        edgeRotateSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    }    
+
+    if (canceledFids.empty() && Simplifier::COLLAPSE) {
+        BaseComplexQuad baseComplex(mesh);
+        baseComplex.ExtractSingularVandE();
+        baseComplex.BuildE();
+
+        three_connections_collapse(baseComplex, canceledFids, false);
+        if (canceledFids.empty()) {
+            three_connections_collapse(baseComplex, canceledFids, true);
+            if (!canceledFids.empty()) std::cout << "loose_simplify\n";
+        } else std::cout << "strict_simplify\n";
+    }
+
+    // if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+    //     DoubletSimplifier doubletSimplifier(mesh);
+    //     doubletSimplifier.RunCollective(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    // }
+
+    // if (canceledFids.empty() && Simplifier::ROTATE) {
+    //     EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+    //     edgeRotateSimplifier.RunCollective(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    // }
+
+    if (canceledFids.empty()) {
+        update(canceledFids);
+        return false;
+    }
+    update(canceledFids);
+
+    if (Simplifier::writeFile)
+    {
+        auto num = std::to_string(iter);
+        while (num.size() < 3) num.insert(num.begin(), '0');
+        {
+            std::string fname = std::string("iter") + num + ".vtk";
+            std::cout << "writing " << fname << std::endl;
+            MeshFileWriter writer(mesh, fname.c_str());
+            writer.WriteFile();
+        }
+    }
+
+    std::cout << "iter = " << iter++ << std::endl;
+    std::cout << "---------------------------------------------------\n";
+    return true;
+}
+
+bool PatchSimplifier::HalfSeparatrixCollapseSimplify(int& iter) {
+    std::set<size_t> canceledFids;
+    init();
+    // if (iter == 0 && featurePreserved) get_feature();
+    // if (iter == 0)
+    // {
+    //     auto eids = get_rotate_eids();
+    //     MeshFileWriter writer(mesh, "rotate_eids.vtk");
+    //     writer.WriteEdgesVtk(eids);
+    // }
+
+    if (checkCorner && !CheckCorners()) {
+        std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
+        update(canceledFids);
+        return false;
+    }
+
+    if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+        DoubletSimplifier doubletSimplifier(mesh);
+        doubletSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    }
+
+    if (canceledFids.empty() && Simplifier::ROTATE) {
+        EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+        edgeRotateSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    }    
+
+    if (canceledFids.empty() && Simplifier::HALF) {
+        BaseComplexQuad baseComplex(mesh);
+        baseComplex.ExtractSingularVandE();
+        baseComplex.BuildE();
+        half_separatrix_collapse(baseComplex, canceledFids);
+        if (!canceledFids.empty()) std::cout << "half_simplify\n";
+    }
+
+    // if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+    //     DoubletSimplifier doubletSimplifier(mesh);
+    //     doubletSimplifier.RunCollective(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    // }
+
+    // if (canceledFids.empty() && Simplifier::ROTATE) {
+    //     EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+    //     edgeRotateSimplifier.RunCollective(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    // }
+
+
+    if (canceledFids.empty()) {
+        update(canceledFids);
+        return false;
+    }
+    update(canceledFids);
+
+    if (Simplifier::writeFile)
+    {
+        auto num = std::to_string(iter);
+        while (num.size() < 3) num.insert(num.begin(), '0');
+        {
+            std::string fname = std::string("iter") + num + ".vtk";
+            std::cout << "writing " << fname << std::endl;
+            MeshFileWriter writer(mesh, fname.c_str());
+            writer.WriteFile();
+        }
+    }
+
+    std::cout << "iter = " << iter++ << std::endl;
+    std::cout << "---------------------------------------------------\n";
+    return true;
+}
+
+bool PatchSimplifier::EdgeRotateSimplify(int& iter) {
+    std::set<size_t> canceledFids;
+    init();
+    // if (iter == 0 && featurePreserved) get_feature();
+    // if (iter == 0)
+    // {
+    //     auto eids = get_rotate_eids();
+    //     MeshFileWriter writer(mesh, "rotate_eids.vtk");
+    //     writer.WriteEdgesVtk(eids);
+    // }
+
+    if (checkCorner && !CheckCorners()) {
+        std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
+        update(canceledFids);
+        return false;
+    }
+
+    if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+        DoubletSimplifier doubletSimplifier(mesh);
+        doubletSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    }
+
+    if (canceledFids.empty() && Simplifier::ROTATE) {
+        EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+        edgeRotateSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    }
+
+    if (canceledFids.empty()) {
+        update(canceledFids);
+        return false;
+    }
+    update(canceledFids);
+
+    if (Simplifier::writeFile)
+    {
+        auto num = std::to_string(iter);
+        while (num.size() < 3) num.insert(num.begin(), '0');
+        {
+            std::string fname = std::string("iter") + num + ".vtk";
+            std::cout << "writing " << fname << std::endl;
+            MeshFileWriter writer(mesh, fname.c_str());
+            writer.WriteFile();
+        }
+    }
+
+    std::cout << "iter = " << iter++ << std::endl;
+    std::cout << "---------------------------------------------------\n";
+    return true;
 }
 
 bool PatchSimplifier::Simplify(int& iter) {
@@ -64,11 +471,11 @@ bool PatchSimplifier::Simplify(int& iter) {
     }
 
     // Step 1 -- doublet removal
-    /*if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+    if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
         DoubletSimplifier doubletSimplifier(mesh);
         doubletSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
-    }*/
+    }
     // Step 2 -- doublet splitting
     /*if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
         SheetSplitSimplifier sheetSplitSimplifier(mesh);
@@ -82,11 +489,11 @@ bool PatchSimplifier::Simplify(int& iter) {
         if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
     }*/
     // Step 3 -- edge rotation
-    /*if (canceledFids.empty() && Simplifier::ROTATE) {
+    if (canceledFids.empty() && Simplifier::ROTATE) {
         EdgeRotateSimplifier edgeRotateSimplifier(mesh);
         edgeRotateSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
-    }*/
+    }
     /*static bool aligned = false;
     if (canceledFids.empty() && !aligned) {
         aligned = true;
@@ -101,34 +508,33 @@ bool PatchSimplifier::Simplify(int& iter) {
         if (!canceledFids.empty()) std::cout << "singlet collapsing" << std::endl;
     }*/
     // Step 5 -- <separatrix splitting> and <separatrix splitting (optional)>
-    /*if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
+    if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
         BaseComplexQuad baseComplex(mesh);
         baseComplex.ExtractSingularVandE();
         baseComplex.BuildE();
         strict_simplify(baseComplex, canceledFids);
         if (canceledFids.empty()) {
             loose_simplify(baseComplex, canceledFids);
-            // loose_simplify_random(baseComplex, canceledFids);
             if (!canceledFids.empty()) std::cout << "loose_simplify\n";
 //            else if (canceledFids.empty() && Simplifier::HALF) {
 //                half_simplify(baseComplex, canceledFids);
 //                if (!canceledFids.empty()) std::cout << "half_simplify\n";
 //            }
         } else std::cout << "strict_simplify\n";
-    }*/
+    }
     // Step 6 -- chord collapsing
     if (canceledFids.empty() && Simplifier::GLOBAL) {
         update(canceledFids);
         init();
         SingleSheetSimplifier sheetSimplifier(mesh);
-        // sheetSimplifier.Run(canceledFids);
-        // if (!canceledFids.empty()) std::cout << "chord collapsing" << std::endl;
-
-        sheetSimplifier.ExtractAndCollapse(canceledFids);
+        sheetSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "chord collapsing" << std::endl;
     }
+    
+    // std::cout << iter << " " << canceledFids.size() << std::endl;
+
     // Step 7 -- half separatrix collapsing
-    /*if (canceledFids.empty() && Simplifier::HALF) {
+    if (canceledFids.empty() && Simplifier::HALF) {
         update(canceledFids);
         init();
         BaseComplexQuad baseComplex(mesh);
@@ -136,7 +542,7 @@ bool PatchSimplifier::Simplify(int& iter) {
         baseComplex.BuildE();
         half_simplify(baseComplex, canceledFids);
         if (!canceledFids.empty()) std::cout << "half_simplify\n";
-    }*/
+    }
     // Step 8 -- diagonal collapsing
     /*if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
         DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);

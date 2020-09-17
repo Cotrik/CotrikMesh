@@ -397,6 +397,7 @@ public:
     std::vector<size_t> Fids;
     //glm::dvec3 cv;                 // center vertex's x,y,z coordinate of the Cell;  For Node of Frame
     size_t componentCid = MAXID;
+    double qualityValue = 0;
 };
 
 class Layer

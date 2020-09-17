@@ -20,6 +20,7 @@ private:
 public:
     void Run();
     void Run(std::set<size_t>& canceledFids);
+    void RunCollective(std::set<size_t>& canceledFids);
 
     void Combine(std::vector<size_t>& com, std::vector<std::vector<size_t>> &res, int n, int k, int start);
     std::vector<std::vector<size_t>> Combine(int n, int k);

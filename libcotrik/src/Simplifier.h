@@ -115,6 +115,10 @@ public:
     void smooth_project1(int resolution);
 	double laplacian_positive_cotan_weight(const Vertex& vi, const Edge& e);
 
+	void five_connections_split(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify);
+	void three_connections_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify);
+	void half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids);
+
 	Mesh RefineWithFeaturePreserved(const Mesh& hex_mesh, int clockwise);
 	Mesh RefineWithFeaturePreserved2(const Mesh& hex_mesh, int clockwise);
 	std::vector<size_t> get_ids(const std::string str);

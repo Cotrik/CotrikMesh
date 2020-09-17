@@ -79,9 +79,11 @@ void FeatureLine::Extract(const size_t label)
         bool allVisited = false;
         while (!allVisited) {
             size_t eid = MAXID;
+            size_t oldvid = vid;
             vid = FindNextVid(vid, visited, eid);
-            if (vid != MAXID)
+            if (vid != MAXID) {
                 newVids.push_back(vid);
+            }
             newEids.push_back(eid);
             allVisited = true;
             for (size_t i = 0; i < Vids.size(); i++) {

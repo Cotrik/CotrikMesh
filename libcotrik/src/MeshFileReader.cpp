@@ -413,6 +413,7 @@ void MeshFileReader::ReadMeshFile()
     }
 }
 
+
 const Mesh& MeshFileReader::GetMesh() const
 {
 	return m_mesh;

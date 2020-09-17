@@ -234,6 +234,7 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 	std::map<size_t, size_t>& canceledFaceIds, std::set<size_t>& canceledEdgeIds) {
 	for (auto& item : canceledFaceIds) {
 		if (item.second >= 4) {
+			std::cout << "collapsing from canceled face ids" << std::endl;
 			auto& f = mesh.F.at(item.first);
 			auto key = get_facekey(f);
 			auto centerVid = f.Vids.front();
@@ -248,8 +249,12 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 			size_t featureType = 0;
 			for (auto vid : f.Vids) {
 				auto& v = mesh.V.at(vid);
-				if (v.type == FEATURE && featureType == 0) centerVid = vid;
-				if (v.type == CORNER) centerVid = vid;
+				if (v.type == FEATURE && featureType == 0) {
+					centerVid = vid;
+				}
+				if (v.type == CORNER) {
+					centerVid = vid;
+				}
 			}
 			for (auto vid : f.Vids) {
 				auto& v = mesh.V.at(vid);
@@ -272,17 +277,20 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 		if (key_edgeId.find(key) == key_edgeId.end()) std::cout << "Edge search Error !" << std::endl;
 		//auto centerVid = mesh.V.size() + key_edgeId[key];
 		auto centerVid = e.Vids.front();
+		bool collapseToMidPoint = true;
 		size_t featureType = 0;
 		for (auto vid : e.Vids) {
 			auto& v = mesh.V.at(vid);
 			if (v.type != MAXID && v.type > featureType) {
 				featureType = v.type;
 				centerVid = vid;
+				collapseToMidPoint = false;
 			}
 			if (v.isCorner) {
 				v.type = CORNER;
 				featureType = v.type;
 				centerVid = vid;
+				collapseToMidPoint = false;
 			}
 		}
 		for (auto vid : e.Vids) {
@@ -293,9 +301,11 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 					if (n_vid == vid) n_vid = centerVid;
 			}
 		}
-		// mesh.V.at(centerVid).x = (v1.x + v0.x) / 2;
-		// mesh.V.at(centerVid).y = (v1.y + v0.y) / 2;
-		// mesh.V.at(centerVid).z = (v1.z + v0.z) / 2;
+		if (collapseToMidPoint) {
+			mesh.V.at(centerVid).x = (v1.x + v0.x) / 2;
+			mesh.V.at(centerVid).y = (v1.y + v0.y) / 2;
+			mesh.V.at(centerVid).z = (v1.z + v0.z) / 2;
+		}
 	}
 }
 
@@ -880,8 +890,12 @@ void Simplifier::collapse_vids_with_feature_preserved(std::vector<size_t>& vids,
       auto& v0 = mesh.V.at(vids[0]);
       auto& v1 = mesh.V.at(vids[1]);
       auto& v = mesh.V.at(target_vid);
-      if (v0.type == CORNER) std::swap(vids[0], target_vid);
-      else if (v1.type == CORNER) std::swap(vids[1], target_vid);
+	//   if (v0.type == CORNER || v1.type == CORNER) {
+	// 	  std::cout << "how is this a corner?" << std::endl;
+	// 	  std::cout << vids[0] << " " << vids[1] << " " << target_vid << std::endl;
+	//   }
+      if (v0.type == CORNER && v0.isBoundary) std::swap(vids[0], target_vid);
+      else if (v1.type == CORNER && v1.isBoundary) std::swap(vids[1], target_vid);
 	for (auto vid : vids) {
 		Collapse(vid, target_vid);
 	}
@@ -957,11 +971,13 @@ void Simplifier::collapse_with_feature_preserved(const std::vector<size_t>& link
 		auto vid = linkVids[i];
 		auto eid = linkEids[i];
 		auto p = get_collapse_vids(vid, eid);
+		// std::cout << "p size: " << p.size() << std::endl;
 		collapse_vids_with_feature_preserved(p, vid);
 	}
 	auto vid = linkVids.back();
 	auto eid = linkEids.back();
 	auto p = get_collapse_vids(vid, eid);
+	// std::cout << "p size: " << p.size() << std::endl;
 	collapse_vids_with_feature_preserved(p, vid);
 }
 
@@ -1620,6 +1636,289 @@ void Simplifier::loose_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& 
 	}
 }
 
+void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify) {
+	size_t id = 0;
+	if (looseSimplify) {
+		id = -1;
+	}
+	struct collapsableThreeLink {
+		std::vector<size_t> target;
+		std::vector<std::vector<size_t>> collapse;
+	};
+	std::vector<collapsableThreeLink> threeLinks;
+
+	size_t numElements = 0;
+	for (const auto& link : baseComplex.separatedVertexIdsLink) {
+		if (looseSimplify) {
+			++id;
+		}
+		const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(id);
+		auto& v_front = mesh.V.at(link.front());
+		auto& v_back = mesh.V.at(link.back());
+		if (v_front.isBoundary || v_back.isBoundary) {
+			if (!looseSimplify) {
+				++id;
+			}
+			continue;
+		}
+		if ((v_front.N_Fids.size() <= 5 && v_back.N_Fids.size() <= 5) && v_front.N_Fids.size() != v_back.N_Fids.size()) {
+			; //ofs << 0 << std::endl;
+		} else if (COLLAPSE && v_front.N_Fids.size() == 3 && v_back.N_Fids.size() == 3) {
+			// ofs << 1 << std::endl;
+			auto v_front_fid = get_faceid(v_front.id, link[1]);
+			auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fid);
+			auto v_back_fid = get_faceid(v_back.id, link[link.size() - 2]);
+			auto v_back_fvid = get_diagnal_vid(v_back.id, v_back_fid);
+			bool condition = mesh.V.at(v_front_fvid).N_Fids.size() == 5 && mesh.V.at(v_back_fvid).N_Fids.size() == 5;
+			if (looseSimplify) {
+				condition = mesh.V.at(v_front_fvid).N_Fids.size() > Simplifier::minValence && mesh.V.at(v_back_fvid).N_Fids.size() > Simplifier::minValence;
+			}
+			if (condition) {
+				if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+					// collapse_with_feature_preserved(link, linkEids);
+					collapsableThreeLink l;
+					for (size_t i = 0; i < linkEids.size(); ++i) {
+						auto vid = link[i];
+						auto eid = linkEids[i];
+						auto p = get_collapse_vids(vid, eid);
+						l.target.push_back(vid);
+						l.collapse.push_back(p);
+					// // 	collapse_vids_with_feature_preserved(p, vid);
+					}
+					auto vid = link.back();
+					auto eid = linkEids.back();
+					auto p = get_collapse_vids(vid, eid);
+					l.target.push_back(vid);
+					l.collapse.push_back(p);
+
+					threeLinks.push_back(l);
+					// collapseVids.insert(std::pair<size_t, std::vector<size_t>>(vid, p));
+					// break;
+				}
+			}
+		} else if (Simplifier::SPLIT && v_front.N_Fids.size() == 5 && v_back.N_Fids.size() == 5) {
+			; //ofs << 2 << std::endl;
+		} else {
+			; //ofs << 3 << std::endl;
+		}
+		if (!looseSimplify) {
+			++id;
+		}
+	}
+	std::vector<double> ranks;
+	for (auto l : threeLinks) {
+		double rank = 0;
+		for (int i = 0; i < l.target.size(); i++) {
+			auto& v1 = mesh.V.at(l.target.at(i));
+			for (auto value: l.collapse.at(i)) {
+				auto& v2 = mesh.V.at(value);
+				rank += glm::length(glm::dvec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z));
+			}
+		}
+		ranks.push_back(rank);
+	}
+	std::vector<size_t> targetVidsPos;
+	for (int i = 0; i < ranks.size(); i++) {
+        std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+        targetVidsPos.push_back((size_t) std::distance(ranks.begin(), max_index));
+        *max_index = -1;
+    }
+	std::vector<collapsableThreeLink> finalThreeLinks;
+	for (int i = 0; i < targetVidsPos.size(); i++) {
+		if (targetVidsPos.at(i) == -1) {
+			continue;
+		}
+		collapsableThreeLink l = threeLinks.at(targetVidsPos.at(i));
+		finalThreeLinks.push_back(l);
+		for (int j = 0; j < threeLinks.size(); j++) {
+			if (j == targetVidsPos.at(i)) {
+				continue;
+			}
+			bool disjoint = true;
+			collapsableThreeLink l2 = threeLinks.at(j);
+			for (auto id: l.target) {
+				if (std::find(l2.target.begin(), l2.target.end(), id) != l2.target.end()) {
+					disjoint = false;
+					break;
+				}
+				if (!disjoint) {
+					break;
+				}
+				for (auto vec: l2.collapse) {
+					if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+						disjoint = false;
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+			}
+			for (auto vec: l.collapse) {
+				for (auto id: l2.target) {
+					if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+						disjoint = false;
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+				for (auto vec2: l2.collapse) {
+					for (auto id: vec2) {
+						if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+							disjoint = false;
+							break;
+						}
+					}
+					if (!disjoint) {
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+			}
+			if (!disjoint) {
+				auto it = std::find(targetVidsPos.begin(), targetVidsPos.end(), j);
+                if (it != targetVidsPos.end()) {
+                    targetVidsPos.at(std::distance(targetVidsPos.begin(), it)) = -1;
+                }
+			}
+		}
+	}
+	for (auto l: finalThreeLinks) {
+		for (int i = 0; i < l.target.size(); i++) {
+			auto& v = mesh.V.at(l.target.at(i));
+			canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+			collapse_vids_with_feature_preserved(l.collapse.at(i), l.target.at(i));
+		}
+	}
+	// std::cout << finalThreeLinks.size() << std::endl;
+	// for (auto l: finalThreeLinks) {
+	// 	std::cout << "--------------LINK-------------------" << std::endl;
+	// 	for (int i = 0; i < l.target.size(); i++) {
+	// 		std::cout << l.target.at(i) << ":";
+	// 		for (auto value: l.collapse.at(i)) {
+	// 			std::cout << " " << value;
+	// 		}
+	// 		std::cout << std::endl;
+	// 	}
+	// 	std::cout << "--------------------------------------" << std::endl;
+	// }
+	// std::vector<size_t> target_indices;
+	// std::vector<size_t> collapse_indices;
+	// for (auto l: finalThreeLinks) {
+	// 	for (int i = 0; i < l.target.size(); i++) {
+	// 		target_indices.push_back(l.target.at(i));
+	// 		for (auto value: l.collapse.at(i)) {
+	// 			collapse_indices.push_back(value);
+	// 		}
+	// 	}
+	// }
+	// std::ofstream ofs("target_vids.vtk");
+	// ofs << "# vtk DataFile Version 3.0\n"
+	// 	<< "output.vtk\n"
+	// 	<< "ASCII\n\n"
+	// 	<< "DATASET UNSTRUCTURED_GRID\n";
+	// ofs << "POINTS " << mesh.V.size() << " double\n";
+	
+	// for (size_t i = 0; i < mesh.V.size(); i++) {
+	// 	ofs << mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+	// }
+	// ofs << "CELLS " << target_indices.size() << " " << 2 * target_indices.size() << std::endl;
+	// for (size_t i = 0; i < target_indices.size(); i++) {
+	// 	ofs << "1 " << target_indices.at(i) << std::endl;
+	// }
+	// ofs << "CELL_TYPES " << target_indices.size() << "\n";
+	// for (size_t i = 0; i < target_indices.size(); i++) {
+	// 	ofs << "1" << std::endl;
+	// }
+
+	// std::ofstream ofs2("collapse_vids.vtk");
+	// ofs2 << "# vtk DataFile Version 3.0\n"
+	// 	<< "output.vtk\n"
+	// 	<< "ASCII\n\n"
+	// 	<< "DATASET UNSTRUCTURED_GRID\n";
+	// ofs2 << "POINTS " << mesh.V.size() << " double\n";
+	
+	// for (size_t i = 0; i < mesh.V.size(); i++) {
+	// 	ofs2 << mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+	// }
+	// ofs2 << "CELLS " << collapse_indices.size() << " " << 2 * collapse_indices.size() << std::endl;
+	// for (size_t i = 0; i < collapse_indices.size(); i++) {
+	// 	ofs2 << "1 " << collapse_indices.at(i) << std::endl;
+	// }
+	// ofs2 << "CELL_TYPES " << collapse_indices.size() << "\n";
+	// for (size_t i = 0; i < collapse_indices.size(); i++) {
+	// 	ofs2 << "1" << std::endl;
+	// }
+}
+
+void Simplifier::five_connections_split(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify) {
+	size_t id = 0;
+	if (looseSimplify) {
+		id = -1;
+	}
+	for (const auto& link : baseComplex.separatedVertexIdsLink) {
+		if (looseSimplify) {
+			++id;
+		}
+		const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(id);
+		auto& v_front = mesh.V.at(link.front());
+		auto& v_back = mesh.V.at(link.back());
+		if (v_front.isBoundary || v_back.isBoundary) {
+			if (!looseSimplify) {
+				++id;
+			}
+			continue;
+		}
+		if ((v_front.N_Fids.size() <= 5 && v_back.N_Fids.size() <= 5) && v_front.N_Fids.size() != v_back.N_Fids.size()) {
+			; //ofs << 0 << std::endl;
+		} else if (COLLAPSE && v_front.N_Fids.size() == 3 && v_back.N_Fids.size() == 3) {
+			; // ofs << 1 << std::endl;
+		} else if (Simplifier::SPLIT && v_front.N_Fids.size() == 5 && v_back.N_Fids.size() == 5) {
+			//ofs << 2 << std::endl;
+			auto v_front_eid = baseComplex.separatedEdgeIdsLink.at(id).front();
+			auto v_back_eid = baseComplex.separatedEdgeIdsLink.at(id).back();
+			auto& v_front_fids = mesh.E.at(v_front_eid).N_Fids;
+			auto& v_back_fids = mesh.E.at(v_back_eid).N_Fids;
+
+			auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fids);
+			auto v_back_fvid = get_diagnal_vid(v_back.id, v_back_fids);
+			bool condition = false;
+			if (looseSimplify) {
+				if (mesh.V.at(v_front_fvid).N_Fids.size() < Simplifier::maxValence && mesh.V.at(v_back_fvid).N_Fids.size() < Simplifier::maxValence) {
+					if (split_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+						for (auto vid : link) {
+							auto& v = mesh.V.at(vid);
+							canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+						}
+						break;
+					}
+				}
+			} else {
+				if (mesh.V.at(v_front_fvid).N_Fids.size() == 3 && mesh.V.at(v_back_fvid).N_Fids.size() == 3) {
+					if (!split_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+						++id;
+						continue;
+					}
+					for (auto vid : link) {
+						auto& v = mesh.V.at(vid);
+						canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+					}
+					break;
+				}
+			}
+		} else {
+			; //ofs << 3 << std::endl;
+		}
+		if (!looseSimplify) {
+			++id;
+		}
+	}
+}
+
 void Simplifier::loose_simplify_reverse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {
     for (int id = baseComplex.separatedVertexIdsLink.size(); --id >= 0;) {
         const auto& link = baseComplex.separatedVertexIdsLink.at(id);
@@ -1735,7 +2034,213 @@ void Simplifier::loose_simplify_random(BaseComplexQuad& baseComplex, std::set<si
     }
 }
 
+void Simplifier::half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {
+	struct collapsableHalfSeparatrix {
+		std::vector<size_t> target;
+		std::vector<std::vector<size_t>> collapse;
+	};
+	std::vector<collapsableHalfSeparatrix> halfSeparatrices;
+    size_t id = -1;
+	for (auto link : baseComplex.separatedVertexIdsLink) {
+        const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(++id);
+        auto& v_front = mesh.V.at(link.front());
+        auto& v_back = mesh.V.at(link.back());
+        if (!(v_front.isBoundary ^ v_back.isBoundary)) continue;
+        //if (v_front.isBoundary || !v_back.isBoundary) continue;
+        if (v_front.N_Fids.size() == 3 && v_back.N_Fids.size() == 2) {
+            bool onthesameline = true;
+            for (auto nvid : v_back.N_Vids) {
+                auto& nv = mesh.V.at(nvid);
+                if (nv.type == CORNER) {
+                    onthesameline = false;
+                    break;
+                }
+            }
+            if (!onthesameline) continue;
+			// indices.push_back(v_front.id);
+			// indices.push_back(v_back.id);
+			// numElements += 1;
+			// continue;
+            auto v_front_fid = get_faceid(v_front.id, link[1]);
+            auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fid);
+            auto& v_front_fv = mesh.V.at(v_front_fvid);
+            //if (v_front_fv.isBoundary/* && v_front_fv.N_Fids.size() <= v_front_fv.idealValence*/) continue;
+            if (v_front_fvid >= mesh.V.size()) {
+                MeshFileWriter writer(mesh, "error.vtk");
+                writer.WriteFile();
+            }
+            if (v_front_fv.N_Fids.size() >= Simplifier::minValence + 1) {
+                if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid)) {
+                    // for (auto vid : link) {
+                    //     auto& v = mesh.V.at(vid);
+                    //     canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+                    // }
+                    // collapse_with_feature_preserved(link, linkEids);
+                    // break;
+					collapsableHalfSeparatrix l;
+					for (size_t i = 0; i < linkEids.size(); ++i) {
+						auto vid = link[i];
+						auto eid = linkEids[i];
+						auto p = get_collapse_vids(vid, eid);
+						l.target.push_back(vid);
+						l.collapse.push_back(p);
+					// // 	collapse_vids_with_feature_preserved(p, vid);
+					}
+					auto vid = link.back();
+					auto eid = linkEids.back();
+					auto p = get_collapse_vids(vid, eid);
+					l.target.push_back(vid);
+					l.collapse.push_back(p);
+
+					halfSeparatrices.push_back(l);
+                }
+            }
+        }
+        else if (!v_back.isBoundary && v_back.N_Fids.size() == 3 && v_front.isBoundary && v_front.N_Fids.size() == 2) {
+            std::reverse(link.begin(), link.end());
+            bool onthesameline = true;
+            for (auto nvid : v_front.N_Vids) {
+                auto& nv = mesh.V.at(nvid);
+                if (nv.type == CORNER) {
+                    onthesameline = false;
+                    break;
+                }
+            }
+            if (!onthesameline) continue;
+			// indices.push_back(v_front.id);
+			// indices.push_back(v_back.id);
+			// numElements += 1;
+			// continue;
+            auto v_front_fid = get_faceid(v_back.id, link[1]);
+            auto v_front_fvid = get_diagnal_vid(v_back.id, v_front_fid);
+            auto& v_front_fv = mesh.V.at(v_front_fvid);
+            if (v_front_fv.isBoundary/* && v_front_fv.N_Fids.size() <= v_front_fv.idealValence*/) continue;
+            if (v_front_fvid >= mesh.V.size()) {
+                MeshFileWriter writer(mesh, "error.vtk");
+                writer.WriteFile();
+            }
+            if (mesh.V.at(v_front_fvid).N_Fids.size() >= Simplifier::minValence + 1) {
+                if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid)) {
+                    // for (auto vid : link) {
+                    //     auto& v = mesh.V.at(vid);
+                    //     canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+                    // }
+                    // collapse_with_feature_preserved(link, linkEids);
+                    // break;
+					collapsableHalfSeparatrix l;
+					for (size_t i = 0; i < linkEids.size(); ++i) {
+						auto vid = link[i];
+						auto eid = linkEids[i];
+						auto p = get_collapse_vids(vid, eid);
+						l.target.push_back(vid);
+						l.collapse.push_back(p);
+					// // 	collapse_vids_with_feature_preserved(p, vid);
+					}
+					auto vid = link.back();
+					auto eid = linkEids.back();
+					auto p = get_collapse_vids(vid, eid);
+					l.target.push_back(vid);
+					l.collapse.push_back(p);
+
+					halfSeparatrices.push_back(l);
+                }
+            }
+        }
+    }
+	std::vector<double> ranks;
+	for (auto l : halfSeparatrices) {
+		double rank = 0;
+		for (int i = 0; i < l.target.size(); i++) {
+			auto& v1 = mesh.V.at(l.target.at(i));
+			for (auto value: l.collapse.at(i)) {
+				auto& v2 = mesh.V.at(value);
+				rank += glm::length(glm::dvec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z));
+			}
+		}
+		ranks.push_back(rank);
+	}
+	std::vector<size_t> targetVidsPos;
+	for (int i = 0; i < ranks.size(); i++) {
+        std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+        targetVidsPos.push_back((size_t) std::distance(ranks.begin(), max_index));
+        *max_index = -1;
+    }
+	std::vector<collapsableHalfSeparatrix> finalHalfSeparatrices;
+	for (int i = 0; i < targetVidsPos.size(); i++) {
+		if (targetVidsPos.at(i) == -1) {
+			continue;
+		}
+		collapsableHalfSeparatrix l = halfSeparatrices.at(targetVidsPos.at(i));
+		finalHalfSeparatrices.push_back(l);
+		for (int j = 0; j < halfSeparatrices.size(); j++) {
+			if (j == targetVidsPos.at(i)) {
+				continue;
+			}
+			bool disjoint = true;
+			collapsableHalfSeparatrix l2 = halfSeparatrices.at(j);
+			for (auto id: l.target) {
+				if (std::find(l2.target.begin(), l2.target.end(), id) != l2.target.end()) {
+					disjoint = false;
+					break;
+				}
+				if (!disjoint) {
+					break;
+				}
+				for (auto vec: l2.collapse) {
+					if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+						disjoint = false;
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+			}
+			for (auto vec: l.collapse) {
+				for (auto id: l2.target) {
+					if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+						disjoint = false;
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+				for (auto vec2: l2.collapse) {
+					for (auto id: vec2) {
+						if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+							disjoint = false;
+							break;
+						}
+					}
+					if (!disjoint) {
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+			}
+			if (!disjoint) {
+				auto it = std::find(targetVidsPos.begin(), targetVidsPos.end(), j);
+                if (it != targetVidsPos.end()) {
+                    targetVidsPos.at(std::distance(targetVidsPos.begin(), it)) = -1;
+                }
+			}
+		}
+	}
+	for (auto l: finalHalfSeparatrices) {
+		for (int i = 0; i < l.target.size(); i++) {
+			auto& v = mesh.V.at(l.target.at(i));
+			canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+			collapse_vids_with_feature_preserved(l.collapse.at(i), l.target.at(i));
+		}
+	}
+}
+
 void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {
+	std::vector<size_t> indices;
+	size_t numElements = 0;
     size_t id = -1;
     for (auto link : baseComplex.separatedVertexIdsLink) {
         const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(++id);
@@ -1753,6 +2258,10 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
                 }
             }
             if (!onthesameline) continue;
+			// indices.push_back(v_front.id);
+			// indices.push_back(v_back.id);
+			// numElements += 1;
+			// continue;
             auto v_front_fid = get_faceid(v_front.id, link[1]);
             auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fid);
             auto& v_front_fv = mesh.V.at(v_front_fvid);
@@ -1783,6 +2292,10 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
                 }
             }
             if (!onthesameline) continue;
+			// indices.push_back(v_front.id);
+			// indices.push_back(v_back.id);
+			// numElements += 1;
+			// continue;
             auto v_front_fid = get_faceid(v_back.id, link[1]);
             auto v_front_fvid = get_diagnal_vid(v_back.id, v_front_fid);
             auto& v_front_fv = mesh.V.at(v_front_fvid);
@@ -1803,6 +2316,25 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
             }
         }
     }
+	/*std::ofstream ofs("half_separatrix_connections.vtk");
+    ofs << "# vtk DataFile Version 3.0\n"
+        << "output.vtk\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs << "POINTS " << mesh.V.size() << " double\n";
+    
+    for (size_t i = 0; i < mesh.V.size(); i++) {
+        ofs << mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+    }
+    ofs << "CELLS " << numElements << " " << 3 * numElements << std::endl;
+    for (size_t i = 0; i < indices.size(); i+=2) {
+        ofs << "2 " << indices.at(i) << " " << indices.at(i+1) << std::endl;
+    }
+    ofs << "CELL_TYPES " << numElements << "\n";
+    for (size_t i = 0; i < numElements; i++) {
+        ofs << "3" << std::endl;
+    }
+	return;*/
 }
 
 void Simplifier::sheet_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {

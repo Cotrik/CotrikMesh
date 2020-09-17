@@ -14,6 +14,11 @@ private:
 public:
 	void Run();
 	bool Simplify(int& iter);
+	bool ChordCollapseSimplify(int& iter);
+	bool SeparatrixSplitSimplify(int& iter);
+	bool SeparatrixCollapseSimplify(int& iter);
+	bool HalfSeparatrixCollapseSimplify(int& iter);
+	bool EdgeRotateSimplify(int& iter);
 	bool CheckCorners();
 //	SmoothAlgorithm* smoothing_algorithm;
 };

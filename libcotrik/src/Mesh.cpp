@@ -615,7 +615,7 @@ void Mesh::LabelSurface() {
         }
     }
     if (hasBoundary) return;
-
+    std::cout << "E size " << E.size() << std::endl;
     for (size_t i = 0; i < E.size(); i++) {
         Edge& edge = E.at(i);
         if (!edge.isBoundary) continue;
@@ -639,7 +639,7 @@ void Mesh::LabelSurface() {
             V.at(edge.Vids[1]).type = FEATURE;
         }
     }
-
+    std::cout << "V size: " << V.size() << std::endl;
     for (size_t i = 0; i < V.size(); i++) {
         Vertex& v = V.at(i);
         if (!v.isBoundary) continue;
@@ -686,6 +686,7 @@ void Mesh::LabelSurface() {
             }
         }
     }
+    std::cout << "number of sharp edges " << numOfSharpEdges << std::endl; 
 }
 
 void Mesh::Label2DSurfaceVertices() {

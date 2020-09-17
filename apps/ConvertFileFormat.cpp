@@ -10,6 +10,8 @@
 #include "SmoothAlgorithm.h"
 #include <iostream>
 #include "ArgumentManager.h"
+
+
 int main(int argc, char* argv[])
 {
     if (argc < 2)

@@ -19,6 +19,7 @@ private:
     DoubletSimplifier& operator = (const DoubletSimplifier&);
 public:
     void Run(std::set<size_t>& canceledFids);
+    void RunCollective(std::set<size_t>& canceledFids);
 };
 
 #endif /* LIBCOTRIK_SRC_DOUBLET_SIMPLIFIER_H_ */

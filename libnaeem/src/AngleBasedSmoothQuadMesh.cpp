@@ -3,6 +3,7 @@
 #include <glm/glm.hpp>
 #include <limits>
 #include <numeric>
+#include <ctime>
 #include "AngleBasedSmoothQuadMesh.h"
 
 #define PI 3.14159265
@@ -10,6 +11,7 @@
 SmoothAlgorithm::SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double l_r) : mesh(mesh), boundary_mesh(boundary_mesh) {
     iters = it;
     lambda = l_r;
+    // tau = t;
     if (lambda <= 0) {
         lambda = 0.1;
     } else if (lambda > 1) {
@@ -17,7 +19,7 @@ SmoothAlgorithm::SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double
     }
     std::cout << "min displacement limit: " << min_displacement_limit << std::endl;
 }
-//SmoothAlgorithm::~SmoothAlgorithm() {}
+SmoothAlgorithm::~SmoothAlgorithm() {}
 
 void SmoothAlgorithm::setOriginalVertices() {
     original_vertices.resize(boundary_mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
@@ -275,6 +277,124 @@ void SmoothAlgorithm::resampleBoundaryVertices() {
                     double beta = (alpha2 - alpha1) / 2;
                     double new_x = (b0.x + (V_j.x * cos(beta)) - (V_j.y * sin(beta)));
                     double new_y = (b0.y + (V_j.x * sin(beta)) + (V_j.y * cos(beta)));
+                    // if (isnan(new_x) || isnan(new_y)) {
+                    //     std::cout << "vertex: " << mesh.V.at(i).id << " is faulty" << std::endl;
+                    //     std::cout << "beta: " << beta << std::endl;
+                    // }
+                    
+                    // bool isNegativeElementPresent = false;
+                    // for (auto fid: v.N_Fids) {
+                    //     if (isFaceNegative(fid, v.id, glm::dvec3(new_x, new_y, 0.0))) {
+                    //         isNegativeElementPresent = true;
+                    //     }
+                    // }
+                    // if (!hasNegativeElementsPresentAlready && isNegativeElementPresent) {
+                    //     new_x = v.x;
+                    //     new_y = v.y;
+                    // }
+                    delta_coords.at(i).x += new_x; 
+                    delta_coords.at(i).y += new_y;
+                }                    
+            }
+            if (k > 0) {
+                delta_coords.at(i).x = delta_coords.at(i).x / k; 
+                delta_coords.at(i).y = delta_coords.at(i).y / k;            
+            } else {
+                delta_coords.at(i).x = v.x;
+                delta_coords.at(i).y = v.y;
+            }
+            // double currentE = getVertexEnergy(v.id);
+            // glm::dvec3 temp_coord(v.x, v.y, 0.0);
+            // v.x = delta_coords.at(i).x;
+            // v.y = delta_coords.at(i).y;
+            // double newE = getVertexEnergy(v.id);
+            // v.x = temp_coord.x;
+            // v.y = temp_coord.y;
+            // if (newE >= currentE) {
+            //     delta_coords.at(i).x = v.x;
+            //     delta_coords.at(i).y = v.y;
+            // }
+        }
+    }
+}
+
+void SmoothAlgorithm::resampleBoundaryVertices1() {
+    bool hasNegativeElementsPresentAlready = false;
+    for (auto& v: mesh.V) {
+        if (!v.isBoundary || !v.isMovable) {
+            continue;
+        }
+        for (auto fid: v.N_Fids) {
+            if (isFaceNegative(fid, v.id, glm::dvec3(v.x, v.y, 0.0))) {
+                hasNegativeElementsPresentAlready = true;
+                break;
+            }
+        }
+    }
+    for (int i = 0; i < mesh.V.size(); i++) {
+        Vertex& v = mesh.V.at(i);
+        if (v.isBoundary) {
+            if (!v.isMovable) {
+                delta_coords.at(i).x = v.x;
+                delta_coords.at(i).y = v.y;
+                continue;
+            }
+            int nb_n_index = -1;
+            int k = 0;
+            std::vector<size_t> neighbors = v.N_Vids;
+            if (v.N_Fids.size() < 2) {
+                neighbors = v.oneRingNeighborVertices;
+            }
+            for (int j = 0; j < neighbors.size(); j++) {
+                if (!mesh.V.at(neighbors.at(j)).isBoundary) {
+                    nb_n_index = j;
+                    int a_ = nb_n_index;
+                    int b_ = neighbors.size();
+                    int index = (a_ % b_ + b_) % b_;
+                    Vertex& b0 = mesh.V.at(neighbors.at(index));
+                    
+                    k += 1;
+                    a_ = nb_n_index - 1;
+                    index = (a_ % b_ + b_) % b_;
+                    Vertex& b1 = mesh.V.at(neighbors.at(index));
+
+                    a_ = nb_n_index + 1;
+                    index = (a_ % b_ + b_) % b_;
+                    Vertex& b2 = mesh.V.at(neighbors.at(index));
+
+                    glm::dvec3 V_j(v.x - b0.x, v.y - b0.y, v.z - b0.z);
+                    glm::dvec3 V_j_minus_1(b1.x - b0.x, b1.y - b0.y, b1.z - b0.z);
+                    glm::dvec3 V_j_plus_1(b2.x - b0.x, b2.y - b0.y, b2.z - b0.z);
+
+                    double a1 = glm::dot(V_j, V_j_plus_1) / (glm::length(V_j) * glm::length(V_j_plus_1));
+                    double a2 = glm::dot(V_j, V_j_minus_1) / (glm::length(V_j) * glm::length(V_j_minus_1));
+                    if (a1 < -1.0) a1 = -1.0;
+                    if (a1 > 1.0) a1 = 1.0;
+                    if (a2 < -1.0) a2 = -1.0;
+                    if (a2 > 1.0) a2 = 1.0;
+
+                    double alpha1 = acos(a1);
+                    double alpha2 = acos(a2);
+
+                    // double alpha1 = acos(glm::dot(V_j, V_j_plus_1) / (glm::length(V_j) * glm::length(V_j_plus_1)));
+                    // double alpha2 = acos(glm::dot(V_j, V_j_minus_1) / (glm::length(V_j) * glm::length(V_j_minus_1)));
+                    double beta = (alpha2 - alpha1) / 2;
+
+                    glm::dvec3 r1(v.x, v.y, v.z);
+                    double l = 0;
+                    if (beta > 0) {
+                        r1 = glm::dvec3(b1.x - v.x, b1.y - v.y, b1.z - v.z);
+                        l = (fabs(beta) / alpha2) * glm::length(r1); 
+                    } else if (beta < 0) {
+                        r1 = glm::dvec3(b2.x - v.x, b2.y - v.y, b2.z - v.z);
+                        l = (fabs(beta) / alpha1) * glm::length(r1);
+                    }
+                    r1 = glm::normalize(r1);
+                    double new_x = v.x + (l * r1.x);
+                    double new_y = v.y + (l * r1.y);
+
+                    // double new_x = (b0.x + (V_j.x * cos(beta)) - (V_j.y * sin(beta)));
+                    // double new_y = (b0.y + (V_j.x * sin(beta)) + (V_j.y * cos(beta)));
                     // if (isnan(new_x) || isnan(new_y)) {
                     //     std::cout << "vertex: " << mesh.V.at(i).id << " is faulty" << std::endl;
                     //     std::cout << "beta: " << beta << std::endl;
@@ -543,29 +663,57 @@ void SmoothAlgorithm::smoothLaplacianScaleBased() {
 }
 
 void SmoothAlgorithm::setBoundaryVerticesMovable() {
+    // for (auto& v: mesh.V) {
+        // if (!v.isBoundary) {
+        //     int n_b = 0;
+        //     for (auto id: v.N_Vids) {
+        //         if (mesh.V.at(id).isBoundary) {
+        //             n_b += 1;
+        //         }
+        //     }
+        //     if (n_b > 1) {
+        //         for (auto id: v.oneRingNeighborVertices) {
+        //             if (mesh.V.at(id).isBoundary) {
+        //                 mesh.V.at(id).isMovable = false;
+        //             }
+        //         }
+        //     }
+        // }
+    // }
     for (auto& v: mesh.V) {
-        if (!v.isBoundary) {
-            int n_b = 0;
-            for (auto id: v.N_Vids) {
-                if (mesh.V.at(id).isBoundary) {
-                    n_b += 1;
-                }
-            }
-            if (n_b > 1) {
-                for (auto id: v.oneRingNeighborVertices) {
-                    if (mesh.V.at(id).isBoundary) {
-                        mesh.V.at(id).isMovable = false;
-                    }
-                }
-            }
+        // if (v.isBoundary) {
+        //     if (v.N_Fids.size() <= 2) {
+        //         v.isMovable = true;
+        //     } else {
+        //         v.isMovable = false;
+        //     }
+        // }
+        if (v.isBoundary && v.N_Fids.size() != 2) {
+            v.isMovable = false;
         }
-    }
-    for (auto& v: mesh.V) {
         if (v.isBoundary) {
-            if (v.N_Fids.size() <= 2) {
-                v.isMovable = true;
-            } else {
-                v.isMovable = false;
+            std::vector<int> boundary_neighbors;
+            for (auto& id: v.N_Vids) {
+                if (mesh.V.at(id).isBoundary) {
+                    boundary_neighbors.push_back(id);
+                }
+            }
+            Vertex& v1 = mesh.V.at(boundary_neighbors[0]);
+            Vertex& v2 = mesh.V.at(boundary_neighbors[1]);
+            glm::dvec3 a(v.x - v1.x, v.y - v1.y, v.z - v1.z);
+            glm::dvec3 b(v.x - v2.x, v.y - v2.y, v.z - v2.z);
+            if (glm::length(a) > 0) {
+                a = glm::normalize(a);
+            }
+            if (glm::length(b) > 0) {
+                b = glm::normalize(b);
+            }
+            double angle = (atan2(glm::cross(a, b).z, glm::dot(a, b))) * 180 / PI;
+            if (angle < 0) {
+                angle += 360;
+            }
+            if (angle < 120 || angle > 260) {
+                // v.isMovable = false;
             }
         }
     }
@@ -707,12 +855,18 @@ void SmoothAlgorithm::smoothMesh() {
     // return;
     int it = 0;
     // while (it < iters) {
-    //     double E1 = getMeshEnergy();
+        double E1 = getMeshEnergy(false);
+        std::clock_t start;
+        double duration;
+        start = std::clock();
+
         while (it < iters) {
             delta_coords.clear();
             delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
-            double currentE = getMeshEnergy();
-            angleBasedSmoothing();
+            double currentE = getMeshEnergy(false);
+            // angleBasedSmoothing();
+            SmoothAngleBased();
+            // smoothLaplacianCotangentBased();
             // resampleBoundaryVertices();
             for (int i = 0; i < mesh.V.size(); i++) {
                 Vertex& v = mesh.V.at(i);
@@ -724,26 +878,27 @@ void SmoothAlgorithm::smoothMesh() {
                 v.y = delta_coords.at(i).y;
                 delta_coords.at(i) = temp_coord;
             }
-            double newE = getMeshEnergy();
-            std::cout << "it1: " << it << " oldE: " << currentE << " newE: " << newE << std::endl;
-            // if (currentE - newE < 1e-4) {
-            //     for (int i = 0; i < mesh.V.size(); i++) {
-            //         Vertex& v = mesh.V.at(i);
-            //         if (v.isBoundary) {
-            //             continue;
-            //         }
-            //         v.x = delta_coords.at(i).x;
-            //         v.y = delta_coords.at(i).y;
-            //     }
-            //     break;                
-            // }
+            double newE = getMeshEnergy(false);
+            // std::cout << "it1: " << it << " oldE: " << currentE << " newE: " << newE << std::endl;
+            if (currentE - newE < tau) {
+                for (int i = 0; i < mesh.V.size(); i++) {
+                    Vertex& v = mesh.V.at(i);
+                    if (v.isBoundary) {
+                        continue;
+                    }
+                    v.x = delta_coords.at(i).x;
+                    v.y = delta_coords.at(i).y;
+                }
+                break;                
+            }
             int it2 = 0;
-            while (it2 < 10) {
+            /*while (it2 < iters) {
                 delta_coords.clear();
                 delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
-                currentE = getMeshEnergy();
-                resampleBoundaryVertices();
-                remapBoundaryVertices();
+                currentE = getMeshEnergy(true);
+                resampleBoundaryVertices1();
+                // resampleBoundaryVertices();
+                // remapBoundaryVertices();
 		        for (int i = 0; i < mesh.V.size(); i++) {
                     Vertex& v = mesh.V.at(i);
                     if (!v.isBoundary || !v.isMovable) {
@@ -755,28 +910,28 @@ void SmoothAlgorithm::smoothMesh() {
                     delta_coords.at(i) = temp_coord;
                 }
                 //remapBoundaryVertices();
-                double newE = getMeshEnergy();
+                double newE = getMeshEnergy(true);
                 // std::cout << "it2: " << it2 << " oldE: " << currentE << " newE: " << newE << std::endl;
-                // if (currentE - newE < 1e-4) {
-                //     for (int i = 0; i < mesh.V.size(); i++) {
-                //         Vertex& v = mesh.V.at(i);
-                //         if (!v.isBoundary || !v.isMovable) {
-                //             continue;
-                //         }
-                //         v.x = delta_coords.at(i).x;
-                //         v.y = delta_coords.at(i).y;
-                //     }   
-                //     break;
-                // }
+                if (currentE - newE < tau) {
+                    // remapBoundaryVertices();
+                    for (int i = 0; i < mesh.V.size(); i++) {
+                        Vertex& v = mesh.V.at(i);
+                        if (!v.isBoundary || !v.isMovable) {
+                            continue;
+                        }
+                        v.x = delta_coords.at(i).x;
+                        v.y = delta_coords.at(i).y;
+                    }   
+                    break;
+                }
                 it2++;
-            }
-        // }
-        // double E2 = getMeshEnergy();
-        // if (E1 - E2 < 1e-4) {
-        //     break;              
-        // }
-        it++;
-    }
+            }*/
+            it++;
+        }
+        std::cout << "-------------------------" << std::endl;
+    // }
+    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    std::cout << "Simplification time: " << duration << " seconds" << std::endl;
     // remapBoundaryVertices();
     std::cout << "Finished Mesh Smoothing" << std::endl;
     calculateMeshAngles();
@@ -870,24 +1025,28 @@ void SmoothAlgorithm::SmoothAngleBased() {
             continue;
         }
         std::vector<size_t> one_ring_neighbors = v_i.oneRingNeighborVertices;
-        int k = one_ring_neighbors.size();
+        // int k = one_ring_neighbors.size();
+        int k = 0;
         for (int j = 0; j < one_ring_neighbors.size(); j++) {
             int a = j;
             int b = one_ring_neighbors.size();
             int index = one_ring_neighbors.at((a % b + b) % b);
             Vertex& v_j = mesh.V.at(index);
-            
-            a = j - 2;
-            if (std::find(v_i.N_Vids.begin(), v_i.N_Vids.end(), v_j.id) == v_i.N_Vids.end()) {
+            // if (std::find(v_i.N_Vids.begin(), v_i.N_Vids.end(), v_j.id) != v_i.N_Vids.end()) {
+            //     continue;
+            // }
+            k += 1;
+            // a = j - 2;
+            // if (std::find(v_i.N_Vids.begin(), v_i.N_Vids.end(), v_j.id) == v_i.N_Vids.end()) {
                 a = j - 1;
-            }
+            // }
             index = one_ring_neighbors.at((a % b + b) % b);
             Vertex& v_j_prev = mesh.V.at(index);
 
-            a = j + 2;
-            if (std::find(v_i.N_Vids.begin(), v_i.N_Vids.end(), v_j.id) == v_i.N_Vids.end()) {
+            // a = j + 2;
+            // if (std::find(v_i.N_Vids.begin(), v_i.N_Vids.end(), v_j.id) == v_i.N_Vids.end()) {
                 a = j + 1;
-            }
+            // }
             index = one_ring_neighbors.at((a % b + b) % b);
             Vertex& v_j_next = mesh.V.at(index);
 
@@ -901,16 +1060,16 @@ void SmoothAlgorithm::SmoothAngleBased() {
             double beta = (alpha2 - alpha1) / 2;
             double newX = (v_j.x + (V_j.x * cos(beta)) - (V_j.y * sin(beta))); 
             double newY = (v_j.y + (V_j.x * sin(beta)) + (V_j.y * cos(beta)));
-            bool isNegativeElementPresent = false;
-            for (auto fid: v_i.N_Fids) {
-                if (isFaceNegative(fid, v_i.id, glm::dvec3(newX, newY, 0.0))) {
-                    isNegativeElementPresent = true;
-                }
-            }
-            if (isNegativeElementPresent) {
-                newX = v_i.x;
-                newY = v_i.y;
-            }
+            // bool isNegativeElementPresent = false;
+            // for (auto fid: v_i.N_Fids) {
+            //     if (isFaceNegative(fid, v_i.id, glm::dvec3(newX, newY, 0.0))) {
+            //         isNegativeElementPresent = true;
+            //     }
+            // }
+            // if (isNegativeElementPresent) {
+            //     newX = v_i.x;
+            //     newY = v_i.y;
+            // }
             new_coords.at(i).x += newX; 
             new_coords.at(i).y += newY;
         }
@@ -1001,18 +1160,18 @@ void SmoothAlgorithm::angleBasedSmoothing() {
             neighbor_weights.at(j) = fabs(beta);
 
             
-            bool isNegativeElementPresent = false;
-            for (auto fid: v_i.N_Fids) {
-                if (isFaceNegative(fid, v_i.id, glm::dvec3(neighbor_coords.at(j).x, neighbor_coords.at(j).y, 0.0))) {
-                    isNegativeElementPresent = true;
-                    break;
-                }
-            }
-            if (!hasNegativeElementsPresentAlready && isNegativeElementPresent) {
-                neighbor_coords.at(j).x = v_i.x;
-                neighbor_coords.at(j).y = v_i.y;
-                neighbor_weights.at(j) = 1;
-            }
+            // bool isNegativeElementPresent = false;
+            // for (auto fid: v_i.N_Fids) {
+            //     if (isFaceNegative(fid, v_i.id, glm::dvec3(neighbor_coords.at(j).x, neighbor_coords.at(j).y, 0.0))) {
+            //         isNegativeElementPresent = true;
+            //         break;
+            //     }
+            // }
+            // if (!hasNegativeElementsPresentAlready && isNegativeElementPresent) {
+            //     neighbor_coords.at(j).x = v_i.x;
+            //     neighbor_coords.at(j).y = v_i.y;
+            //     neighbor_weights.at(j) = 1;
+            // }
             weight_agg += neighbor_weights.at(j);
         }
         if (weight_agg == 0) {
@@ -1029,17 +1188,17 @@ void SmoothAlgorithm::angleBasedSmoothing() {
         }
         new_coords.at(i).x = lambda * ((new_coords.at(i).x / vertex_weights.at(i)) - v_i.x);
         new_coords.at(i).y = lambda * ((new_coords.at(i).y / vertex_weights.at(i)) - v_i.y);
-        double currentE = getVertexEnergy(v_i.id);
-        glm::dvec3 temp_coord(v_i.x, v_i.y, 0.0);
-        v_i.x += new_coords.at(i).x;
-        v_i.y += new_coords.at(i).y;
-        double newE = getVertexEnergy(v_i.id);
-        v_i.x = temp_coord.x;
-        v_i.y = temp_coord.y;
-        if (newE >= currentE) {
-             new_coords.at(i).x = 0;
-             new_coords.at(i).y = 0;
-        }
+        // double currentE = getVertexEnergy(v_i.id);
+        // glm::dvec3 temp_coord(v_i.x, v_i.y, 0.0);
+        // v_i.x += new_coords.at(i).x;
+        // v_i.y += new_coords.at(i).y;
+        // double newE = getVertexEnergy(v_i.id);
+        // v_i.x = temp_coord.x;
+        // v_i.y = temp_coord.y;
+        // if (newE >= currentE) {
+        //      new_coords.at(i).x = 0;
+        //      new_coords.at(i).y = 0;
+        // }
     }
 
     for (int i = 0; i < mesh.V.size(); i++) {
@@ -1192,12 +1351,24 @@ bool SmoothAlgorithm::isMeshNonManifold() {
     return false;
 }
 
-double SmoothAlgorithm::getMeshEnergy() {
+double SmoothAlgorithm::getMeshEnergy(bool consider_boundary) {
     double E = 0.0;
+    int nV = 1;
+    tau = 0.0001;
     for (auto& v: mesh.V) {
+        // if (v.isBoundary && !consider_boundary) {
+        //     continue;
+        // } else if (!v.isBoundary && consider_boundary) {
+        //     continue;
+        // }
+        // if (v.isBoundary && !v.isMovable) {
+        //     continue;
+        // }
+        // nV += 1;
         E += getVertexEnergy(v.id);
     }
-    return E;
+    // tau = tau / nV;
+    return E / nV;
 }
 
 double SmoothAlgorithm::getVertexEnergy(int vid) {
@@ -1253,6 +1424,13 @@ double SmoothAlgorithm::getVertexEnergy(int vid) {
         double alpha1 = acos(a1);
         double alpha2 = acos(a2);
         E += ((alpha1 * alpha1) / 2) + ((alpha2 * alpha2) / 2);
+
+        // double dp = glm::dot(V_j_plus_1, V_j_minus_1) / (glm::length(V_j_plus_1) * glm::length(V_j_minus_1));
+        // double angle = (atan2(glm::cross(V_j_plus_1, V_j_minus_1).z, glm::dot(V_j_minus_1, V_j_plus_1))) * 180 / PI;
+        // if (angle < 0) {
+        //     angle += 360;
+        // }
+        // E += ((angle * angle) / 2);
     }
     return E;
 }

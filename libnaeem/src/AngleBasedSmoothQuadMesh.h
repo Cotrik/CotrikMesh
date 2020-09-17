@@ -12,6 +12,7 @@ private:
     std::vector<glm::dvec3> delta_coords;
     int iters;
     double lambda;
+    double tau = 1e-4;
     float min_displacement_limit = 1e-6;
     double interiorE = 0.0;
     double boundaryE = 0.0;
@@ -28,6 +29,7 @@ public:
     void setOriginalVertices();
     double getMinEdgeLength();
     void resampleBoundaryVertices();
+    void resampleBoundaryVertices1();
     void remapBoundaryVertices();
     void remapToOriginalBoundary();
     void extractBoundary();
@@ -42,7 +44,7 @@ public:
     void setBoundaryVerticesMovable();
     void findNegativeElements();
     void fixCrossQuad(int fid);
-    double getMeshEnergy();
+    double getMeshEnergy(bool consider_boundary);
     double getVertexEnergy(int vid);
     bool isFaceNegative(int fid, int vid, glm::dvec3 false_coord);
 };

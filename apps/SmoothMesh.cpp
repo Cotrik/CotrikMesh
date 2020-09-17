@@ -178,8 +178,10 @@ int main(int argc, char* argv[]) {
     std::string smoothing_algorithm = argumentManager.get("smoothing_algorithm");
     int iterations;
     double lambda;
+    double tau = 0.0001;
     argumentManager.get("iterations", iterations);
     argumentManager.get("lambda", lambda);
+    argumentManager.get("tau", tau);
 
     std::cout << "---------------------------------------" << std::endl;
     std::cout << "filename = " << filename << std::endl;
@@ -187,6 +189,7 @@ int main(int argc, char* argv[]) {
     std::cout << "smoothing_algorithm = " << smoothing_algorithm << std::endl;
     std::cout << "iterations = " << iterations << std::endl;
     std::cout << "lambda = " << lambda << std::endl;
+    std::cout << "tau = " << tau << std::endl;
     std::cout << "---------------------------------------" << std::endl;
 
     MeshFileReader reader(filename.c_str());
