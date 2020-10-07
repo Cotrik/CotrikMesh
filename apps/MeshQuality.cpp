@@ -271,11 +271,12 @@ int main(int argc, char *argv[]) {
     Mesh& mesh = (Mesh&)meshReader.GetMesh();
     for (size_t i = 0; i < mesh.C.size(); i++) {
         Cell& c = mesh.C.at(i);
-        if (qualityValues.at(i) < 0 ) {
-            c.qualityValue = -1;
-        } else {
-            c.qualityValue = 1;
-        }
+        // if (qualityValues.at(i) < 0 ) {
+        //     c.qualityValue = -1;
+        // } else {
+        //     c.qualityValue = 1;
+        // }
+        c.qualityValue = qualityValues.at(i);
     }
 
     const size_t vnum = mesh.V.size();

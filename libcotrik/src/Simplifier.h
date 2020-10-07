@@ -118,6 +118,8 @@ public:
 	void five_connections_split(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify);
 	void three_connections_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify);
 	void half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids);
+	void three_connections_strict_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids);
+	void three_connections_loose_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids);
 
 	Mesh RefineWithFeaturePreserved(const Mesh& hex_mesh, int clockwise);
 	Mesh RefineWithFeaturePreserved2(const Mesh& hex_mesh, int clockwise);

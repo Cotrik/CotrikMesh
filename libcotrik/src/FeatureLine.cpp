@@ -83,7 +83,46 @@ void FeatureLine::Extract(const size_t label)
             vid = FindNextVid(vid, visited, eid);
             if (vid != MAXID) {
                 newVids.push_back(vid);
-            }
+            } 
+            /*else {
+                std::ofstream ofs1("Vids.vtk");
+                ofs1 << "# vtk DataFile Version 3.0\n"
+                	<< "output.vtk\n"
+                	<< "ASCII\n\n"
+                	<< "DATASET UNSTRUCTURED_GRID\n";
+                ofs1 << "POINTS " << mesh.V.size() << " double\n";
+                
+                for (size_t i = 0; i < mesh.V.size(); i++) {
+                	ofs1 << mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+                }
+                ofs1 << "CELLS " << Vids.size() << " " << 2 * Vids.size() << std::endl;
+                for (size_t i = 0; i < Vids.size(); i++) {
+                	ofs1 << "1 " << Vids.at(i) << std::endl;
+                }
+                ofs1 << "CELL_TYPES " << Vids.size() << "\n";
+                for (size_t i = 0; i < Vids.size(); i++) {
+                	ofs1 << "1" << std::endl;
+                }
+
+                std::ofstream ofs2("Eids.vtk");
+                ofs2 << "# vtk DataFile Version 3.0\n"
+                	<< "output.vtk\n"
+                	<< "ASCII\n\n"
+                	<< "DATASET UNSTRUCTURED_GRID\n";
+                ofs2 << "POINTS " << mesh.V.size() << " double\n";
+                
+                for (size_t i = 0; i < mesh.V.size(); i++) {
+                	ofs2 << mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+                }
+                ofs2 << "CELLS " << Eids.size() << " " << 3 * Eids.size() << std::endl;
+                for (size_t i = 0; i < Eids.size(); i++) {
+                	ofs2 << "2 " << mesh.E.at(Eids.at(i)).Vids[0] << mesh.E.at(Eids.at(i)).Vids[1] << std::endl;
+                }
+                ofs2 << "CELL_TYPES " << Eids.size() << "\n";
+                for (size_t i = 0; i < Eids.size(); i++) {
+                	ofs2 << "3" << std::endl;
+                }
+            }*/
             newEids.push_back(eid);
             allVisited = true;
             for (size_t i = 0; i < Vids.size(); i++) {

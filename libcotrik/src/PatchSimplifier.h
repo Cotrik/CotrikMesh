@@ -14,6 +14,7 @@ private:
 public:
 	void Run();
 	bool Simplify(int& iter);
+	bool SimplifyCollective(int& iter);
 	bool ChordCollapseSimplify(int& iter);
 	bool SeparatrixSplitSimplify(int& iter);
 	bool SeparatrixCollapseSimplify(int& iter);

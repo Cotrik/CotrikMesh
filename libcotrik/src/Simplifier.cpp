@@ -1077,11 +1077,14 @@ void Simplifier::get_feature() {
 		facesFileWriter.WriteFacesVtk(faceids);
 	}
 	{
+		// std::cout << "Before feature lines" << std::endl;
 		mesh.LabelSharpEdges(true);
 		// for (auto& e : mesh.E) e.isSharpFeature = copy[e.id];
+		std::cout << "num of sharp edges: " << mesh.numOfSharpEdges << std::endl;
 		std::vector<FeatureLine> featureLines(mesh.numOfSharpEdges, FeatureLine(mesh));
-		for (size_t i = 0; i < mesh.numOfSharpEdges; i++)
+		for (size_t i = 0; i < mesh.numOfSharpEdges; i++) {
 			featureLines.at(i).Extract(i);
+		}
 		WriteSharpEdgesVtk("FeatureLines.vtk", mesh, featureLines);
 	}
 	std::set<size_t> sharpEdgeVids;
@@ -1096,7 +1099,7 @@ void Simplifier::get_feature() {
 	}
 
 	for (auto& v : mesh.V) {
-	    if (v.isCorner && !v.isSpecial) {
+	    if (v.isCorner && !v.isSpecial) {	
 	        if (is_convex(v, v.N_Fids)) v.isConvex = true;
 	        v.idealValence = get_ideal_valence(v, v.N_Fids);
 	    }
@@ -1636,6 +1639,345 @@ void Simplifier::loose_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& 
 	}
 }
 
+void Simplifier::three_connections_strict_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {
+	struct collapsableThreeLink {
+		std::vector<size_t> target;
+		std::vector<std::vector<size_t>> collapse;
+	};
+	std::vector<collapsableThreeLink> threeLinks;
+
+	size_t id = 0;
+	for (const auto& link : baseComplex.separatedVertexIdsLink) {
+		const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(id);
+		auto& v_front = mesh.V.at(link.front());
+		auto& v_back = mesh.V.at(link.back());
+		if (v_front.isBoundary || v_back.isBoundary) {
+			++id;
+			continue;
+		}
+		if ((v_front.N_Fids.size() <= 5 && v_back.N_Fids.size() <= 5) && v_front.N_Fids.size() != v_back.N_Fids.size()) {
+			; //ofs << 0 << std::endl;
+		} else if (COLLAPSE && v_front.N_Fids.size() == 3 && v_back.N_Fids.size() == 3) {
+			// ofs << 1 << std::endl;
+			auto v_front_fid = get_faceid(v_front.id, link[1]);
+			auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fid);
+			auto v_back_fid = get_faceid(v_back.id, link[link.size() - 2]);
+			auto v_back_fvid = get_diagnal_vid(v_back.id, v_back_fid);
+			bool condition = false;
+			if (mesh.V.at(v_front_fvid).N_Fids.size() == 5 && mesh.V.at(v_back_fvid).N_Fids.size() == 5) {
+				if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+					// for (auto vid : link) {
+					// 	auto& v = mesh.V.at(vid);
+					// 	canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+					// }
+					// collapse_with_feature_preserved(link, linkEids);
+					// break;
+					collapsableThreeLink l;
+					for (size_t i = 0; i < linkEids.size(); ++i) {
+						auto vid = link[i];
+						auto eid = linkEids[i];
+						auto p = get_collapse_vids(vid, eid);
+						l.target.push_back(vid);
+						l.collapse.push_back(p);
+					// // 	collapse_vids_with_feature_preserved(p, vid);
+					}
+					auto vid = link.back();
+					auto eid = linkEids.back();
+					auto p = get_collapse_vids(vid, eid);
+					l.target.push_back(vid);
+					l.collapse.push_back(p);
+
+					threeLinks.push_back(l);
+					break;
+				}
+			}
+		} else if (Simplifier::SPLIT && v_front.N_Fids.size() == 5 && v_back.N_Fids.size() == 5) {
+			//ofs << 2 << std::endl;
+			auto v_front_eid = baseComplex.separatedEdgeIdsLink.at(id).front();
+			auto v_back_eid = baseComplex.separatedEdgeIdsLink.at(id).back();
+			auto& v_front_fids = mesh.E.at(v_front_eid).N_Fids;
+			auto& v_back_fids = mesh.E.at(v_back_eid).N_Fids;
+
+			auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fids);
+			auto v_back_fvid = get_diagnal_vid(v_back.id, v_back_fids);
+			bool condition = false;
+			if (mesh.V.at(v_front_fvid).N_Fids.size() == 3 && mesh.V.at(v_back_fvid).N_Fids.size() == 3) {
+				if (!split_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+					++id;
+					continue;
+				}
+				for (auto vid : link) {
+					auto& v = mesh.V.at(vid);
+					canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+				}
+				break;
+			}
+		} else {
+			; //ofs << 3 << std::endl;
+		}
+		++id;
+	}
+	std::vector<double> ranks;
+	for (auto l : threeLinks) {
+		double rank = 0;
+		for (int i = 0; i < l.target.size(); i++) {
+			auto& v1 = mesh.V.at(l.target.at(i));
+			for (auto value: l.collapse.at(i)) {
+				auto& v2 = mesh.V.at(value);
+				rank += glm::length(glm::dvec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z));
+			}
+		}
+		ranks.push_back(rank);
+	}
+	// std::cout << "RANKS: " << ranks.size() << std::endl;
+	std::vector<size_t> targetVidsPos;
+	for (int i = 0; i < ranks.size(); i++) {
+        std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+        targetVidsPos.push_back((size_t) std::distance(ranks.begin(), max_index));
+        // targetVidsPos.push_back(i);
+        *max_index = -1;
+    }
+	// std::cout << "TARGET VIDS POS: " << targetVidsPos.size() << std::endl;
+	std::vector<collapsableThreeLink> finalThreeLinks;
+	for (int i = 0; i < targetVidsPos.size(); i++) {
+		if (targetVidsPos.at(i) == -1) {
+			continue;
+		}
+		collapsableThreeLink l = threeLinks.at(targetVidsPos.at(i));
+		finalThreeLinks.push_back(l);
+		for (int j = 0; j < threeLinks.size(); j++) {
+			if (j == targetVidsPos.at(i)) {
+				continue;
+			}
+			bool disjoint = true;
+			collapsableThreeLink l2 = threeLinks.at(j);
+			for (auto id: l.target) {
+				// if (std::find(l2.target.begin(), l2.target.end(), id) != l2.target.end()) {
+				// 	disjoint = false;
+				// 	break;
+				// }
+				// if (!disjoint) {
+				// 	break;
+				// }
+				for (auto vec: l2.collapse) {
+					if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+						disjoint = false;
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+			}
+			for (auto vec: l.collapse) {
+				// for (auto id: l2.target) {
+				// 	if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+				// 		disjoint = false;
+				// 		break;
+				// 	}
+				// }
+				// if (!disjoint) {
+				// 	break;
+				// }
+				for (auto vec2: l2.collapse) {
+					for (auto id: vec2) {
+						if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+							disjoint = false;
+							break;
+						}
+					}
+					if (!disjoint) {
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+			}
+			if (!disjoint) {
+				auto it = std::find(targetVidsPos.begin(), targetVidsPos.end(), j);
+                if (it != targetVidsPos.end()) {
+                    targetVidsPos.at(std::distance(targetVidsPos.begin(), it)) = -1;
+                }
+			}
+		}
+	}
+	// std::cout << "FINAL THREE LINKS: " << finalThreeLinks.size() << std::endl;
+	for (auto l: finalThreeLinks) {
+		for (int i = 0; i < l.target.size(); i++) {
+			auto& v = mesh.V.at(l.target.at(i));
+			canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+			collapse_vids_with_feature_preserved(l.collapse.at(i), l.target.at(i));
+		}
+	}
+}
+
+void Simplifier::three_connections_loose_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {
+	struct collapsableThreeLink {
+		std::vector<size_t> target;
+		std::vector<std::vector<size_t>> collapse;
+	};
+	std::vector<collapsableThreeLink> threeLinks;
+
+	size_t id = -1;
+	for (const auto& link : baseComplex.separatedVertexIdsLink) {
+		const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(++id);
+		auto& v_front = mesh.V.at(link.front());
+		auto& v_back = mesh.V.at(link.back());
+		if (v_front.isBoundary || v_back.isBoundary) continue;
+		if ((v_front.N_Fids.size() <= 5 && v_back.N_Fids.size() <= 5) && v_front.N_Fids.size() != v_back.N_Fids.size()) {
+			; //ofs << 0 << std::endl;
+		} else if (COLLAPSE && v_front.N_Fids.size() == 3 && v_back.N_Fids.size() == 3) {
+			// ofs << 1 << std::endl;
+			auto v_front_fid = get_faceid(v_front.id, link[1]);
+			auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fid);
+			auto v_back_fid = get_faceid(v_back.id, link[link.size() - 2]);
+			auto v_back_fvid = get_diagnal_vid(v_back.id, v_back_fid);
+			if (mesh.V.at(v_front_fvid).N_Fids.size() > Simplifier::minValence && mesh.V.at(v_back_fvid).N_Fids.size() > Simplifier::minValence) {
+				if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+					// for (auto vid : link) {
+					// 	auto& v = mesh.V.at(vid);
+					// 	canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+					// }
+					// collapse_with_feature_preserved(link, linkEids);
+					// break;
+					collapsableThreeLink l;
+					for (size_t i = 0; i < linkEids.size(); ++i) {
+						auto vid = link[i];
+						auto eid = linkEids[i];
+						auto p = get_collapse_vids(vid, eid);
+						l.target.push_back(vid);
+						l.collapse.push_back(p);
+					// // 	collapse_vids_with_feature_preserved(p, vid);
+					}
+					auto vid = link.back();
+					auto eid = linkEids.back();
+					auto p = get_collapse_vids(vid, eid);
+					l.target.push_back(vid);
+					l.collapse.push_back(p);
+
+					threeLinks.push_back(l);
+					break;
+				}
+			}
+		} else if (Simplifier::SPLIT && v_front.N_Fids.size() == 5 && v_back.N_Fids.size() == 5) {
+			//ofs << 2 << std::endl;
+			auto v_front_eid = baseComplex.separatedEdgeIdsLink.at(id).front();
+			auto v_back_eid = baseComplex.separatedEdgeIdsLink.at(id).back();
+			auto& v_front_fids = mesh.E.at(v_front_eid).N_Fids;
+			auto& v_back_fids = mesh.E.at(v_back_eid).N_Fids;
+
+			auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fids);
+			auto v_back_fvid = get_diagnal_vid(v_back.id, v_back_fids);
+			bool condition = false;
+			if (mesh.V.at(v_front_fvid).N_Fids.size() < Simplifier::maxValence && mesh.V.at(v_back_fvid).N_Fids.size() < Simplifier::maxValence) {
+				if (split_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+					for (auto vid : link) {
+						auto& v = mesh.V.at(vid);
+						canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+					}
+					break;
+				}
+			}
+		} else {
+			; //ofs << 3 << std::endl;
+		}
+	}
+	std::vector<double> ranks;
+	for (auto l : threeLinks) {
+		double rank = 0;
+		for (int i = 0; i < l.target.size(); i++) {
+			auto& v1 = mesh.V.at(l.target.at(i));
+			for (auto value: l.collapse.at(i)) {
+				auto& v2 = mesh.V.at(value);
+				rank += glm::length(glm::dvec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z));
+			}
+		}
+		ranks.push_back(rank);
+	}
+	// std::cout << "RANKS: " << ranks.size() << std::endl;
+	std::vector<size_t> targetVidsPos;
+	for (int i = 0; i < ranks.size(); i++) {
+        std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+        targetVidsPos.push_back((size_t) std::distance(ranks.begin(), max_index));
+        // targetVidsPos.push_back(i);
+        *max_index = -1;
+    }
+	// std::cout << "TARGET VIDS POS: " << targetVidsPos.size() << std::endl;
+	std::vector<collapsableThreeLink> finalThreeLinks;
+	for (int i = 0; i < targetVidsPos.size(); i++) {
+		if (targetVidsPos.at(i) == -1) {
+			continue;
+		}
+		collapsableThreeLink l = threeLinks.at(targetVidsPos.at(i));
+		finalThreeLinks.push_back(l);
+		for (int j = 0; j < threeLinks.size(); j++) {
+			if (j == targetVidsPos.at(i)) {
+				continue;
+			}
+			bool disjoint = true;
+			collapsableThreeLink l2 = threeLinks.at(j);
+			for (auto id: l.target) {
+				// if (std::find(l2.target.begin(), l2.target.end(), id) != l2.target.end()) {
+				// 	disjoint = false;
+				// 	break;
+				// }
+				// if (!disjoint) {
+				// 	break;
+				// }
+				for (auto vec: l2.collapse) {
+					if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+						disjoint = false;
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+			}
+			for (auto vec: l.collapse) {
+				// for (auto id: l2.target) {
+				// 	if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+				// 		disjoint = false;
+				// 		break;
+				// 	}
+				// }
+				// if (!disjoint) {
+				// 	break;
+				// }
+				for (auto vec2: l2.collapse) {
+					for (auto id: vec2) {
+						if (std::find(vec.begin(), vec.end(), id) != vec.end()) {
+							disjoint = false;
+							break;
+						}
+					}
+					if (!disjoint) {
+						break;
+					}
+				}
+				if (!disjoint) {
+					break;
+				}
+			}
+			if (!disjoint) {
+				auto it = std::find(targetVidsPos.begin(), targetVidsPos.end(), j);
+                if (it != targetVidsPos.end()) {
+                    targetVidsPos.at(std::distance(targetVidsPos.begin(), it)) = -1;
+                }
+			}
+		}
+	}
+	// std::cout << "FINAL THREE LINKS: " << finalThreeLinks.size() << std::endl;
+	for (auto l: finalThreeLinks) {
+		for (int i = 0; i < l.target.size(); i++) {
+			auto& v = mesh.V.at(l.target.at(i));
+			canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+			collapse_vids_with_feature_preserved(l.collapse.at(i), l.target.at(i));
+		}
+	}
+}
+
 void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify) {
 	size_t id = 0;
 	if (looseSimplify) {
@@ -1643,6 +1985,7 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 	}
 	struct collapsableThreeLink {
 		std::vector<size_t> target;
+		std::vector<size_t> link;
 		std::vector<std::vector<size_t>> collapse;
 	};
 	std::vector<collapsableThreeLink> threeLinks;
@@ -1675,12 +2018,22 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 			}
 			if (condition) {
 				if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+					// for (auto vid : link) {
+					// 	auto& v = mesh.V.at(vid);
+					// 	canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+					// }
 					// collapse_with_feature_preserved(link, linkEids);
 					collapsableThreeLink l;
+					l.link = link;
 					for (size_t i = 0; i < linkEids.size(); ++i) {
 						auto vid = link[i];
 						auto eid = linkEids[i];
 						auto p = get_collapse_vids(vid, eid);
+						auto& v0 = mesh.V.at(p[0]);
+						auto& v1 = mesh.V.at(p[1]);
+						auto& v = mesh.V.at(vid);
+						if (v0.type == CORNER && v0.isBoundary) std::swap(p[0], vid);
+						else if (v1.type == CORNER && v1.isBoundary) std::swap(p[1], vid);
 						l.target.push_back(vid);
 						l.collapse.push_back(p);
 					// // 	collapse_vids_with_feature_preserved(p, vid);
@@ -1688,6 +2041,11 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 					auto vid = link.back();
 					auto eid = linkEids.back();
 					auto p = get_collapse_vids(vid, eid);
+					auto& v0 = mesh.V.at(p[0]);
+					auto& v1 = mesh.V.at(p[1]);
+					auto& v = mesh.V.at(vid);
+					if (v0.type == CORNER && v0.isBoundary) std::swap(p[0], vid);
+					else if (v1.type == CORNER && v1.isBoundary) std::swap(p[1], vid);
 					l.target.push_back(vid);
 					l.collapse.push_back(p);
 
@@ -1717,12 +2075,21 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 		}
 		ranks.push_back(rank);
 	}
+	// std::cout << "RANKS: " << ranks.size() << std::endl;
 	std::vector<size_t> targetVidsPos;
+	// std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+    // double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
 	for (int i = 0; i < ranks.size(); i++) {
-        std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
-        targetVidsPos.push_back((size_t) std::distance(ranks.begin(), max_index));
-        *max_index = -1;
+        std::vector<double>::iterator index = std::max_element(ranks.begin(), ranks.end());
+        // std::vector<double>::iterator index = std::min_element(ranks.begin(), ranks.end());
+        targetVidsPos.push_back((size_t) std::distance(ranks.begin(), index));
+        // targetVidsPos.push_back(i);
+        *index = -1;
+        // *index = max_rank;
+		// ranks.erase(index);
+		// i = 0;
     }
+	// std::cout << "TARGET VIDS POS: " << targetVidsPos.size() << std::endl;
 	std::vector<collapsableThreeLink> finalThreeLinks;
 	for (int i = 0; i < targetVidsPos.size(); i++) {
 		if (targetVidsPos.at(i) == -1) {
@@ -1787,11 +2154,19 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 			}
 		}
 	}
+	// std::cout << "FINAL THREE LINKS: " << finalThreeLinks.size() << std::endl;
 	for (auto l: finalThreeLinks) {
-		for (int i = 0; i < l.target.size(); i++) {
-			auto& v = mesh.V.at(l.target.at(i));
+		for (auto vid : l.link) {
+			auto& v = mesh.V.at(vid);
 			canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
-			collapse_vids_with_feature_preserved(l.collapse.at(i), l.target.at(i));
+		}
+		for (int i = 0; i < l.target.size(); i++) {
+			// auto& v = mesh.V.at(l.target.at(i));
+			// canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+			for (auto vid: l.collapse.at(i)) {
+				Collapse(vid, l.target.at(i));
+			}
+			// collapse_vids_with_feature_preserved(l.collapse.at(i), l.target.at(i));
 		}
 	}
 	// std::cout << finalThreeLinks.size() << std::endl;
@@ -2160,10 +2535,17 @@ void Simplifier::half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set
 		ranks.push_back(rank);
 	}
 	std::vector<size_t> targetVidsPos;
+	// std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+    // double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
 	for (int i = 0; i < ranks.size(); i++) {
-        std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
-        targetVidsPos.push_back((size_t) std::distance(ranks.begin(), max_index));
-        *max_index = -1;
+        std::vector<double>::iterator index = std::max_element(ranks.begin(), ranks.end());
+        // std::vector<double>::iterator index = std::min_element(ranks.begin(), ranks.end());
+        targetVidsPos.push_back((size_t) std::distance(ranks.begin(), index));
+        // targetVidsPos.push_back(i);
+        *index = -1;
+        // *index = max_rank;
+		// ranks.erase(ranks.begin() + (size_t) std::distance(ranks.begin(), index));
+		// i = 0;
     }
 	std::vector<collapsableHalfSeparatrix> finalHalfSeparatrices;
 	for (int i = 0; i < targetVidsPos.size(); i++) {
@@ -3627,7 +4009,7 @@ void Simplifier::collapse_diagnal(std::set<size_t>& canceledFids) {
 
 void Simplifier::init() {
 	mesh.CompressWithFeaturePreserved();
-	mesh.RemoveUselessVertices();
+	// mesh.RemoveUselessVertices();
 	mesh.BuildAllConnectivities();
 	mesh.ExtractBoundary();
 	mesh.ExtractSingularities();

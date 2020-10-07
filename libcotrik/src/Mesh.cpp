@@ -3223,6 +3223,13 @@ void Mesh::ExtractBoundary() {
 //        }
         for (size_t i = 0; i < F.size(); i++)
             F[i].isBoundary = true;
+
+        std::vector<size_t> boundary;
+        for (auto&e : E) {
+            if (e.isBoundary) {
+                boundary.push_back(e.id);
+            }
+        }
         return;
     }
 

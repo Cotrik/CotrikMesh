@@ -152,7 +152,7 @@ void Patches::ExtractSharpEdges() {
 			auto& f0 = mesh.F.at(fid0);
 			auto& f1 = mesh.F.at(fid1);
 			auto cos_angle = mesh.GetCosAngle(e, f0, f1);
-			if (cos_angle < 0.5 /*mesh.cos_angle_threshold*/) {
+			if (fabs(cos_angle) < 0.5 /*mesh.cos_angle_threshold*/) {
 				e.isSharpFeature = true;
 				mesh.V.at(e.Vids[0]).type = FEATURE;
 				mesh.V.at(e.Vids[1]).type = FEATURE;
