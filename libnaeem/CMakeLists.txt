@@ -30,5 +30,7 @@ set(ALL_LIBS
 add_library(naeem SHARED STATIC 
     src/AngleBasedSmoothQuadMesh.h
     src/AngleBasedSmoothQuadMesh.cpp
+    src/LocalSimplifier.h
+    src/LocalSimplifier.cpp
 )
 target_link_libraries(naeem cotrik ${ALL_LIBS})

@@ -4021,6 +4021,7 @@ void Simplifier::init() {
         if (v.isCorner) {
             v.type = CORNER;
         }
+
 }
 
 bool Simplifier::hasSingularities() const {

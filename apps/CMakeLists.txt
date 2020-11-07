@@ -111,6 +111,7 @@ foreach(app
 	QuadMeshLocalSimplify2
 	QuadMeshLocalSimplify3
 	QuadPatchSimplify
+    QuadPatchLocalSimplify
 	QuadPatchSimplify_refine
 	ClosedQuadMeshSimplify
     Vol2Vtk
