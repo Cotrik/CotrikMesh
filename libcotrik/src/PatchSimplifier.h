@@ -21,6 +21,7 @@ public:
 	bool HalfSeparatrixCollapseSimplify(int& iter);
 	bool EdgeRotateSimplify(int& iter);
 	bool CheckCorners();
+	void smoothMesh(int iters_, bool global);
 //	SmoothAlgorithm* smoothing_algorithm;
 };
 

@@ -21,15 +21,18 @@ PatchSimplifier::~PatchSimplifier() {
 void PatchSimplifier::Run() {
     // init();
     // get_feature();
+    // std::cout << "smoothed" << std::endl;
+    // return;
     auto maxValence_copy = Simplifier::maxValence;
     if (maxValence_copy > 5) Simplifier::maxValence = 5;
     int iter = 0;
     while (Simplifier::maxValence <= maxValence_copy) {
         while (iters-- > 0) {
-            if (!SimplifyCollective(iter)) break;
-            // if (!Simplify(iter)) break;
+            // if (!SimplifyCollective(iter)) break;
+            if (!Simplify(iter)) break;
         }
         ++Simplifier::maxValence;
+        // break;
     }
 }
 
@@ -449,9 +452,11 @@ bool PatchSimplifier::EdgeRotateSimplify(int& iter) {
 bool PatchSimplifier::Simplify(int& iter) {
     std::set<size_t> canceledFids;
     init();
+    // smoothMesh(1000, false); 
     if (iter == 0 && featurePreserved) get_feature();
     if (iter == 0)
     {
+        // smoothMesh(1000, true);
         auto eids = get_rotate_eids();
         MeshFileWriter writer(mesh, "rotate_eids.vtk");
         writer.WriteEdgesVtk(eids);
@@ -485,36 +490,36 @@ bool PatchSimplifier::Simplify(int& iter) {
         if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
     }
     // Step 2 -- doublet splitting
-    /*if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
+    if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
         SheetSplitSimplifier sheetSplitSimplifier(mesh);
         sheetSplitSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "remove_doublet from sheetSplitSimplifier" << std::endl;
-    }*/
+    }
     // Step -- triplet splitting (optional)
-    /*if (canceledFids.empty() && Simplifier::TRIP) {
+    if (canceledFids.empty() && Simplifier::TRIP) {
         TriangleSimplifier triangleSimplifier(mesh);
         triangleSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
-    }*/
+    }
     // Step 3 -- edge rotation
     if (canceledFids.empty() && Simplifier::ROTATE) {
         EdgeRotateSimplifier edgeRotateSimplifier(mesh);
         edgeRotateSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
     }
-    /*static bool aligned = false;
+    static bool aligned = false;
     if (canceledFids.empty() && !aligned) {
         aligned = true;
         std::cout << "writing rotate.vtk " << std::endl;
         MeshFileWriter writer(mesh, "rotate.vtk");
         writer.WriteFile();
-    }*/
+    }
     // Step 4 -- singlet collapsing
-    /*if (canceledFids.empty()) {
+    if (canceledFids.empty()) {
         DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
         diagnalCollapseSimplifier.Run3(canceledFids);
         if (!canceledFids.empty()) std::cout << "singlet collapsing" << std::endl;
-    }*/
+    }
     // Step 5 -- <separatrix splitting> and <separatrix splitting (optional)>
     if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
         BaseComplexQuad baseComplex(mesh);
@@ -552,11 +557,11 @@ bool PatchSimplifier::Simplify(int& iter) {
         if (!canceledFids.empty()) std::cout << "half_simplify\n";
     }
     // Step 8 -- diagonal collapsing
-    /*if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
+    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
         DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
         diagnalCollapseSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
-    }*/
+    }
 
 //    if (canceledFids.empty() && Simplifier::TRIP) {
 //        TriangleSimplifier triangleSimplifier(mesh);
@@ -582,7 +587,19 @@ bool PatchSimplifier::Simplify(int& iter) {
         update(canceledFids);
         return false;
     }
+    for (auto fid: canceledFids) {
+        Face& f = mesh.F.at(fid);
+        for (auto vid: f.Vids) {
+            Vertex& f_v = mesh.V.at(vid);
+            f_v.smoothLocal = true;
+            for (auto n_vid: f_v.N_Vids) {
+                mesh.V.at(n_vid).smoothLocal = true;
+            }
+        }
+    }
     update(canceledFids);
+    // init();
+    // return false;
     // init();
     // std::cout << mesh.V.size() << " " << mesh.E.size() << " " << mesh.F.size() << " " << mesh.C.size() << std::endl;
     // if (smoothing_algorithm->isMeshNonManifold()) {
@@ -797,4 +814,48 @@ bool PatchSimplifier::CheckCorners() {
         if (v.isCorner && v.N_Fids.size() < v.idealValence)
             return false;
     return true;
+}
+
+void PatchSimplifier::smoothMesh(int iters_, bool global) {
+    // mesh.SetOneRingNeighborhood();
+    int it = 0;
+    while (it < iters_) {
+        // std::cout << "it: " << it << std::endl;
+        std::vector<glm::dvec3> new_coords(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
+        int v_pos = 0;
+        for (auto& v: mesh.V) {
+            if (v.isBoundary) {
+                v_pos++;
+                continue;
+            }
+            if (!global && !v.smoothLocal) {
+                v_pos++;
+                continue;
+            }
+            for (auto vid: v.N_Vids) {
+                Vertex& v_prime = mesh.V.at(vid);
+                glm::dvec3 direction(v_prime.x - v.x, v_prime.y - v.y, v_prime.z - v.z);
+                // new_coords.at(v_pos) += glm::dvec3(v_prime.x, v_prime.y, v_prime.z);
+                new_coords.at(v_pos) += direction;
+            }
+            new_coords.at(v_pos).x = (new_coords.at(v_pos).x / (v.N_Vids.size()));
+            new_coords.at(v_pos).y = (new_coords.at(v_pos).y / (v.N_Vids.size()));
+            v_pos++;
+        }
+        v_pos = 0;
+        for (auto& v: mesh.V) {
+            if (v.isBoundary) {
+                v_pos++;
+                continue;
+            }
+            if (!global && !v.smoothLocal) {
+                v_pos++;
+                continue;
+            }
+            v.x += (new_coords.at(v_pos).x);
+            v.y += (new_coords.at(v_pos).y);
+            v_pos++;
+        }
+        it++;
+    }
 }

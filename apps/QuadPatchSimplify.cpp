@@ -45,6 +45,7 @@ int main(int argc, char* argv[]) {
 		writer.WriteVertexFeatureVtk();
 	}
 	simplifier.init();
+    simplifier.smoothMesh(1000, true);
 
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Simplification time: " << duration << " seconds" << std::endl;
