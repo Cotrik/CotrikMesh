@@ -1137,7 +1137,12 @@ void Simplifier::update(std::set<size_t>& canceledFids) {
 		newv.labels = v.labels;
 		newv.patch_ids = v.patch_ids;
 		newv.idealValence = v.idealValence;
+		newv.prescribed_length = v.prescribed_length;
+		newv.smoothLocal = v.smoothLocal;
+		// std::cout << v.smoothLocal << " ";
+		// std::cout << newv.prescribed_length << " ";
 	}
+	// std::cout << "END" << std::endl;
 //	for (size_t i = 0; i < FaceIds.size(); ++i) {
 //		newF.at(i).id = i;
 //		newF.at(i).Vids = mesh.F.at(FaceIds[i]).Vids;

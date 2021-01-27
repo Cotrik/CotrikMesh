@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
 
     MeshFileReader reader(input.c_str());
     Mesh& mesh = (Mesh&) reader.GetMesh();
+    mesh.RemoveUselessVertices();
     LocalSimplifier simplifier(mesh);
     setup(argumentManager, simplifier);
     simplifier.Simplify();

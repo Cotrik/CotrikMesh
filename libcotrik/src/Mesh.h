@@ -221,6 +221,9 @@ public:
 	size_t idealValence = 0;
     std::vector<size_t> twoRingNeighborSurfaceFaceIds; // for surface projecting;
     std::vector<size_t> oneRingNeighborVertices; // for 2D surface smoothing
+
+    double prescribed_length;
+    bool smoothLocal;
 };
 
 class Edge : public GeoInfo, public NeighborInfo

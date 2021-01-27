@@ -333,7 +333,27 @@ void SmoothAlgorithm::resampleBoundaryVertices1() {
     }
     for (int i = 0; i < mesh.V.size(); i++) {
         Vertex& v = mesh.V.at(i);
-        if (v.isBoundary) {
+        if (v.isBoundary && !v.isCorner) {
+            // std::vector<size_t> n_bvs;
+            // if (v.N_Vids.size() > 2) {
+            //     for (auto vid: v.N_Vids) {
+            //         if (mesh.V.at(vid).isBoundary) {
+            //             n_bvs.push_back(vid);
+            //         }
+            //     }
+            //     Vertex& n_bv1 = mesh.V.at(n_bvs.at(0));
+            //     Vertex& n_bv2 = mesh.V.at(n_bvs.at(1));
+            //     glm::dvec3 v_bv1(v.x - n_bv1.x, v.y - n_bv1.y, v.z - n_bv1.z);
+            //     glm::dvec3 v_bv2(v.x - n_bv2.x, v.y - n_bv2.y, v.z - n_bv2.z);
+
+            //     double angle = (atan2(glm::cross(v_bv1, v_bv2).z, glm::dot(v_bv1, v_bv2))) * 180 / PI;
+            //     if (angle < 0) {
+            //         angle += 360;
+            //     }
+            //     if (fabs(angle - 180) > 25) {
+            //         continue;
+            //     }
+            // }
             if (!v.isMovable) {
                 delta_coords.at(i).x = v.x;
                 delta_coords.at(i).y = v.y;
@@ -864,8 +884,8 @@ void SmoothAlgorithm::smoothMesh() {
             delta_coords.clear();
             delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
             double currentE = getMeshEnergy(false);
-            // angleBasedSmoothing();
-            SmoothAngleBased();
+            angleBasedSmoothing();
+            // SmoothAngleBased();
             // smoothLaplacianCotangentBased();
             // resampleBoundaryVertices();
             for (int i = 0; i < mesh.V.size(); i++) {
@@ -879,7 +899,7 @@ void SmoothAlgorithm::smoothMesh() {
                 delta_coords.at(i) = temp_coord;
             }
             double newE = getMeshEnergy(false);
-            // std::cout << "it1: " << it << " oldE: " << currentE << " newE: " << newE << std::endl;
+            std::cout << "it1: " << it << " oldE: " << currentE << " newE: " << newE << std::endl;
             if (currentE - newE < tau) {
                 for (int i = 0; i < mesh.V.size(); i++) {
                     Vertex& v = mesh.V.at(i);
@@ -892,7 +912,7 @@ void SmoothAlgorithm::smoothMesh() {
                 break;                
             }
             int it2 = 0;
-            /*while (it2 < iters) {
+            while (it2 < iters) {
                 delta_coords.clear();
                 delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
                 currentE = getMeshEnergy(true);
@@ -901,7 +921,7 @@ void SmoothAlgorithm::smoothMesh() {
                 // remapBoundaryVertices();
 		        for (int i = 0; i < mesh.V.size(); i++) {
                     Vertex& v = mesh.V.at(i);
-                    if (!v.isBoundary || !v.isMovable) {
+                    if (!v.isBoundary || !v.isMovable || v.isCorner) {
                         continue;
                     }
                     glm::dvec3 temp_coord(v.x , v.y , 0.0);
@@ -913,10 +933,10 @@ void SmoothAlgorithm::smoothMesh() {
                 double newE = getMeshEnergy(true);
                 // std::cout << "it2: " << it2 << " oldE: " << currentE << " newE: " << newE << std::endl;
                 if (currentE - newE < tau) {
-                    // remapBoundaryVertices();
+                    remapBoundaryVertices();
                     for (int i = 0; i < mesh.V.size(); i++) {
                         Vertex& v = mesh.V.at(i);
-                        if (!v.isBoundary || !v.isMovable) {
+                        if (!v.isBoundary || !v.isMovable || v.isCorner) {
                             continue;
                         }
                         v.x = delta_coords.at(i).x;
@@ -925,7 +945,7 @@ void SmoothAlgorithm::smoothMesh() {
                     break;
                 }
                 it2++;
-            }*/
+            }
             it++;
         }
         std::cout << "-------------------------" << std::endl;

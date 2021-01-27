@@ -1050,7 +1050,10 @@ void Mesh::CompressWithFeaturePreserved() {
 		newv.labels = v.labels;
 		newv.patch_ids = v.patch_ids;
 		newv.idealValence = v.idealValence;
+        newv.prescribed_length = v.prescribed_length;
+        // std::cout << newv.prescribed_length << " ";
     }
+    // std::cout << "END" << std::endl;
     V = newV;
     for (size_t i = 0; i < newV.size(); i++) {
         Vertex& v = V.at(i);
@@ -1065,7 +1068,10 @@ void Mesh::CompressWithFeaturePreserved() {
 		v.labels = newv.labels;
 		v.patch_ids = newv.patch_ids;
         v.idealValence = newv.idealValence;
+        v.prescribed_length = newv.prescribed_length;
+        // std::cout << v.prescribed_length << " ";
     }
+    // std::cout << "END" << std::endl;
     m_refIds = v_real_index;
     //////////////////////////////////////////////////////
     std::map<size_t, size_t> v_v;
