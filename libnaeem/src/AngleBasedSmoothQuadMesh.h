@@ -18,13 +18,15 @@ private:
     double boundaryE = 0.0;
 
 public:
-    SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double l_r);
+    SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double l_r, bool global_, bool boundary_smoothing);
     ~SmoothAlgorithm();
 
     std::vector<Vertex> original_vertices;
     std::vector<Vertex> input_vertices;
     std::vector<std::vector<int>> input_boundary; 
     std::vector<std::vector<int>> original_boundary; 
+    bool global;
+    bool boundarySmoothing;
 
     void setOriginalVertices();
     double getMinEdgeLength();

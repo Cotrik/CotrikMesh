@@ -8,6 +8,7 @@
 #include "Simplifier.h"
 #include "PatchSimplifier.h"
 #include "ArgumentManager.h"
+#include "AngleBasedSmoothQuadMesh.h"
 #include <ctime>
 
 void setup(ArgumentManager& argumentManager, Simplifier& s);
@@ -45,18 +46,30 @@ int main(int argc, char* argv[]) {
 		writer.WriteVertexFeatureVtk();
 	}
 	simplifier.init();
-    simplifier.smoothMesh(1000, true);
 
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Simplification time: " << duration << " seconds" << std::endl;
-	// simplifier.smooth_project();
-	// {
+    // mesh.smoothGlobal = true;
+    // while (simplifier.findCrossQuads()) {
+    //     simplifier.smooth_project(2);
+    // }
+	simplifier.smooth_project();
+	{
+        // simplifier.RefineMesh();
+        // SmoothAlgorithm smoothAlgo(mesh, simplifier.origMesh, 1000, 1, true, true);
+        // smoothAlgo.smoothMesh();
+
 		MeshFileWriter writer(mesh, output.c_str());
 		writer.WriteFile();
+        for (auto& f: mesh.F) {
+            if (f.Vids.size() < 4) {
+                std::cout << "Face " << f.id << " has less than 4 vertices" << std::endl;
+            }
+        }
 		std::cout << "V = " << mesh.V.size() << std::endl;
 		std::cout << "E = " << mesh.E.size() << std::endl;
 		std::cout << "F = " << mesh.F.size() << std::endl;
-	// }
+	}
     return 0;
 }
 
@@ -107,3 +120,8 @@ void setup(ArgumentManager& argumentManager, Simplifier& s) {
     std::cout << "writeFile = " << Simplifier::writeFile << std::endl;
     std::cout << "---------------------------------------" << std::endl;
 }
+
+
+// TO DO:
+// Fix 5 5 split
+// 3 5 chord collapsing

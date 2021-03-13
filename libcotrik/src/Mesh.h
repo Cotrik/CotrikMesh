@@ -625,6 +625,7 @@ public:
 
     bool hasBoundary = false;
     bool isManifold = true;
+    bool smoothGlobal = true;
 };
 
 #endif /* MESH_H_ */

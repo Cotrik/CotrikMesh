@@ -43,7 +43,7 @@ void DoubletSimplifier::Run(std::set<size_t>& canceledFids) {
         canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
         return;
     }
-    return;
+
     for (auto& v : mesh.V) {
         if (v.N_Fids.size() != 1 || !v.isBoundary) continue;
         auto& v0 = mesh.V.at(v.N_Vids[0]);

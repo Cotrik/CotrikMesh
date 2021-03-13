@@ -38,6 +38,7 @@ public:
     std::set<size_t> GetRotateFids();
     void Rotate(std::set<size_t>& canceledFids);
     void Rotate(const Edge& e, const Vertex& v, std::set<size_t>& canceledFids);
+    void reduceValence(const Vertex& v, std::set<size_t>& canceledFids);
 };
 
 #endif /* LIBCOTRIK_SRC_EDGE_ROTATE_SIMPLIFIER_H_ */

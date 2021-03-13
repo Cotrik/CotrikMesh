@@ -2,7 +2,7 @@
 #define PATCH_SIMPLIFIER_H
 
 #include "Simplifier.h"
-//#include "AngleBasedSmoothQuadMesh.h"
+// #include "AngleBasedSmoothQuadMesh.h"
 class PatchSimplifier : public Simplifier {
 public:
 	PatchSimplifier(Mesh& mesh);
@@ -22,7 +22,12 @@ public:
 	bool EdgeRotateSimplify(int& iter);
 	bool CheckCorners();
 	void smoothMesh(int iters_, bool global);
-//	SmoothAlgorithm* smoothing_algorithm;
+	void RefineMesh();
+	int GetBoundaryEdges();
+	bool findCrossQuads();
+
+	int originalFaces = 0;
+	// SmoothAlgorithm* smoothing_algorithm;
 };
 
 #endif // !PATCH_SIMPLIFIER_H

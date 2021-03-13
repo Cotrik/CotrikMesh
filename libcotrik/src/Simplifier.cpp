@@ -232,9 +232,11 @@ bool Simplifier::can_collapse_with_feature_preserved(const BaseComplexSheetQuad&
 
 void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size_t>& key_edgeId, std::unordered_map<std::string, size_t>& key_faceId,
 	std::map<size_t, size_t>& canceledFaceIds, std::set<size_t>& canceledEdgeIds) {
-	for (auto& item : canceledFaceIds) {
+	/*for (auto& item : canceledFaceIds) {
 		if (item.second >= 4) {
+			// continue;
 			std::cout << "collapsing from canceled face ids" << std::endl;
+			// std::cout << "face id: " << item.first << " #second: " << item.second << std::endl; 
 			auto& f = mesh.F.at(item.first);
 			auto key = get_facekey(f);
 			auto centerVid = f.Vids.front();
@@ -267,12 +269,12 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 			for (auto eid : f.Eids)
 				if (canceledEdgeIds.find(eid) != canceledEdgeIds.end()) canceledEdgeIds.erase(eid);
 		}
-	}
-
+	}*/
 	for (auto edgeId : canceledEdgeIds) {
 		auto& e = mesh.E[edgeId];
 		auto& v0 = mesh.V[e.Vids[0]];
 		auto& v1 = mesh.V[e.Vids[1]];
+		// std::cout << "edge " << e.id << ": " << v0.id << " " << v1.id << std::endl; 
 		auto key = (e.Vids[0] << 32) | e.Vids[1];
 		if (key_edgeId.find(key) == key_edgeId.end()) std::cout << "Edge search Error !" << std::endl;
 		//auto centerVid = mesh.V.size() + key_edgeId[key];
@@ -295,11 +297,33 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 		}
 		for (auto vid : e.Vids) {
 			auto& v = mesh.V.at(vid);
+			
+			if (vid != centerVid) {
+				auto& centerV = mesh.V.at(centerVid);
+				std::set<size_t> newE;
+				std::set<size_t> newF;
+				newE.insert(centerV.N_Eids.begin(), centerV.N_Eids.end());
+				newE.insert(v.N_Eids.begin(), v.N_Eids.end());
+				newF.insert(centerV.N_Fids.begin(), centerV.N_Fids.end());
+				newF.insert(v.N_Fids.begin(), v.N_Fids.end());
+
+				centerV.N_Eids.clear();
+				centerV.N_Fids.clear();
+				centerV.N_Eids.insert(centerV.N_Eids.begin(), newE.begin(), newE.end());
+				centerV.N_Fids.insert(centerV.N_Fids.begin(), newF.begin(), newF.end());
+			}
+
 			for (auto n_fid : v.N_Fids) {
 				auto& n_f = mesh.F.at(n_fid);
 				for (auto& n_vid : n_f.Vids)
 					if (n_vid == vid) n_vid = centerVid;
 			}
+			for (auto n_eid: v.N_Eids) {
+				auto& n_e = mesh.E.at(n_eid);
+				for (auto& n_vid: n_e.Vids)
+					if (n_vid == vid) n_vid = centerVid;
+			}
+			
 		}
 		if (collapseToMidPoint) {
 			mesh.V.at(centerVid).x = (v1.x + v0.x) / 2;
@@ -1527,6 +1551,7 @@ void Simplifier::strict_simplify(BaseComplexQuad& baseComplex, std::set<size_t>&
 					++id;
 					continue;
 				}
+				std::cout << "STRICT SPLIT OPERATION" << std::endl;
 				for (auto vid : link) {
 					auto& v = mesh.V.at(vid);
 					canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
@@ -1631,6 +1656,7 @@ void Simplifier::loose_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& 
 			bool condition = false;
 			if (mesh.V.at(v_front_fvid).N_Fids.size() < Simplifier::maxValence && mesh.V.at(v_back_fvid).N_Fids.size() < Simplifier::maxValence) {
 				if (split_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
+				std::cout << "LOOSE SPLIT OPERATION" << std::endl;
 					for (auto vid : link) {
 						auto& v = mesh.V.at(vid);
 						canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
@@ -2626,8 +2652,6 @@ void Simplifier::half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set
 }
 
 void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {
-	std::vector<size_t> indices;
-	size_t numElements = 0;
     size_t id = -1;
     for (auto link : baseComplex.separatedVertexIdsLink) {
         const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(++id);
@@ -2645,10 +2669,6 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
                 }
             }
             if (!onthesameline) continue;
-			// indices.push_back(v_front.id);
-			// indices.push_back(v_back.id);
-			// numElements += 1;
-			// continue;
             auto v_front_fid = get_faceid(v_front.id, link[1]);
             auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fid);
             auto& v_front_fv = mesh.V.at(v_front_fvid);
@@ -2679,10 +2699,6 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
                 }
             }
             if (!onthesameline) continue;
-			// indices.push_back(v_front.id);
-			// indices.push_back(v_back.id);
-			// numElements += 1;
-			// continue;
             auto v_front_fid = get_faceid(v_back.id, link[1]);
             auto v_front_fvid = get_diagnal_vid(v_back.id, v_front_fid);
             auto& v_front_fv = mesh.V.at(v_front_fvid);
@@ -2703,26 +2719,106 @@ void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& c
             }
         }
     }
-	/*std::ofstream ofs("half_separatrix_connections.vtk");
-    ofs << "# vtk DataFile Version 3.0\n"
-        << "output.vtk\n"
-        << "ASCII\n\n"
-        << "DATASET UNSTRUCTURED_GRID\n";
-    ofs << "POINTS " << mesh.V.size() << " double\n";
-    
-    for (size_t i = 0; i < mesh.V.size(); i++) {
-        ofs << mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
-    }
-    ofs << "CELLS " << numElements << " " << 3 * numElements << std::endl;
-    for (size_t i = 0; i < indices.size(); i+=2) {
-        ofs << "2 " << indices.at(i) << " " << indices.at(i+1) << std::endl;
-    }
-    ofs << "CELL_TYPES " << numElements << "\n";
-    for (size_t i = 0; i < numElements; i++) {
-        ofs << "3" << std::endl;
-    }
-	return;*/
 }
+
+// void Simplifier::half_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {
+// 	std::vector<size_t> indices;
+// 	size_t numElements = 0;
+//     size_t id = -1;
+//     for (auto link : baseComplex.separatedVertexIdsLink) {
+//         const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(++id);
+//         auto& v_front = mesh.V.at(link.front());
+//         auto& v_back = mesh.V.at(link.back());
+//         if (!(v_front.isBoundary ^ v_back.isBoundary)) continue;
+//         //if (v_front.isBoundary || !v_back.isBoundary) continue;
+//         if (v_front.N_Fids.size() == 3 && v_back.N_Fids.size() == 2) {
+//             bool onthesameline = true;
+//             for (auto nvid : v_back.N_Vids) {
+//                 auto& nv = mesh.V.at(nvid);
+//                 if (nv.type == CORNER) {
+//                     onthesameline = false;
+//                     break;
+//                 }
+//             }
+//             if (!onthesameline) continue;
+// 			// indices.push_back(v_front.id);
+// 			// indices.push_back(v_back.id);
+// 			// numElements += 1;
+// 			// continue;
+//             auto v_front_fid = get_faceid(v_front.id, link[1]);
+//             auto v_front_fvid = get_diagnal_vid(v_front.id, v_front_fid);
+//             auto& v_front_fv = mesh.V.at(v_front_fvid);
+//             //if (v_front_fv.isBoundary/* && v_front_fv.N_Fids.size() <= v_front_fv.idealValence*/) continue;
+//             if (v_front_fvid >= mesh.V.size()) {
+//                 MeshFileWriter writer(mesh, "error.vtk");
+//                 writer.WriteFile();
+//             }
+//             if (v_front_fv.N_Fids.size() >= Simplifier::minValence + 1) {
+//                 if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid)) {
+//                     for (auto vid : link) {
+//                         auto& v = mesh.V.at(vid);
+//                         canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+//                     }
+//                     collapse_with_feature_preserved(link, linkEids);
+//                     break;
+//                 }
+//             }
+//         }
+//         else if (!v_back.isBoundary && v_back.N_Fids.size() == 3 && v_front.isBoundary && v_front.N_Fids.size() == 2) {
+//             std::reverse(link.begin(), link.end());
+//             bool onthesameline = true;
+//             for (auto nvid : v_front.N_Vids) {
+//                 auto& nv = mesh.V.at(nvid);
+//                 if (nv.type == CORNER) {
+//                     onthesameline = false;
+//                     break;
+//                 }
+//             }
+//             if (!onthesameline) continue;
+// 			// indices.push_back(v_front.id);
+// 			// indices.push_back(v_back.id);
+// 			// numElements += 1;
+// 			// continue;
+//             auto v_front_fid = get_faceid(v_back.id, link[1]);
+//             auto v_front_fvid = get_diagnal_vid(v_back.id, v_front_fid);
+//             auto& v_front_fv = mesh.V.at(v_front_fvid);
+//             if (v_front_fv.isBoundary/* && v_front_fv.N_Fids.size() <= v_front_fv.idealValence*/) continue;
+//             if (v_front_fvid >= mesh.V.size()) {
+//                 MeshFileWriter writer(mesh, "error.vtk");
+//                 writer.WriteFile();
+//             }
+//             if (mesh.V.at(v_front_fvid).N_Fids.size() >= Simplifier::minValence + 1) {
+//                 if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid)) {
+//                     for (auto vid : link) {
+//                         auto& v = mesh.V.at(vid);
+//                         canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
+//                     }
+//                     collapse_with_feature_preserved(link, linkEids);
+//                     break;
+//                 }
+//             }
+//         }
+//     }
+// 	/*std::ofstream ofs("half_separatrix_connections.vtk");
+//     ofs << "# vtk DataFile Version 3.0\n"
+//         << "output.vtk\n"
+//         << "ASCII\n\n"
+//         << "DATASET UNSTRUCTURED_GRID\n";
+//     ofs << "POINTS " << mesh.V.size() << " double\n";
+    
+//     for (size_t i = 0; i < mesh.V.size(); i++) {
+//         ofs << mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+//     }
+//     ofs << "CELLS " << numElements << " " << 3 * numElements << std::endl;
+//     for (size_t i = 0; i < indices.size(); i+=2) {
+//         ofs << "2 " << indices.at(i) << " " << indices.at(i+1) << std::endl;
+//     }
+//     ofs << "CELL_TYPES " << numElements << "\n";
+//     for (size_t i = 0; i < numElements; i++) {
+//         ofs << "3" << std::endl;
+//     }
+// 	return;*/
+// }
 
 void Simplifier::sheet_simplify(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids) {
 	size_t id = 0;
@@ -2814,6 +2910,11 @@ void Simplifier::smooth_project() {
 	std::map<size_t, std::set<size_t>> label_eids;
 	std::map<size_t, std::set<size_t>> sharpEdgeVid_NVids;
 	Vertex vertex;
+	// std::cout << "origMesh.V: " << origMesh.V.size() << std::endl;
+
+	std::vector<Vertex> centerVertices;
+	centerVertices.insert(centerVertices.begin(), origMesh.V.begin(), origMesh.V.end());
+
 	for (auto& f : origMesh.F) {
 		glm::dvec3 center(0, 0, 0);
 		for (auto nvid : origMesh.F.at(f.id).Vids)
@@ -2822,7 +2923,8 @@ void Simplifier::smooth_project() {
 		vertex = center;
 		vertex.id = origMesh.V.size();
 		vertex.patch_id = f.label;
-		origMesh.V.push_back(vertex);
+		// origMesh.V.push_back(vertex);
+		centerVertices.push_back(vertex);
 		//origPatch_vids[vertex.patch_id].insert(vertex.id);
 	}
 	for (auto& e : origMesh.E) {
@@ -2840,16 +2942,18 @@ void Simplifier::smooth_project() {
 			vertex.label = origMesh.V.at(e.Vids[0]).label == MAXID ? origMesh.V.at(e.Vids[1]).label : origMesh.V.at(e.Vids[0]).label;
 			vertex.type = FEATURE;
 		}
-		origMesh.V.push_back(vertex);
+		// origMesh.V.push_back(vertex);
+		centerVertices.push_back(vertex);
 		//origPatch_vids[vertex.patch_id].insert(vertex.id);
 	}
-	for (auto& v : origMesh.V)
+	std::cout << "mesh: " << mesh.V.size() << std::endl;
+	for (auto& v : centerVertices)
 		if (v.label != MAXID) origLabel_vids[v.label].insert(v.id);
-	for (auto& v : origMesh.V) {
+	for (auto& v : centerVertices) {
 		if (v.label != MAXID) {
 			origLabel_vids[v.label].insert(v.id);
 			for (auto& nvid : v.N_Vids) {
-				auto& nv = origMesh.V.at(nvid);
+				auto& nv = centerVertices.at(nvid);
 				auto& lineVids = origLabel_vids[v.label];
 				if (nv.isCorner || lineVids.find(nvid) != lineVids.end()) origSharpEdgeVid_NVids[v.id].insert(nvid);
 			}
@@ -2857,6 +2961,8 @@ void Simplifier::smooth_project() {
 			origPatch_vids[v.patch_id].insert(v.id);
 		}
 	}
+	std::cout << "origPatch_vids: " << origPatch_vids[0].size() << std::endl;
+
 	for (auto& v : mesh.V)
 		if (v.label != MAXID) label_vids[v.label].insert(v.id);
 	for (auto& v : mesh.V) {
@@ -2875,6 +2981,7 @@ void Simplifier::smooth_project() {
 	int iter = 0;
 	while (iters--) {
 		std::cout << "smooth iter = " << iter++ << std::endl;
+		// std::cout << "sharpEdgeVid_NVids: " << sharpEdgeVid_NVids.size() << std::endl;
 		for (auto& item : sharpEdgeVid_NVids) {
 			auto& v = mesh.V.at(item.first);
 			if (v.isCorner) continue;
@@ -2886,15 +2993,16 @@ void Simplifier::smooth_project() {
 			size_t closest_origLineVid = *origLineVids.begin();
 			double closest_distance = 100000000.0;
 			for (auto vid : origLineVids) {
-				auto& origv = origMesh.V.at(vid);
+				auto& origv = centerVertices.at(vid);
 				auto distance = glm::length(origv.xyz() - center);
 				if (distance < closest_distance) {
 					closest_origLineVid = vid;
 					closest_distance = distance;
 				}
 			}
-			v = origMesh.V.at(closest_origLineVid).xyz();
+			v = centerVertices.at(closest_origLineVid).xyz();
 		}
+		// std::cout << "mesh.V: " << mesh.V.size() << std::endl;
 		for (auto& v : mesh.V) {
 			if (v.type >= FEATURE) continue;
 			glm::dvec3 center(0, 0, 0);
@@ -2907,26 +3015,29 @@ void Simplifier::smooth_project() {
 						center += 0.25 * mesh.V.at(nvid).xyz();
 			center /= v.N_Fids.size();
 			v = center;
-			// if (iters < 3) continue;
+			// // if (iters < 3) continue;
 
 			auto& patchVids = origPatch_vids[v.patch_id];
 			size_t closest_origVid = *patchVids.begin();
 			double closest_distance = 100000000.0;
+			int i = 0;
 			for (auto patchVid : patchVids) {
-				auto& origv = origMesh.V.at(patchVid);
+				auto& origv = centerVertices.at(patchVid);
 				auto distance = glm::length(origv.xyz() - center);
 				if (distance < closest_distance) {
 					closest_origVid = origv.id;
 					closest_distance = distance;
 				}
+				i += 1;
 			}
+			// std::cout << "num Patch Vids iterations: " << i << std::endl;
 
-			v = origMesh.V.at(closest_origVid).xyz();
+			v = centerVertices.at(closest_origVid).xyz();
 		}
 	}
 }
 
-static void refineVertexInFaces(Mesh& mesh, int resolution = 3) {
+static void refineVertexInFaces(Mesh& mesh, std::vector<Vertex>& refinedV, int resolution = 3) {
     Vertex vertex;
     for (auto& f : mesh.F) {
         for (double u = 0; u < resolution; ++u)
@@ -2934,22 +3045,26 @@ static void refineVertexInFaces(Mesh& mesh, int resolution = 3) {
                 auto base = 1.0 / (resolution + 1);
                 auto v01 = (1.0 + u) * base * mesh.V.at(f.Vids[0]).xyz() + (resolution - u) * base * mesh.V.at(f.Vids[1]).xyz();
                 auto v32 = (1.0 + u) * base * mesh.V.at(f.Vids[3]).xyz() + (resolution - u) * base * mesh.V.at(f.Vids[2]).xyz();
-                vertex = (1.0 + v) * base * v01 + (resolution - v) * base * v32;
-                vertex.id = mesh.V.size();
+                
+				vertex = (1.0 + v) * base * v01 + (resolution - v) * base * v32;
+                // vertex.id = mesh.V.size();
+                vertex.id = refinedV.size();
                 vertex.patch_id = f.label;
-                mesh.V.push_back(vertex);
+                // mesh.V.push_back(vertex);
+                refinedV.push_back(vertex);
             }
     }
 }
 
-static void refineVertexInEdges(Mesh& mesh, int resolution = 3) {
+static void refineVertexInEdges(Mesh& mesh, std::vector<Vertex>& refinedV, int resolution = 3) {
     auto& origMesh = mesh;
     Vertex vertex;
     for (auto& e : origMesh.E) {
         for (double u = 0; u < resolution; ++u) {
             auto base = 1.0 / (resolution + 1);
             vertex = (1.0 + u) * base * origMesh.V.at(e.Vids[0]).xyz() + (resolution - u) * base * origMesh.V.at(e.Vids[1]).xyz();
-            vertex.id = origMesh.V.size();
+            // vertex.id = origMesh.V.size();
+            vertex.id = refinedV.size();
 
             if (!e.isSharpFeature) {
                 vertex.patch_id = origMesh.V.at(e.Vids[0]).type == REGULAR ? origMesh.V.at(e.Vids[0]).patch_id : origMesh.V.at(e.Vids[1]).patch_id;
@@ -2960,7 +3075,8 @@ static void refineVertexInEdges(Mesh& mesh, int resolution = 3) {
                 else vertex.label = origMesh.V.at(e.Vids[0]).isCorner ? origMesh.V.at(e.Vids[1]).label : origMesh.V.at(e.Vids[0]).label;
                 vertex.type = FEATURE;
             }
-            origMesh.V.push_back(vertex);
+            // origMesh.V.push_back(vertex);
+            refinedV.push_back(vertex);
         }
     }
 }
@@ -3023,12 +3139,15 @@ void Simplifier::smooth_project(int resolution) {
 //        MeshFileWriter writer(origMesh, "Orig.vtk");
 //        writer.WriteVertexFeatureVtk();
 //	}
-	refineVertexInFaces(origMesh, resolution);
-	refineVertexInEdges(origMesh, resolution);
+	std::vector<Vertex> refinedV;
+	refinedV.insert(refinedV.begin(), origMesh.V.begin(), origMesh.V.end());
+	refineVertexInFaces(origMesh, refinedV, resolution);
+	refineVertexInEdges(origMesh, refinedV, resolution);
 //	{
 //        MeshFileWriter writer(origMesh, "Refine.vtk");
 //        writer.WriteVertexFeatureVtk();
 //	}
+
     std::map<size_t, std::set<size_t>> origLabel_vids;
     std::map<size_t, std::set<size_t>> origPatch_vids;
     std::map<size_t, std::set<size_t>> origLabel_eids;
@@ -3037,13 +3156,16 @@ void Simplifier::smooth_project(int resolution) {
     std::map<size_t, std::set<size_t>> label_vids;
     std::map<size_t, std::set<size_t>> label_eids;
     std::map<size_t, std::set<size_t>> sharpEdgeVid_NVids;
-	for (auto& v : origMesh.V)
+	// for (auto& v : origMesh.V)
+	for (auto& v : refinedV)
 		if (v.label != MAXID) origLabel_vids[v.label].insert(v.id);
-	for (auto& v : origMesh.V) {
+	// for (auto& v : origMesh.V) {
+	for (auto& v : refinedV) {
 		if (v.label != MAXID) {
 			origLabel_vids[v.label].insert(v.id);
 			for (auto& nvid : v.N_Vids) {
-				auto& nv = origMesh.V.at(nvid);
+				// auto& nv = origMesh.V.at(nvid);
+				auto& nv = refinedV.at(nvid);
 				auto& lineVids = origLabel_vids[v.label];
 				if (nv.isCorner || lineVids.find(nvid) != lineVids.end()) origSharpEdgeVid_NVids[v.id].insert(nvid);
 			}
@@ -3071,6 +3193,7 @@ void Simplifier::smooth_project(int resolution) {
 		std::cout << "smooth iter = " << iter++ << std::endl;
 		for (auto& item : sharpEdgeVid_NVids) {
 			auto& v = mesh.V.at(item.first);
+			// if (!mesh.smoothGlobal && !v.smoothLocal) continue;
 			if (v.type != FEATURE/*v.isCorner*/) continue;
 			glm::dvec3 center(0, 0, 0);
 			for (auto nvid : item.second)
@@ -3081,18 +3204,21 @@ void Simplifier::smooth_project(int resolution) {
 			//std::cout << "closest_origLineVid = " << closest_origLineVid << std::endl;
 			double closest_distance = 100000000.0;
 			for (auto vid : origLineVids) {
-				auto& origv = origMesh.V.at(vid);
+				// auto& origv = origMesh.V.at(vid);
+				auto& origv = refinedV.at(vid);
 				auto distance = glm::length(origv.xyz() - center);
 				if (distance < closest_distance) {
 					closest_origLineVid = vid;
 					closest_distance = distance;
 				}
 			}
-			v = origMesh.V.at(closest_origLineVid).xyz();
+			// v = origMesh.V.at(closest_origLineVid).xyz();
+			v = refinedV.at(closest_origLineVid).xyz();
             //std::cout << "closest_origLineVid = " << closest_origLineVid << std::endl;
             //std::cout << "----------------------------" << std::endl;
 		}
 		for (auto& v : mesh.V) {
+			if (!mesh.smoothGlobal && !v.smoothLocal) continue;
 			if (v.type >= FEATURE) continue;
 			glm::dvec3 center(0, 0, 0);
 //			if (iters > 10 || iters < 10)
@@ -3114,7 +3240,8 @@ void Simplifier::smooth_project(int resolution) {
 			size_t closest_origVid = *patchVids.begin();
 			double closest_distance = 100000000.0;
 			for (auto patchVid : patchVids) {
-				auto& origv = origMesh.V.at(patchVid);
+				// auto& origv = origMesh.V.at(patchVid);
+				auto& origv = refinedV.at(patchVid);
 				auto distance = glm::length(origv.xyz() - center);
 				if (distance < closest_distance) {
 					closest_origVid = origv.id;
@@ -3122,13 +3249,16 @@ void Simplifier::smooth_project(int resolution) {
 				}
 			}
 
-			v = origMesh.V.at(closest_origVid).xyz();
+			// v = origMesh.V.at(closest_origVid).xyz();
+			v = refinedV.at(closest_origVid).xyz();
 		}
 	}
 }
 void Simplifier::smooth_project1(int resolution) {
-    refineVertexInFaces(origMesh, resolution);
-    refineVertexInEdges(origMesh, resolution);
+    std::vector<Vertex> refinedV;
+	refinedV.insert(refinedV.begin(), origMesh.V.begin(), origMesh.V.end());
+	refineVertexInFaces(origMesh, refinedV, resolution);
+	refineVertexInEdges(origMesh, refinedV, resolution);
 
     std::map<size_t, std::set<size_t>> origLabel_vids;
     std::map<size_t, std::set<size_t>> origPatch_vids;

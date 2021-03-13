@@ -36,10 +36,91 @@ void SingleSheetSimplifier::Run(std::set<size_t>& canceledFids) {
             if (!CanCollapseWithFeaturePreserved(baseComplexSheets, canceledFaceIds)) continue;
             if (!can_collapse_vids_with_feature_preserved(canceledEdgeIds)) continue;
             {
-                std::cout << "collapse sheet edge " << e.id << "(" << v0.id << "," << v1.id << ")" << "\n";
+                // std::cout << "collapse sheet edge " << e.id << "(" << v0.id << "," << v1.id << ")" << "\n";
+                // std::cout << "chord edges " << linkEids.size() << "\n";
+                
+                // std::ofstream ofs("chord_canceledFaces.vtk");
+                // ofs << "# vtk DataFile Version 3.0\n"
+                //     << "cross_quads.vtk\n"
+                //     << "ASCII\n\n"
+                //     << "DATASET UNSTRUCTURED_GRID\n";
+                // ofs << "POINTS " << mesh.V.size() << " double\n";
+
+                // for (auto& v: mesh.V) {
+                //     ofs << v.x << " " << v.y << " " << v.z << std::endl;
+                // }
+
+                // ofs << "CELLS " << canceledFaceIds.size() << " " << canceledFaceIds.size() * 5 << std::endl;
+                // for (auto fid: canceledFaceIds) {
+                //     Face& f = mesh.F.at(fid.first);
+                //     ofs << "4 " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) <<  std::endl; 
+                // }
+                // ofs << "CELL_TYPES " << canceledFaceIds.size() << "\n";
+                // for (auto fid: canceledFaceIds) {
+                //     ofs << "9 " << std::endl; 
+                // }
+                
+                // std::ofstream ofs1("chord_canceledEdgeIds.vtk");
+                // ofs1 << "# vtk DataFile Version 3.0\n"
+                //     << "cross_quads.vtk\n"
+                //     << "ASCII\n\n"
+                //     << "DATASET UNSTRUCTURED_GRID\n";
+                // ofs1 << "POINTS " << mesh.V.size() << " double\n";
+
+                // for (auto& v: mesh.V) {
+                //     ofs1 << v.x << " " << v.y << " " << v.z << std::endl;
+                // }
+
+                // ofs1 << "CELLS " << canceledEdgeIds.size() << " " << canceledEdgeIds.size() * 3 << std::endl;
+                // for (auto eid: canceledEdgeIds) {
+                //     Edge& e = mesh.E.at(eid);
+                //     ofs1 << "2 " << e.Vids.at(0) << " " << e.Vids.at(1) <<  std::endl; 
+                // }
+                // ofs1 << "CELL_TYPES " << canceledEdgeIds.size() << "\n";
+                // for (auto fid: canceledEdgeIds) {
+                //     ofs1 << "3 " << std::endl; 
+                // }
+                
+                // std::ofstream ofs2("chord_Edges.vtk");
+                // ofs2 << "# vtk DataFile Version 3.0\n"
+                //     << "cross_quads.vtk\n"
+                //     << "ASCII\n\n"
+                //     << "DATASET UNSTRUCTURED_GRID\n";
+                // ofs2 << "POINTS " << mesh.V.size() << " double\n";
+
+                // for (auto& v: mesh.V) {
+                //     ofs2 << v.x << " " << v.y << " " << v.z << std::endl;
+                // }
+
+                // ofs2 << "CELLS " << linkEids.size() << " " << linkEids.size() * 3 << std::endl;
+                // for (auto eid: linkEids) {
+                //     Edge& e = mesh.E.at(eid);
+                //     ofs2 << "2 " << e.Vids.at(0) << " " << e.Vids.at(1) <<  std::endl; 
+                // }
+                // ofs2 << "CELL_TYPES " << linkEids.size() << "\n";
+                // for (auto fid: linkEids) {
+                //     ofs2 << "3 " << std::endl; 
+                // }
+                
+                
+                // std::cout << "canceledEdgeIds: " << canceledEdgeIds.size() << " canceledFaceIds: " << canceledFaceIds.size() << std::endl; 
                 collapse_with_feature_preserved(key_edgeId, key_faceId, canceledFaceIds, canceledEdgeIds);
-                for (auto& item : canceledFaceIds)
+                // for (auto& item : canceledFaceIds)
+                //     canceledFids.insert(item.first);
+                
+                for (auto& item : canceledFaceIds) {
+                    if (item.second >= 4) {
+                        canceledFids.insert(item.first);
+                    }
+                }
+
+                for (auto edgeId : canceledEdgeIds) {
+                    canceledFids.insert(e.N_Fids.begin(), e.N_Fids.end());
+                }
+                for (auto& item: canceledFaceIds) {
                     canceledFids.insert(item.first);
+                }
+
                 return;
             }
         }
