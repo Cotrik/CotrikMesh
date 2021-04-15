@@ -49,11 +49,11 @@ int main(int argc, char* argv[]) {
 
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Simplification time: " << duration << " seconds" << std::endl;
-    // mesh.smoothGlobal = true;
+    mesh.smoothGlobal = true;
     // while (simplifier.findCrossQuads()) {
     //     simplifier.smooth_project(2);
     // }
-	simplifier.smooth_project();
+	simplifier.smooth_project(2);
 	{
         // simplifier.RefineMesh();
         // SmoothAlgorithm smoothAlgo(mesh, simplifier.origMesh, 1000, 1, true, true);
@@ -125,3 +125,28 @@ void setup(ArgumentManager& argumentManager, Simplifier& s) {
 // TO DO:
 // Fix 5 5 split
 // 3 5 chord collapsing
+// reproduce the results
+// 5 5 split
+// collapse causes overlaps
+// write the paper
+// make the illustrations
+// start from siggraph asia
+// methodology part can be extended
+// results and discussion
+
+// Introduction: Decide what style we want for introduction. Mathematical notations move to later section in overview.
+// what is quad mesh and why is it important, problem why we need to simplify it, talk about issues of existing methods
+// because of those limitations we propose semi-global simplification, integrate with existing local operators and then we integrate
+// a unified operation and decide which operations to perform and achieve boundary configuration. describe briefly.
+// optional paragraph: the rest of the paper is structured as follows.
+
+// Related work: Quad mesh generation, cite a lot of papers. Talk about techniques for mesh generation. emphasize the issues of some of
+// quad mesh generation. Quad layout in some papers. Structure simplification of quad mesh. Add additional papers if we can find more. 
+
+// Background: how separatrices relate to poincare index, talk about valence, discrete index of each singularity. 
+
+// Our pipeline contains two types of operation; semi-global and local and integrate them into once complete piepline. 
+// 5-5 operator is optional which user can turn on or off. In our experiments we turn it off. 
+// local smoothing optional every other step.
+// Evaluation with certain things turned on or off
+// Impact of ranking the operations.

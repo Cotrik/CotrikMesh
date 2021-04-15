@@ -450,12 +450,12 @@ bool PatchSimplifier::Simplify(int& iter) {
     // if (findCrossQuads()) {
     //     std::cout << "After cross quads check" << std::endl;
     //     mesh.smoothGlobal = false;
-    //     smooth_project(4);
+    //     smooth_project(2);
     //     mesh.smoothGlobal = true;
-        // SmoothAlgorithm algorithm(mesh, mesh, 1000, 1, true, true);
-        // algorithm.smoothMesh();
-        // update(canceledFids);
-        // return false;
+    //     // SmoothAlgorithm algorithm(mesh, mesh, 1000, 1, true, true);
+    //     // algorithm.smoothMesh();
+    //     // update(canceledFids);
+    //     // return false;
     // }
     if (iter == 0 && featurePreserved) get_feature();
     if (iter == 0)
@@ -464,11 +464,11 @@ bool PatchSimplifier::Simplify(int& iter) {
         MeshFileWriter writer(mesh, "rotate_eids.vtk");
         writer.WriteEdgesVtk(eids);
     }
-    if (checkCorner && !CheckCorners()) {
-        std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
-        update(canceledFids);
-        return false;
-    }
+    // if (checkCorner && !CheckCorners()) {
+    //     std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
+    //     update(canceledFids);
+    //     return false;
+    // }
     // if (mesh.F.size() <= originalFaces * 0.5) {
         // std::cout << "new Faces: " << mesh.F.size() << ", original Faces: " << originalFaces << std::endl;
         // smooth_project();
@@ -484,49 +484,75 @@ bool PatchSimplifier::Simplify(int& iter) {
     
     // Step 1 -- doublet removal
     if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+        // update(canceledFids);
+        // init();
         DoubletSimplifier doubletSimplifier(mesh);
         doubletSimplifier.Run(canceledFids);
+        // doubletSimplifier.RunCollective(canceledFids);
         if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
     }
     // Step 2 -- doublet splitting
     if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
+        // update(canceledFids);
+        // init();
         SheetSplitSimplifier sheetSplitSimplifier(mesh);
         sheetSplitSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "remove_doublet from sheetSplitSimplifier" << std::endl;
     }
     // Step -- triplet splitting (optional)
-    if (canceledFids.empty() && Simplifier::TRIP) {
-        TriangleSimplifier triangleSimplifier(mesh);
-        triangleSimplifier.Run(canceledFids);
-        if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
-    }
+    // if (canceledFids.empty() && Simplifier::TRIP) {
+    //     update(canceledFids);
+    //     init();
+    //     TriangleSimplifier triangleSimplifier(mesh);
+    //     triangleSimplifier.Run(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
+    // }
     // Step 3 -- edge rotation
     if (canceledFids.empty() && Simplifier::ROTATE) {
+        // update(canceledFids);
+        // init();
         EdgeRotateSimplifier edgeRotateSimplifier(mesh);
-        edgeRotateSimplifier.Run(canceledFids);
+        // edgeRotateSimplifier.Run(canceledFids);
+        edgeRotateSimplifier.RunCollective(canceledFids);
         if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
     }
-    static bool aligned = false;
-    if (canceledFids.empty() && !aligned) {
-        aligned = true;
-        std::cout << "writing rotate.vtk " << std::endl;
-        MeshFileWriter writer(mesh, "rotate.vtk");
-        writer.WriteFile();
+    // Step 8 -- diagonal collapsing
+    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
+        // update(canceledFids);
+        // init();
+        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
+        diagnalCollapseSimplifier.Run(canceledFids);
+        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
     }
+    // static bool aligned = false;
+    // if (canceledFids.empty() && !aligned) {
+    //     aligned = true;
+    //     std::cout << "writing rotate.vtk " << std::endl;
+    //     MeshFileWriter writer(mesh, "rotate.vtk");
+    //     writer.WriteFile();
+    // }
     // Step 4 -- singlet collapsing
     if (canceledFids.empty()) {
+        // update(canceledFids);
+        // init();
         DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
         diagnalCollapseSimplifier.Run3(canceledFids);
         if (!canceledFids.empty()) std::cout << "singlet collapsing" << std::endl;
     }
     // Step 5 -- <separatrix splitting> and <separatrix splitting (optional)>
     if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
+        // update(canceledFids);
+        // init();
         BaseComplexQuad baseComplex(mesh);
         baseComplex.ExtractSingularVandE();
         baseComplex.BuildE();
         strict_simplify(baseComplex, canceledFids);
+        // three_connections_strict_collapse(baseComplex, canceledFids);
+        // three_connections_collapse(baseComplex, canceledFids, false);
         if (canceledFids.empty()) {
             loose_simplify(baseComplex, canceledFids);
+            // three_connections_loose_collapse(baseComplex, canceledFids);
+            // three_connections_collapse(baseComplex, canceledFids, true);
             // loose_simplify_random(baseComplex, canceledFids);
             if (!canceledFids.empty()) std::cout << "loose_simplify\n";
 //            else if (canceledFids.empty() && Simplifier::HALF) {
@@ -536,50 +562,49 @@ bool PatchSimplifier::Simplify(int& iter) {
         } else std::cout << "strict_simplify\n";
     }
     // Step 6 -- chord collapsing
-    if (canceledFids.empty() && Simplifier::GLOBAL) {
-        update(canceledFids);
-        init();
-        SingleSheetSimplifier sheetSimplifier(mesh);
-        sheetSimplifier.Run(canceledFids);
-        if (!canceledFids.empty()) std::cout << "chord collapsing" << std::endl;
-    }
+    // if (canceledFids.empty() && Simplifier::GLOBAL) {
+    //     update(canceledFids);
+    //     init();
+    //     SingleSheetSimplifier sheetSimplifier(mesh);
+    //     sheetSimplifier.Run(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "chord collapsing" << std::endl;
+    // }
     // Step 7 -- half separatrix collapsing
-    if (canceledFids.empty() && Simplifier::HALF) {
-        update(canceledFids);
-        init();
-        BaseComplexQuad baseComplex(mesh);
-        baseComplex.ExtractSingularVandE();
-        baseComplex.BuildE();
-        half_simplify(baseComplex, canceledFids);
-        if (!canceledFids.empty()) std::cout << "half_simplify\n";
-    }
-    // Step 8 -- diagonal collapsing
-    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
-        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
-        diagnalCollapseSimplifier.Run(canceledFids);
-        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
-    }
+    // if (canceledFids.empty() && Simplifier::HALF) {
+    //     update(canceledFids);
+    //     init();
+    //     BaseComplexQuad baseComplex(mesh);
+    //     baseComplex.ExtractSingularVandE();
+    //     baseComplex.BuildE();
+    //     half_simplify(baseComplex, canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "half_simplify\n";
+    // }
+    
 
-//    if (canceledFids.empty() && Simplifier::TRIP) {
-//        TriangleSimplifier triangleSimplifier(mesh);
-//        triangleSimplifier.Run(canceledFids);
-//        if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
-//    }
-//    if (canceledFids.empty() && Simplifier::GLOBAL) {
-//        update(canceledFids);
-//        init();
-//        SheetSimplifier sheetSimplifier(mesh);
-//        sheetSimplifier.Run(canceledFids);
-//    }
-//    if (canceledFids.empty() && Simplifier::HALF) {
-//        update(canceledFids);
-//        init();
-//        BaseComplexQuad baseComplex(mesh);
-//        baseComplex.ExtractSingularVandE();
-//        baseComplex.BuildE();
-//        half_simplify(baseComplex, canceledFids);
-//        if (!canceledFids.empty()) std::cout << "half_simplify\n";
-//    }
+   if (canceledFids.empty() && Simplifier::TRIP) {
+    //    update(canceledFids);
+    //    init();
+       TriangleSimplifier triangleSimplifier(mesh);
+       triangleSimplifier.Run(canceledFids);
+       if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
+   }
+   if (canceledFids.empty() && Simplifier::GLOBAL) {
+    //    update(canceledFids);
+    //    init();
+       SheetSimplifier sheetSimplifier(mesh);
+       sheetSimplifier.Run(canceledFids);
+   }
+   if (canceledFids.empty() && Simplifier::HALF) {
+    //    update(canceledFids);
+    //    init();
+       BaseComplexQuad baseComplex(mesh);
+       baseComplex.ExtractSingularVandE();
+       baseComplex.BuildE();
+       half_simplify(baseComplex, canceledFids);
+    //    half_separatrix_collapse(baseComplex, canceledFids);
+
+       if (!canceledFids.empty()) std::cout << "half_simplify\n";
+   }
     if (canceledFids.empty()) {
         update(canceledFids);
         return false;
@@ -986,29 +1011,29 @@ bool PatchSimplifier::findCrossQuads() {
             }
         }
     }
-    if (foundCrossQuad) {
-        std::ofstream ofs("cross_quads.vtk");
-        ofs << "# vtk DataFile Version 3.0\n"
-            << "cross_quads.vtk\n"
-            << "ASCII\n\n"
-            << "DATASET UNSTRUCTURED_GRID\n";
-        ofs << "POINTS " << mesh.V.size() << " double\n";
+    // if (foundCrossQuad) {
+    //     std::ofstream ofs("cross_quads.vtk");
+    //     ofs << "# vtk DataFile Version 3.0\n"
+    //         << "cross_quads.vtk\n"
+    //         << "ASCII\n\n"
+    //         << "DATASET UNSTRUCTURED_GRID\n";
+    //     ofs << "POINTS " << mesh.V.size() << " double\n";
 
-        for (auto& v: mesh.V) {
-            ofs << v.x << " " << v.y << " " << v.z << std::endl;
-        }
+    //     for (auto& v: mesh.V) {
+    //         ofs << v.x << " " << v.y << " " << v.z << std::endl;
+    //     }
 
-        ofs << "CELLS " << faceIds.size() << " " << faceIds.size() * 5 << std::endl;
-        for (auto fid: faceIds) {
-            Face& f = mesh.F.at(fid);
-            ofs << "4 " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) <<  std::endl; 
-            std::cout << "writing face: " << f.id << ", has " << f.Vids.size() << " vertices" << std::endl;
-        }
-        ofs << "CELL_TYPES " << faceIds.size() << "\n";
-        for (auto fid: faceIds) {
-            ofs << "9 " << std::endl; 
-        }
-    }
+    //     ofs << "CELLS " << faceIds.size() << " " << faceIds.size() * 5 << std::endl;
+    //     for (auto fid: faceIds) {
+    //         Face& f = mesh.F.at(fid);
+    //         ofs << "4 " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) <<  std::endl; 
+    //         std::cout << "writing face: " << f.id << ", has " << f.Vids.size() << " vertices" << std::endl;
+    //     }
+    //     ofs << "CELL_TYPES " << faceIds.size() << "\n";
+    //     for (auto fid: faceIds) {
+    //         ofs << "9 " << std::endl; 
+    //     }
+    // }
     std::cout << "# cross quads: " << nCrossQuads << std::endl;
     return foundCrossQuad;
 }

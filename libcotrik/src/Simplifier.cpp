@@ -2199,6 +2199,7 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 			}
 			// collapse_vids_with_feature_preserved(l.collapse.at(i), l.target.at(i));
 		}
+		// break;
 	}
 	// std::cout << finalThreeLinks.size() << std::endl;
 	// for (auto l: finalThreeLinks) {
@@ -2648,6 +2649,7 @@ void Simplifier::half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set
 			canceledFids.insert(v.N_Fids.begin(), v.N_Fids.end());
 			collapse_vids_with_feature_preserved(l.collapse.at(i), l.target.at(i));
 		}
+		// break;
 	}
 }
 
@@ -4144,12 +4146,12 @@ void Simplifier::collapse_diagnal(std::set<size_t>& canceledFids) {
 
 void Simplifier::init() {
 	mesh.CompressWithFeaturePreserved();
-	// mesh.RemoveUselessVertices();
+	mesh.RemoveUselessVertices();
 	mesh.BuildAllConnectivities();
 	mesh.ExtractBoundary();
 	mesh.ExtractSingularities();
 	mesh.BuildParallelE();
-	// mesh.unifyOrientation();
+	mesh.unifyOrientation();
 	// mesh.SetOneRingNeighborhood();
 	mesh.V.resize(mesh.V.size());
     for (auto& v : mesh.V)

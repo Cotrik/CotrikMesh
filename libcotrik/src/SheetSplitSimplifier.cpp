@@ -18,8 +18,8 @@ SheetSplitSimplifier::~SheetSplitSimplifier() {
 
 void SheetSplitSimplifier::Run(std::set<size_t>& canceledFids) {
     for (auto& v : mesh.V) {
-        if (v.N_Fids.size() != 2 || v.isBoundary) continue;
-        // if ((v.N_Fids.size() == 2 && !v.isBoundary) || (v.N_Fids.size() == 1 && v.type == FEATURE))
+        // if (v.N_Fids.size() != 2 || v.isBoundary) continue;
+        if ((v.N_Fids.size() == 2 && !v.isBoundary) || (v.N_Fids.size() == 1 && v.type == FEATURE))
         {
             auto paralell_eids = GetAllParallelEdgeIdsFromDoubletVertex(v);
             canceledFids = GetCanceledFids(paralell_eids);

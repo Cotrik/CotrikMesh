@@ -30,17 +30,17 @@ void LocalSimplifier::Simplify() {
     SmoothAlgorithm smooth_algo(mesh, mesh, 1000, 1, true, false);
     init();
     // get_feature();
-    // std::vector<int> valence_histogram(10, 0);
-    // for (auto& v: mesh.V) {
-    //     if (v.isBoundary) continue;
-    //     valence_histogram.at(v.N_Vids.size()) += 1;
-    // }
-    // for (int i = 0; i < valence_histogram.size(); i++) {
-    //     if (valence_histogram.at(i) > 0) {
-    //         std::cout << i << " " << valence_histogram.at(i) << std::endl;
-    //     }
-    // }
-    // return;
+    std::vector<int> valence_histogram(10, 0);
+    for (auto& v: mesh.V) {
+        if (v.isBoundary) continue;
+        valence_histogram.at(v.N_Vids.size()) += 1;
+    }
+    for (int i = 0; i < valence_histogram.size(); i++) {
+        if (valence_histogram.at(i) > 0) {
+            std::cout << i << " " << valence_histogram.at(i) << std::endl;
+        }
+    }
+    return;
     // RemoveBoundaryDegenerates();
     // return;
     // std::ofstream ofs("feature_vertices.vtk");
