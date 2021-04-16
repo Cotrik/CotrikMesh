@@ -918,7 +918,7 @@ void SmoothAlgorithm::smoothMesh() {
                 currentE = getMeshEnergy(true);
                 resampleBoundaryVertices1();
                 // resampleBoundaryVertices();
-                // remapBoundaryVertices();
+                remapBoundaryVertices();
 		        for (int i = 0; i < mesh.V.size(); i++) {
                     Vertex& v = mesh.V.at(i);
                     if (!v.isBoundary || !v.isMovable || v.isCorner) {

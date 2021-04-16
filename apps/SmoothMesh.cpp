@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
     boundary_mesh.ExtractSingularities();
 
     std::vector<size_t> v_;
-    if (smoothing_algorithm.compare("LAPLACIAN") == 0) {
+    // if (smoothing_algorithm.compare("LAPLACIAN") == 0) {
         SmoothAlgorithm algorithm(mesh, boundary_mesh, iterations, lambda);
         // algorithm.smoothLaplacianSimple();
         // algorithm.smoothLaplacianScaleBased();
@@ -238,7 +238,7 @@ int main(int argc, char* argv[]) {
                 // break;
             }
         }
-    }
+    // }
 
     std::cout << "Writing output file" << std::endl;
     std::ofstream ofs("output.vtk");
