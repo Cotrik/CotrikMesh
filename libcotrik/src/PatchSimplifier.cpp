@@ -593,6 +593,7 @@ bool PatchSimplifier::Simplify(int& iter) {
     //    init();
        SheetSimplifier sheetSimplifier(mesh);
        sheetSimplifier.Run(canceledFids);
+    //    sheetSimplifier.ExtractAndCollapse(canceledFids);
    }
    if (canceledFids.empty() && Simplifier::HALF) {
     //    update(canceledFids);
