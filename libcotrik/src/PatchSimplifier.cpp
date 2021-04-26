@@ -487,8 +487,8 @@ bool PatchSimplifier::Simplify(int& iter) {
         // update(canceledFids);
         // init();
         DoubletSimplifier doubletSimplifier(mesh);
-        // doubletSimplifier.Run(canceledFids);
-        doubletSimplifier.RunCollective(canceledFids);
+        doubletSimplifier.Run(canceledFids);
+        // doubletSimplifier.RunCollective(canceledFids);
         if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
     }
     // Step 2 -- doublet splitting
@@ -512,18 +512,11 @@ bool PatchSimplifier::Simplify(int& iter) {
         // update(canceledFids);
         // init();
         EdgeRotateSimplifier edgeRotateSimplifier(mesh);
-        // edgeRotateSimplifier.Run(canceledFids);
-        edgeRotateSimplifier.RunCollective(canceledFids);
+        edgeRotateSimplifier.Run(canceledFids);
+        // edgeRotateSimplifier.RunCollective(canceledFids);
         if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
     }
-    // Step 8 -- diagonal collapsing
-    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
-        // update(canceledFids);
-        // init();
-        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
-        diagnalCollapseSimplifier.Run(canceledFids);
-        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
-    }
+    
     // static bool aligned = false;
     // if (canceledFids.empty() && !aligned) {
     //     aligned = true;
@@ -579,6 +572,14 @@ bool PatchSimplifier::Simplify(int& iter) {
     //     half_simplify(baseComplex, canceledFids);
     //     if (!canceledFids.empty()) std::cout << "half_simplify\n";
     // }
+    // Step 8 -- diagonal collapsing
+    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
+        // update(canceledFids);
+        // init();
+        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
+        diagnalCollapseSimplifier.Run(canceledFids);
+        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
+    }
     
 
    if (canceledFids.empty() && Simplifier::TRIP) {
