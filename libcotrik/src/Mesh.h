@@ -500,6 +500,7 @@ public:
     void BuildParallelE();
     void BuildConsecutiveE();
     void BuildOrthogonalE();
+    void unifyOrientation();
     void GetNormalOfSurfaceFaces();             // must ExtractBoundary(); first
     void GetNormalOfSurfaceVertices();          // must ExtractBoundary(); first
     void RemoveUselessVertices();

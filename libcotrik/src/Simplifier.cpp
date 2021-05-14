@@ -3181,6 +3181,7 @@ void Simplifier::init() {
 	mesh.ExtractBoundary();
 	mesh.ExtractSingularities();
 	mesh.BuildParallelE();
+	mesh.unifyOrientation();
 	mesh.V.resize(mesh.V.size());
     for (auto& v : mesh.V)
         if (v.isCorner) {

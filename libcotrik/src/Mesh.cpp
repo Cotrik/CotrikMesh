@@ -355,6 +355,54 @@ void Mesh::BuildOrthogonalE() {
     }
 }
 
+void Mesh::unifyOrientation() {
+    
+    Vertex& v0_r_f = V[F.at(0).Vids[0]];
+    Vertex& v1_r_f = V[F.at(0).Vids[1]];
+    Vertex& v2_r_f = V[F.at(0).Vids[2]];
+    
+    const glm::dvec3 v10_r_f = v0_r_f.xyz() - v1_r_f.xyz();
+    const glm::dvec3 v12_r_f = v2_r_f.xyz() - v1_r_f.xyz();
+    const glm::dvec3 n_r_f = glm::normalize(glm::cross(v12_r_f, v10_r_f));
+    
+    int fsize = F.size();
+    for (int i = 1; i < fsize; i++) {
+        Vertex& v0 = V[F.at(i).Vids[0]];
+        Vertex& v1 = V[F.at(i).Vids[1]];
+        Vertex& v2 = V[F.at(i).Vids[2]];
+
+        const glm::dvec3 v10 = v0.xyz() - v1.xyz();
+        const glm::dvec3 v12 = v2.xyz() - v1.xyz();
+        const glm::dvec3 n = glm::normalize(glm::cross(v12, v10));
+        if (glm::dot(n_r_f, n) < 0.f) {
+            std::reverse(F.at(i).Vids.begin(), F.at(i).Vids.end());
+        }
+    }
+
+    Vertex& v0_r = V[C.at(0).Vids[0]];
+    Vertex& v1_r = V[C.at(0).Vids[1]];
+    Vertex& v2_r = V[C.at(0).Vids[2]];
+
+    const glm::dvec3 v10_r = v0_r.xyz() - v1_r.xyz();
+    const glm::dvec3 v12_r = v2_r.xyz() - v1_r.xyz();
+    const glm::dvec3 n_r = glm::normalize(glm::cross(v12_r, v10_r));
+    int csize = C.size();
+    for (int i = 1; i < csize; i++) {
+        Vertex& v0 = V[C.at(i).Vids[0]];
+        Vertex& v1 = V[C.at(i).Vids[1]];
+        Vertex& v2 = V[C.at(i).Vids[2]];
+
+        const glm::dvec3 v10 = v0.xyz() - v1.xyz();
+        const glm::dvec3 v12 = v2.xyz() - v1.xyz();
+        const glm::dvec3 n = glm::normalize(glm::cross(v12, v10));
+        
+        if (glm::dot(n_r, n) < 0.f) {
+            std::reverse(C.at(i).Vids.begin(), C.at(i).Vids.end());
+        }
+    }
+}
+
+
 void Mesh::GetNormalOfSurfaceFaces() {
     for (size_t i = 0; i < F.size(); i++) {
         Face& face = F.at(i);
