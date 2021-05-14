@@ -446,21 +446,21 @@ bool PatchSimplifier::EdgeRotateSimplify(int& iter) {
 
 bool PatchSimplifier::Simplify(int& iter) {
     std::set<size_t> canceledFids;
-    if (mesh.F.size() <= origMesh.F.size() / 2) {
-        init();
-	    mesh = RefineWithFeaturePreserved(mesh, 0);
-        size_t id = 0;
-        for (auto& c : mesh.C) {
-            c.cellType = VTK_QUAD;
-            c.id = id++;
-        }
-        for (auto& v : mesh.V) {
-	        v.N_Vids.clear();
-            v.N_Eids.clear();
-            v.N_Fids.clear();
-            v.N_Cids.clear();
-	    }
-    }
+    // if (mesh.F.size() <= origMesh.F.size() / 2) {
+    //     init();
+	//     mesh = RefineWithFeaturePreserved(mesh, 0);
+    //     size_t id = 0;
+    //     for (auto& c : mesh.C) {
+    //         c.cellType = VTK_QUAD;
+    //         c.id = id++;
+    //     }
+    //     for (auto& v : mesh.V) {
+	//         v.N_Vids.clear();
+    //         v.N_Eids.clear();
+    //         v.N_Fids.clear();
+    //         v.N_Cids.clear();
+	//     }
+    // }
     init();
     // if (findCrossQuads()) {
     //     std::cout << "After cross quads check" << std::endl;

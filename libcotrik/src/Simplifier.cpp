@@ -3283,7 +3283,7 @@ void Simplifier::smooth_project(int resolution) {
 			// center /= w;
 			// if (isnan(center.x) || isnan(center.y) || isnan(center.z)) center = glm::dvec3(0, 0, 0);
 			v = center;
-			if (!v.isBoundary) continue;
+			// if (!v.isBoundary) continue;
 			// if (iters < 3) continue;
 
 			auto& patchVids = origPatch_vids[v.patch_id];
@@ -3293,7 +3293,7 @@ void Simplifier::smooth_project(int resolution) {
 			// glm::dvec3 curr_pos = v.xyz();
 			// for (auto patchVid : patchVids) {
 			for (auto& origv: refinedV) {
-				if (!origv.isBoundary) continue;
+				if (v.isBoundary != origv.isBoundary) continue;
 				// auto& origv = origMesh.V.at(patchVid);
 				// auto& origv = refinedV.at(patchVid);
 				auto distance = glm::length(origv.xyz() - v.xyz());
