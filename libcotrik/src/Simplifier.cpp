@@ -2923,7 +2923,8 @@ void Simplifier::smooth_project() {
 			center += origMesh.V.at(nvid).xyz();
 		center *= 0.25;
 		vertex = center;
-		vertex.id = origMesh.V.size();
+		// vertex.id = origMesh.V.size();
+		vertex.id = centerVertices.size();
 		vertex.patch_id = f.label;
 		// origMesh.V.push_back(vertex);
 		centerVertices.push_back(vertex);
@@ -2935,7 +2936,8 @@ void Simplifier::smooth_project() {
 			center += origMesh.V.at(nvid).xyz();
 		center *= 0.5;
 		vertex = center;
-		vertex.id = origMesh.V.size();
+		// vertex.id = origMesh.V.size();
+		vertex.id = centerVertices.size();
 
 		if (!e.isSharpFeature) {
 			vertex.patch_id = origMesh.V.at(e.Vids[0]).type == REGULAR ? origMesh.V.at(e.Vids[0]).patch_id : origMesh.V.at(e.Vids[1]).patch_id;
@@ -2986,7 +2988,7 @@ void Simplifier::smooth_project() {
 		// std::cout << "sharpEdgeVid_NVids: " << sharpEdgeVid_NVids.size() << std::endl;
 		for (auto& item : sharpEdgeVid_NVids) {
 			auto& v = mesh.V.at(item.first);
-			if (v.isCorner) continue;
+			if (v.type != FEATURE/*v.isCorner*/) continue;
 			glm::dvec3 center(0, 0, 0);
 			for (auto nvid : item.second)
 				center += mesh.V.at(nvid).xyz();
@@ -3077,6 +3079,7 @@ static void refineVertexInEdges(Mesh& mesh, std::vector<Vertex>& refinedV, int r
                 else vertex.label = origMesh.V.at(e.Vids[0]).isCorner ? origMesh.V.at(e.Vids[1]).label : origMesh.V.at(e.Vids[0]).label;
                 vertex.type = FEATURE;
             }
+			vertex.isBoundary = e.isBoundary;
             // origMesh.V.push_back(vertex);
             refinedV.push_back(vertex);
         }
@@ -3187,67 +3190,117 @@ void Simplifier::smooth_project(int resolution) {
 			}
 		}
 	}
-
+	// return;
 	// smooth and project
 	int iters = smoothIters;
 	int iter = 0;
 	while (iters--) {
-		std::cout << "smooth iter = " << iter++ << std::endl;
-		for (auto& item : sharpEdgeVid_NVids) {
-			auto& v = mesh.V.at(item.first);
-			// if (!mesh.smoothGlobal && !v.smoothLocal) continue;
-			if (v.type != FEATURE/*v.isCorner*/) continue;
-			glm::dvec3 center(0, 0, 0);
-			for (auto nvid : item.second)
-				center += mesh.V.at(nvid).xyz();
-			center /= item.second.size();
-			const auto& origLineVids = origLabel_vids[v.label];
-			size_t closest_origLineVid = *origLineVids.begin();
-			//std::cout << "closest_origLineVid = " << closest_origLineVid << std::endl;
-			double closest_distance = 100000000.0;
-			for (auto vid : origLineVids) {
-				// auto& origv = origMesh.V.at(vid);
-				auto& origv = refinedV.at(vid);
-				auto distance = glm::length(origv.xyz() - center);
-				if (distance < closest_distance) {
-					closest_origLineVid = vid;
-					closest_distance = distance;
-				}
-			}
-			// v = origMesh.V.at(closest_origLineVid).xyz();
-			v = refinedV.at(closest_origLineVid).xyz();
-            //std::cout << "closest_origLineVid = " << closest_origLineVid << std::endl;
-            //std::cout << "----------------------------" << std::endl;
-		}
-		for (auto& v : mesh.V) {
-			if (!mesh.smoothGlobal && !v.smoothLocal) continue;
-			if (v.type >= FEATURE) continue;
-			glm::dvec3 center(0, 0, 0);
-//			if (iters > 10 || iters < 10)
-			{
-				for (auto nvid : v.N_Vids)
+		std::cout << "smooth refine iter inside loop center = " << iter++ << std::endl;
+		/*int it = 0;
+		while (it < 100) {
+			std::vector<glm::dvec3> centers(mesh.V.size());
+			for (int i = 0; i < mesh.V.size(); i++) {
+				auto& v = mesh.V.at(i);
+				if (v.isBoundary) continue;
+				glm::dvec3 center(0, 0, 0);
+				for (auto nvid: v.N_Vids)
 					center += mesh.V.at(nvid).xyz();
 				center /= v.N_Vids.size();
+				// auto w = 0.0;
+				// for (auto neid : v.N_Eids) {
+				// 	auto& e = mesh.E.at(neid);
+				// 	auto wij = laplacian_positive_cotan_weight(v, e);
+				// 	auto nvid = e.Vids[0] == v.id ? e.Vids[1] : e.Vids[0];
+				// 	center += wij * mesh.V.at(nvid).xyz();
+				// 	w += wij;
+				// }
+				// center /= w;
+				// v = center;
+				centers.at(i) = center;
+				// centers.push_back(center);
 			}
+			for (int i = 0; i < mesh.V.size(); i++) {
+				auto& v = mesh.V.at(i);
+				if (v.isBoundary) continue;
+				// std::cout << "center: " << centers.at(i).x << " " << centers.at(i).y << " " << centers.at(i).z << std::endl;
+				v = centers.at(i);
+			}
+			it++;
+		}*/
+		// continue;
+		// for (auto& item : sharpEdgeVid_NVids) {
+		// 	auto& v = mesh.V.at(item.first);
+		// 	// if (!mesh.smoothGlobal && !v.smoothLocal) continue;
+		// 	if (v.type != FEATURE/*v.isCorner*/) continue;
+		// 	// glm::dvec3 center(0, 0, 0);
+		// 	// for (auto nvid : item.second)
+		// 	// 	center += mesh.V.at(nvid).xyz();
+		// 	// center /= item.second.size();
+		// 	// v = center;
+		// 	const auto& origLineVids = origLabel_vids[v.label];
+		// 	// size_t closest_origLineVid = *origLineVids.begin();
+		// 	//std::cout << "closest_origLineVid = " << closest_origLineVid << std::endl;
+		// 	double closest_distance = 100000000.0;
+		// 	glm::dvec3 curr_pos = v.xyz();
+		// 	for (auto vid : origLineVids) {
+		// 		// auto& origv = origMesh.V.at(vid);
+		// 		auto& origv = refinedV.at(vid);
+		// 		auto distance = glm::length(origv.xyz() - curr_pos);
+		// 		if (distance < closest_distance) {
+		// 			// closest_origLineVid = vid;
+		// 			closest_distance = distance;
+		// 			v = origv.xyz();
+		// 		}
+		// 	}
+		// 	// v = origMesh.V.at(closest_origLineVid).xyz();
+		// 	// v = refinedV.at(closest_origLineVid).xyz();
+        //     //std::cout << "closest_origLineVid = " << closest_origLineVid << std::endl;
+        //     //std::cout << "----------------------------" << std::endl;
+		// }
+		for (auto& v : mesh.V) {
+			// if (!mesh.smoothGlobal && !v.smoothLocal) continue;
+			glm::dvec3 center(0, 0, 0);
+//			if (iters > 10 || iters < 10)
+			// {
+			for (auto nvid : v.N_Vids)
+				center += mesh.V.at(nvid).xyz();
+			center /= v.N_Vids.size();
+			// }
 //			else {
 //				for (auto nfid : v.N_Fids)
 //					for (auto nvid : mesh.F.at(nfid).Vids)
 //						center += 0.25 * mesh.V.at(nvid).xyz();
 //				center /= v.N_Fids.size();
 //			}
+			// auto w = 0.0;
+			// for (auto neid : v.N_Eids) {
+			// 	auto& e = mesh.E.at(neid);
+			// 	auto wij = laplacian_positive_cotan_weight(v, e);
+			// 	auto nvid = e.Vids[0] == v.id ? e.Vids[1] : e.Vids[0];
+			// 	center += wij * mesh.V.at(nvid).xyz();
+			// 	w += wij;
+			// }
+			// center /= w;
+			// if (isnan(center.x) || isnan(center.y) || isnan(center.z)) center = glm::dvec3(0, 0, 0);
 			v = center;
+			if (!v.isBoundary) continue;
 			// if (iters < 3) continue;
 
 			auto& patchVids = origPatch_vids[v.patch_id];
-			size_t closest_origVid = *patchVids.begin();
+			// size_t closest_origVid = *patchVids.begin();
+			size_t closest_origVid = refinedV.at(0).id;
 			double closest_distance = 100000000.0;
-			for (auto patchVid : patchVids) {
+			// glm::dvec3 curr_pos = v.xyz();
+			// for (auto patchVid : patchVids) {
+			for (auto& origv: refinedV) {
+				if (!origv.isBoundary) continue;
 				// auto& origv = origMesh.V.at(patchVid);
-				auto& origv = refinedV.at(patchVid);
-				auto distance = glm::length(origv.xyz() - center);
+				// auto& origv = refinedV.at(patchVid);
+				auto distance = glm::length(origv.xyz() - v.xyz());
 				if (distance < closest_distance) {
 					closest_origVid = origv.id;
 					closest_distance = distance;
+					// v = origv.xyz();
 				}
 			}
 

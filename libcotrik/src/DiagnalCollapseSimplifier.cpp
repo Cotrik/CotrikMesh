@@ -81,6 +81,91 @@ void DiagnalCollapseSimplifier::Run(std::set<size_t>& canceledFids) {
     }
 }
 
+void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
+    struct collapsableDiagonal {
+		size_t vid;
+		size_t target_vid;
+	};
+    std::vector<collapsableDiagonal> diagonals;
+    for (auto& f: mesh.F) f.isVisted = false;
+    for (auto valence = Simplifier::maxValence - 1; valence > 4; --valence) {
+        for (auto& f: mesh.F) {
+            if (f.isVisted) continue;
+            auto& v0 = mesh.V.at(f.Vids[0]);
+            auto& v1 = mesh.V.at(f.Vids[1]);
+            auto& v2 = mesh.V.at(f.Vids[2]);
+            auto& v3 = mesh.V.at(f.Vids[3]);
+            //if (v0.type == CORNER || v1.type == CORNER || v2.type == CORNER || v3.type == CORNER) continue;
+            if (v1.N_Fids.size() >= valence && v3.N_Fids.size() >= valence && !v1.isBoundary && !v3.isBoundary) {
+                if (v0.type == CORNER || v2.type == CORNER) continue;
+                if (CanCollapseDiagnal(v0, v2)) {
+                    collapsableDiagonal d;
+                    d.vid = v0.id;
+                    d.target_vid = v2.id;
+                    diagonals.push_back(d);
+
+                    // Collapse(v0.id, v2.id);
+                    canceledFids.insert(f.id);
+                    f.isVisted = true;
+                    for (auto fid: f.N_Fids) {
+                        mesh.F.at(fid).isVisted = true;
+                    }
+                    continue;
+                    // return;
+                } else if (CanCollapseDiagnal(v2, v0)) {
+                    collapsableDiagonal d;
+                    d.vid = v2.id;
+                    d.target_vid = v0.id;
+                    diagonals.push_back(d);
+                    
+                    // Collapse(v2.id, v0.id);
+                    canceledFids.insert(f.id);
+                    f.isVisted = true;
+                    for (auto fid: f.N_Fids) {
+                        mesh.F.at(fid).isVisted = true;
+                    }
+                    continue;
+                    // return;
+                }
+            }
+            //else
+                if (v0.N_Fids.size() >= valence && v2.N_Fids.size() >= valence && !v0.isBoundary && !v2.isBoundary) {
+                if (v1.type == CORNER || v3.type == CORNER) continue;
+                if (CanCollapseDiagnal(v1, v3)) {
+                    collapsableDiagonal d;
+                    d.vid = v1.id;
+                    d.target_vid = v3.id;
+                    diagonals.push_back(d);
+                    
+                    // Collapse(v1.id, v3.id);
+                    canceledFids.insert(f.id);
+                    f.isVisted = true;
+                    for (auto fid: f.N_Fids) {
+                        mesh.F.at(fid).isVisted = true;
+                    }
+                    // return;
+                } else if (CanCollapseDiagnal(v3, v1)) {
+                    collapsableDiagonal d;
+                    d.vid = v3.id;
+                    d.target_vid = v1.id;
+                    diagonals.push_back(d);
+                    
+                    // Collapse(v3.id, v1.id);
+                    canceledFids.insert(f.id);
+                    f.isVisted = true;
+                    for (auto fid: f.N_Fids) {
+                        mesh.F.at(fid).isVisted = true;
+                    }
+                    // return;
+                }
+            }
+        }
+    }
+    for (auto d: diagonals) {
+        Collapse(d.vid, d.target_vid);
+    }
+}
+
 void DiagnalCollapseSimplifier::CollapseDiagnal(const Vertex& v0, const Vertex& v2) {
     auto target_vid = v0.type == CORNER ? v0.id : v2.id;
     auto vid = v0.type == CORNER ? v2.id : v0.id;

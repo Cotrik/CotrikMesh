@@ -355,6 +355,7 @@ public:
     size_t label;     // patch number starting from 0, MAXID is invalid
     size_t componentFid = MAXID;
     bool isNegative = false;
+    bool isVisted = false;
 };
 
 class Cell : public GeoInfo, public NeighborInfo
