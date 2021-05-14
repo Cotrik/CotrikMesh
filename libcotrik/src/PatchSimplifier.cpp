@@ -69,13 +69,13 @@ bool PatchSimplifier::Simplify(int& iter) {
         edgeRotateSimplifier.Run(canceledFids);
         if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
     }
-    static bool aligned = false;
-    if (canceledFids.empty() && !aligned) {
-        aligned = true;
-        std::cout << "writing rotate.vtk " << std::endl;
-        MeshFileWriter writer(mesh, "rotate.vtk");
-        writer.WriteFile();
-    }
+    // static bool aligned = false;
+    // if (canceledFids.empty() && !aligned) {
+    //     aligned = true;
+    //     std::cout << "writing rotate.vtk " << std::endl;
+    //     MeshFileWriter writer(mesh, "rotate.vtk");
+    //     writer.WriteFile();
+    // }
     // Step 4 -- singlet collapsing
     if (canceledFids.empty()) {
         DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
@@ -129,14 +129,14 @@ bool PatchSimplifier::Simplify(int& iter) {
 //        if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
 //    }
    if (canceledFids.empty() && Simplifier::GLOBAL) {
-       update(canceledFids);
-       init();
+    //    update(canceledFids);
+    //    init();
        SheetSimplifier sheetSimplifier(mesh);
        sheetSimplifier.Run(canceledFids);
    }
    if (canceledFids.empty() && Simplifier::HALF) {
-       update(canceledFids);
-       init();
+    //    update(canceledFids);
+    //    init();
        BaseComplexQuad baseComplex(mesh);
        baseComplex.ExtractSingularVandE();
        baseComplex.BuildE();
