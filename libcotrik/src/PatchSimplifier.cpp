@@ -39,11 +39,11 @@ bool PatchSimplifier::Simplify(int& iter) {
         MeshFileWriter writer(mesh, "rotate_eids.vtk");
         writer.WriteEdgesVtk(eids);
     }
-    if (checkCorner && !CheckCorners()) {
-        std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
-        update(canceledFids);
-        return false;
-    }
+    // if (checkCorner && !CheckCorners()) {
+    //     std::cout << "----------------------- Failed in CheckCorners! -----------------------\n" << std::endl;
+    //     update(canceledFids);
+    //     return false;
+    // }
 
     // Step 1 -- doublet removal
     if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
@@ -99,23 +99,23 @@ bool PatchSimplifier::Simplify(int& iter) {
         } else std::cout << "strict_simplify\n";
     }
     // Step 6 -- chord collapsing
-    if (canceledFids.empty() && Simplifier::GLOBAL) {
-        update(canceledFids);
-        init();
-        SingleSheetSimplifier sheetSimplifier(mesh);
-        sheetSimplifier.Run(canceledFids);
-        if (!canceledFids.empty()) std::cout << "chord collapsing" << std::endl;
-    }
+    // if (canceledFids.empty() && Simplifier::GLOBAL) {
+    //     update(canceledFids);
+    //     init();
+    //     SingleSheetSimplifier sheetSimplifier(mesh);
+    //     sheetSimplifier.Run(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "chord collapsing" << std::endl;
+    // }
     // Step 7 -- half separatrix collapsing
-    if (canceledFids.empty() && Simplifier::HALF) {
-        update(canceledFids);
-        init();
-        BaseComplexQuad baseComplex(mesh);
-        baseComplex.ExtractSingularVandE();
-        baseComplex.BuildE();
-        half_simplify(baseComplex, canceledFids);
-        if (!canceledFids.empty()) std::cout << "half_simplify\n";
-    }
+    // if (canceledFids.empty() && Simplifier::HALF) {
+    //     update(canceledFids);
+    //     init();
+    //     BaseComplexQuad baseComplex(mesh);
+    //     baseComplex.ExtractSingularVandE();
+    //     baseComplex.BuildE();
+    //     half_simplify(baseComplex, canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "half_simplify\n";
+    // }
     // Step 8 -- diagonal collapsing
     if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
         DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
@@ -128,21 +128,21 @@ bool PatchSimplifier::Simplify(int& iter) {
 //        triangleSimplifier.Run(canceledFids);
 //        if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
 //    }
-//    if (canceledFids.empty() && Simplifier::GLOBAL) {
-//        update(canceledFids);
-//        init();
-//        SheetSimplifier sheetSimplifier(mesh);
-//        sheetSimplifier.Run(canceledFids);
-//    }
-//    if (canceledFids.empty() && Simplifier::HALF) {
-//        update(canceledFids);
-//        init();
-//        BaseComplexQuad baseComplex(mesh);
-//        baseComplex.ExtractSingularVandE();
-//        baseComplex.BuildE();
-//        half_simplify(baseComplex, canceledFids);
-//        if (!canceledFids.empty()) std::cout << "half_simplify\n";
-//    }
+   if (canceledFids.empty() && Simplifier::GLOBAL) {
+       update(canceledFids);
+       init();
+       SheetSimplifier sheetSimplifier(mesh);
+       sheetSimplifier.Run(canceledFids);
+   }
+   if (canceledFids.empty() && Simplifier::HALF) {
+       update(canceledFids);
+       init();
+       BaseComplexQuad baseComplex(mesh);
+       baseComplex.ExtractSingularVandE();
+       baseComplex.BuildE();
+       half_simplify(baseComplex, canceledFids);
+       if (!canceledFids.empty()) std::cout << "half_simplify\n";
+   }
     if (canceledFids.empty()) {
         update(canceledFids);
         return false;
