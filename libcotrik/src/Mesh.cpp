@@ -889,23 +889,45 @@ void Mesh::SetFeatureAngleThreshold(const double angle/* = 170.0*/) {
 }
 
 void Mesh::LabelFace(Face& face, size_t& label) {
-    face.label = label;
-    for (size_t i = 0; i < face.Eids.size(); i++) {
-        auto& edge = E.at(face.Eids.at(i));
-        std::vector<Face*> faces;
-        for (size_t j = 0; j < edge.N_Fids.size(); j++) {
-            Face& face2 = F.at(edge.N_Fids.at(j));
-            if (face2.isBoundary && face2.id != face.id && face2.label == MAXID) {
-                const double cos_angle = GetCosAngle(edge, face, face2);
-                //std::cout << "cos_angle = " << cos_angle << std::endl;
-                if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
-					faces.push_back(&face2);
-				//else edge.isSharpFeature = true;
+    std::vector<Face*> queue;
+    queue.push_back(&face);
+
+    while (!queue.empty()) {
+        Face& f = *queue.back();
+        queue.pop_back();
+        f.label = label;
+
+        for (size_t i = 0; i < f.Eids.size(); i++) {
+            auto& edge = E.at(f.Eids.at(i));
+            for (size_t j = 0; j < edge.N_Fids.size(); j++) {
+                Face& face2 = F.at(edge.N_Fids.at(j));
+                if (face2.isBoundary && face2.id != f.id && face2.label == MAXID) {
+                    const double cos_angle = GetCosAngle(edge, f, face2);
+                    if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
+                        queue.push_back(&face2);
+                    //else edge.isSharpFeature = true;
+                }
             }
         }
-        for (size_t i = 0; i < faces.size(); i++)
-            LabelFace(*faces.at(i), label);
+
     }
+    // face.label = label;
+    // // std::cout << face.id << std::endl;
+    // for (size_t i = 0; i < face.Eids.size(); i++) {
+    //     auto& edge = E.at(face.Eids.at(i));
+    //     std::vector<Face*> faces;
+    //     for (size_t j = 0; j < edge.N_Fids.size(); j++) {
+    //         Face& face2 = F.at(edge.N_Fids.at(j));
+    //         if (face2.isBoundary && face2.id != face.id && face2.label == MAXID) {
+    //             const double cos_angle = GetCosAngle(edge, face, face2);
+    //             if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
+	// 				faces.push_back(&face2);
+	// 			//else edge.isSharpFeature = true;
+    //         }
+    //     }
+    //     for (size_t i = 0; i < faces.size(); i++)
+    //         LabelFace(*faces.at(i), label);
+    // }
 }
 
 void Mesh::RemoveUselessVertices() {
