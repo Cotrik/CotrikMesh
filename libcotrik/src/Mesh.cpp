@@ -977,9 +977,21 @@ void Mesh::RemoveUselessVertices() {
         const Vertex& v = V.at(v_real_index.at(i));
         Vertex& newv = newV.at(i);
         newv.id = i;
-        newv.x = v.x;
-        newv.y = v.y;
-        newv.z = v.z;
+        // newv.x = v.x;
+        // newv.y = v.y;
+        // newv.z = v.z;
+        newv = v;
+        newv.type = v.type;
+        newv.isCorner = v.isCorner;
+		newv.label = v.label;
+		newv.patch_id = v.patch_id;
+		newv.isSpecial = v.isSpecial;
+		newv.isConvex = v.isConvex;
+		newv.labels = v.labels;
+		newv.patch_ids = v.patch_ids;
+		newv.idealValence = v.idealValence;
+        newv.prescribed_length = v.prescribed_length;
+        newv.smoothLocal = v.smoothLocal;
     }
     V = newV;
     m_refIds = v_real_index;
@@ -1051,6 +1063,7 @@ void Mesh::CompressWithFeaturePreserved() {
 		newv.patch_ids = v.patch_ids;
 		newv.idealValence = v.idealValence;
         newv.prescribed_length = v.prescribed_length;
+        newv.smoothLocal = v.smoothLocal;
         // std::cout << newv.prescribed_length << " ";
     }
     // std::cout << "END" << std::endl;
@@ -1069,6 +1082,7 @@ void Mesh::CompressWithFeaturePreserved() {
 		v.patch_ids = newv.patch_ids;
         v.idealValence = newv.idealValence;
         v.prescribed_length = newv.prescribed_length;
+        v.smoothLocal = newv.smoothLocal;
         // std::cout << v.prescribed_length << " ";
     }
     // std::cout << "END" << std::endl;

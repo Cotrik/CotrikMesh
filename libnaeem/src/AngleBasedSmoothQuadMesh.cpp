@@ -527,8 +527,8 @@ void SmoothAlgorithm::remapBoundaryVertices() {
             // mesh.V.at(i).y = v.y + new_y;
             
             bool isNegativeElementPresent = false;
-            for (auto fid: v.N_Fids) {
-                if (isFaceNegative(fid, v.id, glm::dvec3(new_x, new_y, 0.0))) {
+            for (auto fid: mesh.V.at(i).N_Fids) {
+                if (isFaceNegative(fid, mesh.V.at(i).id, glm::dvec3(new_x, new_y, 0.0))) {
                     isNegativeElementPresent = true;
                 }
             }

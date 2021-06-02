@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     // while (simplifier.findCrossQuads()) {
     //     simplifier.smooth_project(2);
     // }
-	simplifier.smooth_project();
+	// simplifier.smooth_project(1);
 	{
         // simplifier.RefineMesh();
         // SmoothAlgorithm smoothAlgo(mesh, simplifier.origMesh, 1000, 1, true, true);

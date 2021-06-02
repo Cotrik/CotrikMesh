@@ -2108,15 +2108,15 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 	}
 	// std::cout << "RANKS: " << ranks.size() << std::endl;
 	std::vector<size_t> targetVidsPos;
-	// std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
-    // double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
+	std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+    double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
 	for (int i = 0; i < ranks.size(); i++) {
         std::vector<double>::iterator index = std::max_element(ranks.begin(), ranks.end());
         // std::vector<double>::iterator index = std::min_element(ranks.begin(), ranks.end());
         targetVidsPos.push_back((size_t) std::distance(ranks.begin(), index));
         // targetVidsPos.push_back(i);
-        *index = -1;
         // *index = max_rank;
+        *index = -1;
 		// ranks.erase(index);
 		// i = 0;
     }
@@ -2567,8 +2567,8 @@ void Simplifier::half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set
 		ranks.push_back(rank);
 	}
 	std::vector<size_t> targetVidsPos;
-	// std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
-    // double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
+	std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+    double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
 	for (int i = 0; i < ranks.size(); i++) {
         std::vector<double>::iterator index = std::max_element(ranks.begin(), ranks.end());
         // std::vector<double>::iterator index = std::min_element(ranks.begin(), ranks.end());
@@ -2946,6 +2946,7 @@ void Simplifier::smooth_project() {
 			vertex.label = origMesh.V.at(e.Vids[0]).label == MAXID ? origMesh.V.at(e.Vids[1]).label : origMesh.V.at(e.Vids[0]).label;
 			vertex.type = FEATURE;
 		}
+		vertex.isBoundary = e.isBoundary;
 		// origMesh.V.push_back(vertex);
 		centerVertices.push_back(vertex);
 		//origPatch_vids[vertex.patch_id].insert(vertex.id);
@@ -3036,7 +3037,7 @@ void Simplifier::smooth_project() {
 			}
 			// std::cout << "num Patch Vids iterations: " << i << std::endl;
 
-			v = centerVertices.at(closest_origVid).xyz();
+			// v = centerVertices.at(closest_origVid).xyz();
 		}
 	}
 }
@@ -3262,9 +3263,14 @@ void Simplifier::smooth_project(int resolution) {
 			glm::dvec3 center(0, 0, 0);
 //			if (iters > 10 || iters < 10)
 			// {
-			for (auto nvid : v.N_Vids)
+			int n = 0;
+			for (auto nvid : v.N_Vids) {
+				// if (v.isBoundary && !mesh.V.at(nvid).isBoundary) continue;
 				center += mesh.V.at(nvid).xyz();
+				n += 1;
+			}
 			center /= v.N_Vids.size();
+			// center /= n;
 			// }
 //			else {
 //				for (auto nfid : v.N_Fids)
@@ -3282,8 +3288,8 @@ void Simplifier::smooth_project(int resolution) {
 			// }
 			// center /= w;
 			// if (isnan(center.x) || isnan(center.y) || isnan(center.z)) center = glm::dvec3(0, 0, 0);
-			v = center;
-			// if (!v.isBoundary) continue;
+			if (!v.isCorner) v = center;
+			if (!v.isBoundary) continue;
 			// if (iters < 3) continue;
 
 			auto& patchVids = origPatch_vids[v.patch_id];
@@ -3293,7 +3299,8 @@ void Simplifier::smooth_project(int resolution) {
 			// glm::dvec3 curr_pos = v.xyz();
 			// for (auto patchVid : patchVids) {
 			for (auto& origv: refinedV) {
-				if (v.isBoundary != origv.isBoundary) continue;
+				// if (v.isBoundary != origv.isBoundary) continue;
+				if (!origv.isBoundary) continue;
 				// auto& origv = origMesh.V.at(patchVid);
 				// auto& origv = refinedV.at(patchVid);
 				auto distance = glm::length(origv.xyz() - v.xyz());

@@ -44,6 +44,48 @@ void DiagnalCollapseSimplifier::Run3(std::set<size_t>& canceledFids) {
     }
 }
 
+void DiagnalCollapseSimplifier::CollapseSinglets(std::set<size_t>& canceledFids) {
+    for (auto& f: mesh.F) f.isVisited = false;
+    for (auto& f : mesh.F) {
+        if (f.isVisited) continue;
+        f.isVisited = true;
+        bool collapsed = false;
+        auto& v0 = mesh.V.at(f.Vids[0]);
+        auto& v1 = mesh.V.at(f.Vids[1]);
+        auto& v2 = mesh.V.at(f.Vids[2]);
+        auto& v3 = mesh.V.at(f.Vids[3]);
+        if (v0.type == CORNER || v1.type == CORNER || v2.type == CORNER || v3.type == CORNER) continue;
+
+        if (v0.type == FEATURE && v1.type == FEATURE && v2.type == FEATURE && v0.label == v1.label && v1.label == v2.label) {
+            canceledFids.insert(f.id);
+            Collapse(v0.id, v2.id);
+            collapsed = true;
+            // return;
+        } else if (v1.type == FEATURE && v2.type == FEATURE && v3.type == FEATURE && v1.label == v2.label && v2.label == v3.label) {
+            canceledFids.insert(f.id);
+            collapsed = true;
+            Collapse(v1.id, v3.id);
+            // return;
+        } else if (v2.type == FEATURE && v3.type == FEATURE && v0.type == FEATURE && v2.label == v3.label && v3.label == v0.label) {
+            canceledFids.insert(f.id);
+            collapsed = true;
+            Collapse(v2.id, v0.id);
+            // return;
+        } else if (v3.type == FEATURE && v0.type == FEATURE && v1.type == FEATURE && v3.label == v0.label && v0.label == v1.label) {
+            canceledFids.insert(f.id);
+            Collapse(v3.id, v1.id);
+            collapsed = true;
+            // return;
+        }
+
+        if (collapsed) {
+            for (auto nfid: f.N_Fids) {
+                mesh.F.at(nfid).isVisited = true;
+            }
+        }
+    }
+}
+
 void DiagnalCollapseSimplifier::Run(std::set<size_t>& canceledFids) {
     for (auto valence = Simplifier::maxValence - 1; valence > 4; --valence) {
         for (auto& f : mesh.F) {
@@ -87,10 +129,11 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
 		size_t target_vid;
 	};
     std::vector<collapsableDiagonal> diagonals;
-    for (auto& f: mesh.F) f.isVisted = false;
+    for (auto& f: mesh.F) f.isVisited = false;
     for (auto valence = Simplifier::maxValence - 1; valence > 4; --valence) {
         for (auto& f: mesh.F) {
-            if (f.isVisted) continue;
+            if (f.isVisited) continue;
+            // f.isVisited = true;
             auto& v0 = mesh.V.at(f.Vids[0]);
             auto& v1 = mesh.V.at(f.Vids[1]);
             auto& v2 = mesh.V.at(f.Vids[2]);
@@ -105,10 +148,11 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
                     diagonals.push_back(d);
 
                     // Collapse(v0.id, v2.id);
+                    // CollapseDiagnal(v0, v2);
                     canceledFids.insert(f.id);
-                    f.isVisted = true;
+                    f.isVisited = true;
                     for (auto fid: f.N_Fids) {
-                        mesh.F.at(fid).isVisted = true;
+                        mesh.F.at(fid).isVisited = true;
                     }
                     continue;
                     // return;
@@ -119,10 +163,11 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
                     diagonals.push_back(d);
                     
                     // Collapse(v2.id, v0.id);
+                    // CollapseDiagnal(v2, v0);
                     canceledFids.insert(f.id);
-                    f.isVisted = true;
+                    f.isVisited = true;
                     for (auto fid: f.N_Fids) {
-                        mesh.F.at(fid).isVisted = true;
+                        mesh.F.at(fid).isVisited = true;
                     }
                     continue;
                     // return;
@@ -138,10 +183,11 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
                     diagonals.push_back(d);
                     
                     // Collapse(v1.id, v3.id);
+                    // CollapseDiagnal(v1, v3);
                     canceledFids.insert(f.id);
-                    f.isVisted = true;
+                    f.isVisited = true;
                     for (auto fid: f.N_Fids) {
-                        mesh.F.at(fid).isVisted = true;
+                        mesh.F.at(fid).isVisited = true;
                     }
                     // return;
                 } else if (CanCollapseDiagnal(v3, v1)) {
@@ -151,10 +197,11 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
                     diagonals.push_back(d);
                     
                     // Collapse(v3.id, v1.id);
+                    // CollapseDiagnal(v3, v1);
                     canceledFids.insert(f.id);
-                    f.isVisted = true;
+                    f.isVisited = true;
                     for (auto fid: f.N_Fids) {
-                        mesh.F.at(fid).isVisted = true;
+                        mesh.F.at(fid).isVisited = true;
                     }
                     // return;
                 }
@@ -172,9 +219,9 @@ void DiagnalCollapseSimplifier::CollapseDiagnal(const Vertex& v0, const Vertex& 
     Collapse(vid, target_vid);
 }
 
-//bool DiagnalCollapseSimplifier::CanCollapseDiagnal(const Vertex& v, const Vertex& target_v) {
-//    return !v.isBoundary && v.N_Fids.size() == 3 && target_v.N_Fids.size() == 3;
-//}
+// bool DiagnalCollapseSimplifier::CanCollapseDiagnal(const Vertex& v, const Vertex& target_v) {
+//    return !v.isBoundary && !target_v.isBoundary && v.N_Fids.size() == 3 && target_v.N_Fids.size() == 3;
+// }
 bool DiagnalCollapseSimplifier::CanCollapseDiagnal(const Vertex& v, const Vertex& target_v) {
-    return !v.isBoundary && v.N_Fids.size() == 3 && (target_v.N_Fids.size() >= Simplifier::minValence && target_v.N_Fids.size() <= Simplifier::maxValence);
+    return !v.isBoundary && !target_v.isBoundary && v.N_Fids.size() == 3 && (target_v.N_Fids.size() >= Simplifier::minValence && target_v.N_Fids.size() <= Simplifier::maxValence);
 }

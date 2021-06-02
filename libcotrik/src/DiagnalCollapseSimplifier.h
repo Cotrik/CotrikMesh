@@ -23,6 +23,7 @@ public:
     void Run3(std::set<size_t>& canceledFids);
     void Run(std::set<size_t>& canceledFids);
     void RunCollective(std::set<size_t>& canceledFids);
+    void CollapseSinglets(std::set<size_t>& canceledFids);
 private:
     void CollapseDiagnal(const Vertex& v0, const Vertex& v2);
     bool CanCollapseDiagnal(const Vertex& v0, const Vertex& v2);

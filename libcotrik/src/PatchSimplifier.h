@@ -14,17 +14,21 @@ private:
 public:
 	void Run();
 	bool Simplify(int& iter);
-	bool SimplifyCollective(int& iter);
-	bool ChordCollapseSimplify(int& iter);
-	bool SeparatrixSplitSimplify(int& iter);
-	bool SeparatrixCollapseSimplify(int& iter);
-	bool HalfSeparatrixCollapseSimplify(int& iter);
-	bool EdgeRotateSimplify(int& iter);
 	bool CheckCorners();
-	void smoothMesh(int iters_, bool global);
-	void RefineMesh();
-	int GetBoundaryEdges();
-	bool findCrossQuads();
+	void AngleBasedSmoothing(std::vector<glm::dvec3>& delta_coords);
+	void ResampleBoundaryVertices(std::vector<glm::dvec3>& delta_coords);
+	void RemapBoundaryVertices(std::vector<glm::dvec3>& delta_coords);
+	double GetMeshEnergy();
+	double GetVertexEnergy(int vid);
+	bool IsFaceNegative(int fid, int vid, glm::dvec3 false_coord);
+	void SmoothBoundary();
+	void SmoothMesh();
+
+	// std::vector<Vertex> refinedV;
+	double refinementFactor = 0.5;
+	std::vector<size_t> smoothVids;
+	std::vector<size_t> origBoundaryVids;
+	bool smoothGlobal = false;
 
 	int originalFaces = 0;
 	// SmoothAlgorithm* smoothing_algorithm;
