@@ -86,7 +86,7 @@ bool PatchSimplifier::Simplify(int& iter) {
         // refineVertexInFaces(origMesh, refinedV, 1);
 	    // refineVertexInEdges(origMesh, refinedV, 1);
         for (auto& v: origMesh.V) {
-            if (v.isBoundary) {
+            if (v.isBoundary && !v.isCorner) {
                 origBoundaryVids.push_back(v.id);
             }
         }
@@ -96,46 +96,22 @@ bool PatchSimplifier::Simplify(int& iter) {
         auto eids = get_rotate_eids();
         MeshFileWriter writer(mesh, "rotate_eids.vtk");
         writer.WriteEdgesVtk(eids);
-        mesh.unifyOrientation();
         smoothGlobal = true;
         SmoothMesh();
-    } else {
-        if (mesh.F.size() <= 0.25 * refinementFactor * origMesh.F.size()) {
-            std::cout << "current Faces: " << mesh.F.size() << " original Faces: " << origMesh.F.size() << std::endl;
-            std::set<size_t> bogus;
-            // update(bogus);
-            // init();
-            mesh = RefineWithFeaturePreserved(mesh, 0);
-            size_t id = 0;
-            for (auto& c : mesh.C) {
-                c.cellType = VTK_QUAD;
-                c.id = id++;
-            }
-            
-            for (auto& v : mesh.V) {
-                v.N_Vids.clear();
-                v.N_Eids.clear();
-                v.N_Fids.clear();
-                v.N_Cids.clear();
-            }
-            mesh.F.resize(mesh.C.size());
-            for (int i = 0; i < mesh.C.size(); i++) {
-                auto& c = mesh.C.at(i);
-                Face f;
-                f.Vids = c.Vids;
-                f.id = c.id;
-                mesh.F.at(i) = f;
-            }
-            // update(bogus);
-            init();
-            std::cout << "f: " << mesh.F.size() << std::endl;
-            smoothGlobal = true;
-            SmoothMesh();
-        }
-        else {
-            SmoothMesh();
-        }    
     }
+    else {
+        smoothGlobal = true;
+        SmoothMesh();  
+    }
+    // if (mesh.F.size() <= 0.25 * refinementFactor * origMesh.F.size()) {
+    //     std::cout << "current Faces: " << mesh.F.size() << " original Faces: " << origMesh.F.size() << std::endl;
+        
+    //     smoothGlobal = true;
+    //     SmoothMesh();
+    //     RefineMesh();
+    //     smoothGlobal = true;
+    //     SmoothMesh();
+    // }
     
     // Step 1 -- doublet removal
     if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
@@ -208,20 +184,22 @@ bool PatchSimplifier::Simplify(int& iter) {
         } else std::cout << "strict_simplify\n";
     }
 
+    if (canceledFids.empty() && Simplifier::HALF) {
+       BaseComplexQuad baseComplex(mesh);
+       baseComplex.ExtractSingularVandE();
+       baseComplex.BuildE();
+    //    half_simplify(baseComplex, canceledFids);
+        half_separatrix_collapse(baseComplex, canceledFids);
+
+        if (!canceledFids.empty()) std::cout << "half_simplify\n";
+   }
+
    if (canceledFids.empty() && Simplifier::GLOBAL) {
        SheetSimplifier sheetSimplifier(mesh);
     //    sheetSimplifier.Run(canceledFids);
        sheetSimplifier.ExtractAndCollapse(canceledFids);
    }
-   if (canceledFids.empty() && Simplifier::HALF) {
-       BaseComplexQuad baseComplex(mesh);
-       baseComplex.ExtractSingularVandE();
-       baseComplex.BuildE();
-    //    half_simplify(baseComplex, canceledFids);
-       half_separatrix_collapse(baseComplex, canceledFids);
 
-       if (!canceledFids.empty()) std::cout << "half_simplify\n";
-   }
     if (canceledFids.empty()) {
         update(canceledFids);
         return false;
@@ -662,3 +640,85 @@ bool PatchSimplifier::IsFaceNegative(int fid, int vid, glm::dvec3 false_coord) {
     return true;
 }
 
+void PatchSimplifier::RefineMesh() {
+    std::vector<Vertex> newV(mesh.V.size());
+	std::vector<Cell> newC;
+	for (size_t i = 0; i < mesh.V.size(); ++i) {
+	    auto& v = mesh.V.at(i);
+	    auto& newv = newV.at(i);
+		newv.id = i;
+		newv = v.xyz();
+		newv.type = v.type;
+		newv.isCorner = v.isCorner;
+		newv.isConvex = v.isConvex;
+		newv.label = v.label;
+		newv.patch_id = v.patch_id;
+		newv.isSpecial = v.isSpecial;
+		newv.labels = v.labels;
+		newv.patch_ids = v.patch_ids;
+		newv.idealValence = v.idealValence;
+		newv.prescribed_length = v.prescribed_length;
+		newv.smoothLocal = v.smoothLocal;
+	}
+    for (auto& e: mesh.E) {
+        Vertex new_v;
+        new_v = 0.5 * (mesh.V.at(e.Vids.at(0)).xyz() + mesh.V.at(e.Vids.at(1)).xyz());
+
+        new_v.id = newV.size();
+        for (auto fid: e.N_Fids) {
+            Face& f = mesh.F.at(fid);
+            for (int i = 0; i < f.Vids.size(); i++) {
+                if (std::find(e.Vids.begin(), e.Vids.end(), f.Vids.at(i)) != e.Vids.end() &&
+                    std::find(e.Vids.begin(), e.Vids.end(), f.Vids.at((i + 1) % f.Vids.size())) != e.Vids.end()) {
+                        f.Vids.insert(f.Vids.begin() + (i + 1) % f.Vids.size(), new_v.id);
+                        break;
+                }
+            }
+        }
+        newV.push_back(new_v);
+    }
+    for (int i = 0; i < mesh.F.size(); i++) {
+        Face& f = mesh.F.at(i);
+
+        Vertex new_v;
+        new_v = 0.25 * (mesh.V.at(f.Vids.at(1)).xyz() + mesh.V.at(f.Vids.at(3)).xyz() + mesh.V.at(f.Vids.at(5)).xyz() + mesh.V.at(f.Vids.at(7)).xyz());
+        new_v.id = newV.size();
+        newV.push_back(new_v);
+
+        Cell f1;
+        f1.Vids = {new_v.id, f.Vids.at(0), f.Vids.at(1), f.Vids.at(2)};
+        f1.cellType = VTK_QUAD;
+        
+        Cell f2;
+        f2.Vids = {new_v.id, f.Vids.at(2), f.Vids.at(3), f.Vids.at(4)};
+        f2.cellType = VTK_QUAD;
+
+        Cell f3;
+        f3.Vids = {new_v.id, f.Vids.at(4), f.Vids.at(5), f.Vids.at(6)};
+        f3.cellType = VTK_QUAD;
+
+        Cell f4;
+        f4.Vids = {new_v.id, f.Vids.at(6), f.Vids.at(7), f.Vids.at(0)};
+        f4.cellType = VTK_QUAD;
+
+        f1.id = newC.size();
+        newC.push_back(f1);
+
+        f2.id = newC.size();
+        newC.push_back(f2);
+
+        f3.id = newC.size();
+        newC.push_back(f3);
+
+        f4.id = newC.size();
+        newC.push_back(f4);
+    }
+    mesh.V.clear();
+	mesh.E.clear();
+	mesh.F.clear();
+	mesh.C.clear();
+
+	mesh.V = newV;
+	mesh.C = newC;
+    init();
+}

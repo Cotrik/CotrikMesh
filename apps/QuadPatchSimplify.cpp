@@ -46,14 +46,14 @@ int main(int argc, char* argv[]) {
 		writer.WriteVertexFeatureVtk();
 	}
 	simplifier.init();
-
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Simplification time: " << duration << " seconds" << std::endl;
-    mesh.smoothGlobal = true;
-    // while (simplifier.findCrossQuads()) {
-    //     simplifier.smooth_project(2);
-    // }
-	// simplifier.smooth_project(1);
+    // simplifier.smoothGlobal = true;
+    // simplifier.SmoothMesh();
+    // simplifier.RefineMesh();
+    // simplifier.smoothGlobal = true;
+    // simplifier.SmoothMesh();
+    // simplifier.smooth_project(1);
 	{
         // simplifier.RefineMesh();
         // SmoothAlgorithm smoothAlgo(mesh, simplifier.origMesh, 1000, 1, true, true);

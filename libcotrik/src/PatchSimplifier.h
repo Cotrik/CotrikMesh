@@ -23,9 +23,10 @@ public:
 	bool IsFaceNegative(int fid, int vid, glm::dvec3 false_coord);
 	void SmoothBoundary();
 	void SmoothMesh();
+	void RefineMesh();
 
-	// std::vector<Vertex> refinedV;
-	double refinementFactor = 0.5;
+	std::vector<Vertex> refinedV;
+	double refinementFactor = 0.1;
 	std::vector<size_t> smoothVids;
 	std::vector<size_t> origBoundaryVids;
 	bool smoothGlobal = false;
