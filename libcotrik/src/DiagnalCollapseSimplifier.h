@@ -9,6 +9,7 @@
 #define LIBCOTRIK_SRC_DIAGNAL_COLLAPSE_SIMPLIFIER_H_
 
 #include "Simplifier.h"
+#include "PatchSimplifierOperations.h"
 class DiagnalCollapseSimplifier : public Simplifier {
 public:
     DiagnalCollapseSimplifier(Mesh& mesh);
@@ -24,6 +25,7 @@ public:
     void Run(std::set<size_t>& canceledFids);
     void RunCollective(std::set<size_t>& canceledFids);
     void CollapseSinglets(std::set<size_t>& canceledFids);
+	void GetDiagonalCollapseOps(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
 private:
     void CollapseDiagnal(const Vertex& v0, const Vertex& v2);
     bool CanCollapseDiagnal(const Vertex& v0, const Vertex& v2);

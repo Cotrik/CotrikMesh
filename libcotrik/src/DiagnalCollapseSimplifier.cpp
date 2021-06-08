@@ -225,3 +225,62 @@ void DiagnalCollapseSimplifier::CollapseDiagnal(const Vertex& v0, const Vertex& 
 bool DiagnalCollapseSimplifier::CanCollapseDiagnal(const Vertex& v, const Vertex& target_v) {
     return !v.isBoundary && !target_v.isBoundary && v.N_Fids.size() == 3 && (target_v.N_Fids.size() >= Simplifier::minValence && target_v.N_Fids.size() <= Simplifier::maxValence);
 }
+
+void DiagnalCollapseSimplifier::GetDiagonalCollapseOps(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+    for (auto valence = Simplifier::maxValence - 1; valence > 4; --valence) {
+        for (auto& f: mesh.F) {
+            auto& v0 = mesh.V.at(f.Vids[0]);
+            auto& v1 = mesh.V.at(f.Vids[1]);
+            auto& v2 = mesh.V.at(f.Vids[2]);
+            auto& v3 = mesh.V.at(f.Vids[3]);
+            size_t source_id, target_id;
+            bool OpExists = false;
+            if (v1.N_Fids.size() >= valence && v3.N_Fids.size() >= valence && !v1.isBoundary && !v3.isBoundary) {
+                if (v0.type == CORNER || v2.type == CORNER) continue;
+                if (CanCollapseDiagnal(v0, v2)) {
+                    source_id = v0.id;
+                    target_id = v2.id;
+                    OpExists = true;
+                } else if (CanCollapseDiagnal(v2, v0)) {
+                    source_id = v2.id;
+                    target_id = v0.id;
+                    OpExists = true;
+                }
+            } else if (v0.N_Fids.size() >= valence && v2.N_Fids.size() >= valence && !v0.isBoundary && !v2.isBoundary) {
+                if (v1.type == CORNER || v3.type == CORNER) continue;
+                if (CanCollapseDiagnal(v1, v3)) {
+                    source_id = v1.id;
+                    target_id = v3.id;
+                    OpExists = true;
+                } else if (CanCollapseDiagnal(v3, v1)) {
+                    source_id = v3.id;
+                    target_id = v1.id;
+                    OpExists = true;
+                }
+            }
+            if (OpExists) {
+                SimplificationOperation Op;
+                Op.type = "Diagonal_Collapse";
+                auto& source = mesh.V.at(source_id);
+                auto& target = mesh.V.at(target_id);
+                Op.updateVertexIds.push_back(target_id);
+                Op.updatedVertexPos.push_back(0.25 * (source.xyz() + target.xyz()));
+                Op.profitability = mesh.GetQuadFaceArea(f.Vids) / mesh.totalArea;
+                for (auto fid: source.N_Fids) {
+                    if (std::find(target.N_Fids.begin(), target.N_Fids.end(), fid) == target.N_Fids.end()) {
+                        Face& n_f = mesh.F.at(fid);
+                        Face newF;
+                        for (int i = 0; i < n_f.Vids.size(); i++) {
+                            n_f.Vids.at(i) == source.id ? newF.Vids.push_back(target.id) : newF.Vids.push_back(n_f.Vids.at(i));
+                        }
+                        Op.newFaces.push_back(newF);
+                        Op.canceledFids.insert(n_f.id);
+                    } else {
+                        Op.canceledFids.insert(fid);
+                    }
+                }
+                SimplificationOps.insert(Op);
+            }
+        }
+    }
+}

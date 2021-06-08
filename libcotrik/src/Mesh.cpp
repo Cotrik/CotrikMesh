@@ -3730,6 +3730,14 @@ bool Mesh::HasBoundary() const {
     return hasBoundary;
 }
 
+double Mesh::GetQuadFaceArea(std::vector<size_t>& Vids) {
+    return 0.5 * glm::length(glm::cross(V.at(Vids.at(2)).xyz() - V.at(Vids.at(0)).xyz(), V.at(Vids.at(3)).xyz() - V.at(Vids.at(1)).xyz()));
+}
+
+double Mesh::GetQuadMeshArea() {
+    for (auto& f: F) totalArea += GetQuadFaceArea(f.Vids);
+}
+
 const unsigned int HexEdges[12][2] =
 {
     { 0, 1 },

@@ -2,7 +2,9 @@
 #define PATCH_SIMPLIFIER_H
 
 #include "Simplifier.h"
+#include "PatchSimplifierOperations.h"
 // #include "AngleBasedSmoothQuadMesh.h"
+
 class PatchSimplifier : public Simplifier {
 public:
 	PatchSimplifier(Mesh& mesh);
@@ -14,6 +16,7 @@ private:
 public:
 	void Run();
 	bool Simplify(int& iter);
+	bool SimplifyMesh(int& iter);
 	bool CheckCorners();
 	void AngleBasedSmoothing(std::vector<glm::dvec3>& delta_coords);
 	void ResampleBoundaryVertices(std::vector<glm::dvec3>& delta_coords);
@@ -25,6 +28,8 @@ public:
 	void SmoothMesh();
 	void RefineMesh();
 
+	void GetOperations(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
+	
 	std::vector<Vertex> refinedV;
 	double refinementFactor = 0.1;
 	std::vector<size_t> smoothVids;

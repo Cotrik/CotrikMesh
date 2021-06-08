@@ -18,6 +18,14 @@ PatchSimplifier::~PatchSimplifier() {
 
 }
 
+bool OpSortAscending(SimplificationOperation op1, SimplificationOperation op2) {
+    return op1.profitability < op2.profitability;
+}
+
+bool OpSortDescending(SimplificationOperation op1, SimplificationOperation op2) {
+    return op1.profitability > op2.profitability;
+}
+
 static void refineVertexInFaces(Mesh& mesh, std::vector<Vertex>& refinedV, int resolution = 3) {
     Vertex vertex;
     for (auto& f : mesh.F) {
@@ -70,10 +78,125 @@ void PatchSimplifier::Run() {
     int iter = 0;
     while (Simplifier::maxValence <= maxValence_copy) {
         while (iters-- > 0) {
-            if (!Simplify(iter)) break;
+            // if (!Simplify(iter)) break;
+            if (!SimplifyMesh(iter)) break;
         }
         ++Simplifier::maxValence;
     }
+}
+
+bool PatchSimplifier::SimplifyMesh(int& iter) {
+    std::set<size_t> canceledFids;
+    init();
+
+    if (iter == 0) {
+        mesh.GetQuadMeshArea();
+        featurePreserved ? get_feature() : origMesh = mesh;
+        for (auto& v: origMesh.V) {
+            if (v.isBoundary && !v.isCorner) {
+                origBoundaryVids.push_back(v.id);
+            }
+        }
+    }
+
+    ///////////////// Cleaning Operations (Local Operations) ////////////////////
+    // -- singlet collapsing
+    if (canceledFids.empty()) {
+        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
+        diagnalCollapseSimplifier.CollapseSinglets(canceledFids);
+        if (!canceledFids.empty()) std::cout << "singlet collapsing" << std::endl;
+    }
+    // -- doublet removal
+    if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
+        DoubletSimplifier doubletSimplifier(mesh);
+        doubletSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
+    }
+    // -- doublet splitting
+    if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
+        SheetSplitSimplifier sheetSplitSimplifier(mesh);
+        sheetSplitSimplifier.Run(canceledFids);
+        if (!canceledFids.empty()) std::cout << "remove_doublet from sheetSplitSimplifier" << std::endl;
+    }
+
+    // -- triplet splitting (optional)
+    if (canceledFids.empty() && Simplifier::TRIP) {
+        TriangleSimplifier triangleSimplifier(mesh);
+        triangleSimplifier.Run(canceledFids);
+        if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
+    }
+    ////////////////////////////////////////////////////////////////////////////
+
+    ////////////////// Boundary Conformality (Local Operations) ////////////////
+    // -- edge rotation
+    if (canceledFids.empty() && Simplifier::ROTATE) {
+        EdgeRotateSimplifier edgeRotateSimplifier(mesh);
+        edgeRotateSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
+    }
+    ////////////////////////////////////////////////////////////////////////////
+
+    /////// Simplification Operations (Local and Semi-global Operations) ///////
+    
+    if (canceledFids.empty()) {
+        bool(*fn_pt1)(SimplificationOperation, SimplificationOperation) = OpSortDescending;
+        bool(*fn_pt2)(SimplificationOperation, SimplificationOperation) = OpSortAscending;
+        std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)> SimplificationOps(fn_pt1);
+        GetOperations(SimplificationOps);
+
+        if (!SimplificationOps.empty()) {
+            std::cout << "# of Simplification Operations: " << SimplificationOps.size() << std::endl;
+            for (auto op: SimplificationOps) {
+                std::cout << op.type << ": " << op.profitability << std::endl;
+            }
+        }
+    }
+    
+    ////////////////////////////////////////////////////////////////////////////
+
+    if (canceledFids.empty()) {
+        update(canceledFids);
+        return false;
+    }
+    
+    update(canceledFids);
+    if (Simplifier::writeFile) {
+        auto num = std::to_string(iter);
+        while (num.size() < 3) num.insert(num.begin(), '0');
+        {
+            std::string fname = std::string("iter") + num + ".vtk";
+            std::cout << "writing " << fname << std::endl;
+            MeshFileWriter writer(mesh, fname.c_str());
+            writer.WriteFile();
+        }
+    }
+    std::cout << "iter = " << iter++ << std::endl;
+    std::cout << "---------------------------------------------------\n";
+    return true;
+
+}
+
+void PatchSimplifier::GetOperations(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+    BaseComplexQuad baseComplex(mesh);
+    baseComplex.ExtractSingularVandE();
+    baseComplex.BuildE();
+    
+    
+    if (Simplifier::COLLAPSE_DIAGNAL) {
+        DiagnalCollapseSimplifier diagonalCollapseSimplifier(mesh);
+        diagonalCollapseSimplifier.GetDiagonalCollapseOps(SimplificationOps);
+    }
+
+    if (Simplifier::COLLAPSE) {
+        GetSeparatrixCollapseOps(baseComplex, false, SimplificationOps);
+        GetSeparatrixCollapseOps(baseComplex, true, SimplificationOps);
+    }
+
+    if (Simplifier::HALF) {
+        GetHalfSeparatrixOps(baseComplex, SimplificationOps);
+    }
+
+    
 }
 
 bool PatchSimplifier::Simplify(int& iter) {

@@ -599,6 +599,8 @@ public:
     void SetOneRingNeighborhood(); // 2D surface smoothing
     void ArrangeFaceVerticesAntiClockwise();
     void ExtractOneRingNeighbors(Vertex& source);
+    double GetQuadFaceArea(std::vector<size_t>& Vids);
+    double GetQuadMeshArea();
 public:
     std::vector<Vertex> V;
     std::vector<Edge> E;
@@ -627,6 +629,7 @@ public:
     bool hasBoundary = false;
     bool isManifold = true;
     bool smoothGlobal = true;
+    double totalArea = 0.0;
 };
 
 #endif /* MESH_H_ */
