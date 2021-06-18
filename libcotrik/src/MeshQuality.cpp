@@ -439,6 +439,17 @@ double GetScaledJacobianQuad(const Mesh& mesh, size_t faceId) {
     return v_quad_scaled_jacobian(4, coordinates);
 }
 
+double GetScaledJacobianQuad(const Mesh& mesh, Face& f) {
+    double coordinates[4][3];
+    for (size_t j = 0; j < 4; j++) {
+        const Vertex& v = mesh.V[f.Vids[j]];
+        coordinates[j][0] = v.x;
+        coordinates[j][1] = v.y;
+        coordinates[j][2] = v.z;
+    }
+    return v_quad_scaled_jacobian(4, coordinates);
+}
+
 size_t GetScaledJacobianVerdict(const Mesh& mesh, std::vector<double>& scaledJacobian, const double minSJ/* = 0.0*/)
 {
     size_t numOfInvertedElements = 0;

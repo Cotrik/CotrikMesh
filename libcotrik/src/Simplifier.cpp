@@ -298,31 +298,31 @@ void Simplifier::collapse_with_feature_preserved(std::unordered_map<size_t, size
 		for (auto vid : e.Vids) {
 			auto& v = mesh.V.at(vid);
 			
-			if (vid != centerVid) {
-				auto& centerV = mesh.V.at(centerVid);
-				std::set<size_t> newE;
-				std::set<size_t> newF;
-				newE.insert(centerV.N_Eids.begin(), centerV.N_Eids.end());
-				newE.insert(v.N_Eids.begin(), v.N_Eids.end());
-				newF.insert(centerV.N_Fids.begin(), centerV.N_Fids.end());
-				newF.insert(v.N_Fids.begin(), v.N_Fids.end());
+			// if (vid != centerVid) {
+				// auto& centerV = mesh.V.at(centerVid);
+				// std::set<size_t> newE;
+				// std::set<size_t> newF;
+				// newE.insert(centerV.N_Eids.begin(), centerV.N_Eids.end());
+				// newE.insert(v.N_Eids.begin(), v.N_Eids.end());
+				// newF.insert(centerV.N_Fids.begin(), centerV.N_Fids.end());
+				// newF.insert(v.N_Fids.begin(), v.N_Fids.end());
 
-				centerV.N_Eids.clear();
-				centerV.N_Fids.clear();
-				centerV.N_Eids.insert(centerV.N_Eids.begin(), newE.begin(), newE.end());
-				centerV.N_Fids.insert(centerV.N_Fids.begin(), newF.begin(), newF.end());
-			}
+				// centerV.N_Eids.clear();
+				// centerV.N_Fids.clear();
+				// centerV.N_Eids.insert(centerV.N_Eids.begin(), newE.begin(), newE.end());
+				// centerV.N_Fids.insert(centerV.N_Fids.begin(), newF.begin(), newF.end());
+			// }
 
 			for (auto n_fid : v.N_Fids) {
 				auto& n_f = mesh.F.at(n_fid);
 				for (auto& n_vid : n_f.Vids)
 					if (n_vid == vid) n_vid = centerVid;
 			}
-			for (auto n_eid: v.N_Eids) {
-				auto& n_e = mesh.E.at(n_eid);
-				for (auto& n_vid: n_e.Vids)
-					if (n_vid == vid) n_vid = centerVid;
-			}
+			// for (auto n_eid: v.N_Eids) {
+			// 	auto& n_e = mesh.E.at(n_eid);
+			// 	for (auto& n_vid: n_e.Vids)
+			// 		if (n_vid == vid) n_vid = centerVid;
+			// }
 			
 		}
 		if (collapseToMidPoint) {
@@ -1956,6 +1956,13 @@ void Simplifier::GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool loo
 					Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
 					Op.updateVertexIds.push_back(vid);
 				}
+				auto vid = link.back();
+				auto eid = linkEids.back();
+				auto p = get_collapse_vids(vid, eid);
+				CollapseVertexToTarget(p[0], vid, Op);
+				CollapseVertexToTarget(p[1], vid, Op);
+				Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
+				Op.updateVertexIds.push_back(vid);
 				Op.profitability /= mesh.totalArea;
 				SimplificationOps.insert(Op);
 			}
@@ -2000,6 +2007,12 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
 						Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
 						Op.updateVertexIds.push_back(vid);
 					}
+					auto vid = link.back();
+					auto eid = linkEids.back();
+					auto p = get_collapse_vids(vid, eid);
+					CollapseVerticesToTargetWithFeaturePreserved(p, vid, Op);
+					Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
+					Op.updateVertexIds.push_back(vid);
 					Op.profitability /= mesh.totalArea;
 					SimplificationOps.insert(Op);
                 }
@@ -2035,6 +2048,12 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
 						Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
 						Op.updateVertexIds.push_back(vid);
 					}
+					auto vid = link.back();
+					auto eid = linkEids.back();
+					auto p = get_collapse_vids(vid, eid);
+					CollapseVerticesToTargetWithFeaturePreserved(p, vid, Op);
+					Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
+					Op.updateVertexIds.push_back(vid);
 					Op.profitability /= mesh.totalArea;
 					SimplificationOps.insert(Op);
                 }
@@ -2049,15 +2068,29 @@ void Simplifier::CollapseVertexToTarget(size_t source_vid, size_t target_vid, Si
 
 	for (auto fid: source.N_Fids) {
 		if (std::find(target.N_Fids.begin(), target.N_Fids.end(), fid) == target.N_Fids.end()) {
+			bool skip = false;
+			for (auto& Op_face: Op.newFaces) {
+				if (Op_face.id == fid) {
+					for (int i = 0; i < Op_face.Vids.size(); i++) {
+						Op_face.Vids.at(i) = Op_face.Vids.at(i) == source.id ? target.id : Op_face.Vids.at(i);
+					}
+					skip = true;
+				}
+			}
+			if (skip) continue;
 			Face& n_f = mesh.F.at(fid);
 			Face newF;
+			newF.id = n_f.id;
 			for (int i = 0; i < n_f.Vids.size(); i++) {
 				n_f.Vids.at(i) == source.id ? newF.Vids.push_back(target.id) : newF.Vids.push_back(n_f.Vids.at(i));
 			}
 			Op.newFaces.push_back(newF);
 			Op.canceledFids.insert(n_f.id);
+			// Op.processedFids.insert(n_f.id);
+			// Op.processedFids.insert(n_f.N_Fids.begin(), n_f.N_Fids.end());
 		} else {
 			Op.canceledFids.insert(fid);
+			// Op.processedFids.insert(fid);
 			Op.profitability += mesh.GetQuadFaceArea(mesh.F.at(fid).Vids);
 		}
 	}
@@ -4024,6 +4057,7 @@ void Simplifier::init() {
 	mesh.ExtractSingularities();
 	mesh.BuildParallelE();
 	mesh.unifyOrientation();
+	mesh.GetQuadMeshArea();
 	// mesh.SetOneRingNeighborhood();
 	mesh.V.resize(mesh.V.size());
     for (auto& v : mesh.V)

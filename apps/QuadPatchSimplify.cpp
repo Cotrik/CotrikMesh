@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     // simplifier.RefineMesh();
     // simplifier.smoothGlobal = true;
     // simplifier.SmoothMesh();
-    // simplifier.smooth_project(1);
+    // simplifier.smooth_project();
 	{
         // simplifier.RefineMesh();
         // SmoothAlgorithm smoothAlgo(mesh, simplifier.origMesh, 1000, 1, true, true);

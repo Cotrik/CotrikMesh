@@ -69,6 +69,87 @@ void SheetSimplifier::Run(std::set<size_t>& canceledFids) {
     }
 }
 
+void SheetSimplifier::GetChordCollapseOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+
+    BaseComplexSheetQuad baseComplexSheets(baseComplex);
+    baseComplexSheets.Extract();
+
+    //auto dualMesh = Refine(mesh, 0);
+    auto key_edgeId = get_key_edgeId(mesh);
+    auto key_faceId = get_key_faceId(mesh);
+    for (int sheetId = 0; sheetId < baseComplexSheets.sheets_componentEdgeIds.size(); ++sheetId) {
+        auto& componentEdgeIds = baseComplexSheets.sheets_componentEdgeIds.at(sheetId);
+        bool multiple_edges = false;
+        for (auto component_eid : componentEdgeIds) {
+            auto& component_e = baseComplex.componentE.at(component_eid);
+            if (component_e.eids_link.size() > 1) {
+                multiple_edges = true;
+                break;
+            }
+        }
+        if (multiple_edges) continue;
+        bool has_interior_singularities = false;
+        for (auto component_eid : componentEdgeIds) {
+            auto& component_e = baseComplex.componentE.at(component_eid);
+            for (auto vid : component_e.vids_link) {
+                auto& v = mesh.V.at(vid);
+                if (!v.isBoundary && v.N_Fids.size() != 4) {
+                    has_interior_singularities = true;
+                    break;
+                }
+            }
+        }
+
+        if (multiple_edges && !has_interior_singularities) continue;
+
+        std::map<size_t, size_t> canceledFaceIds;
+        std::set<size_t> canceledEdgeIds = GetCanceledEdgeIds(baseComplexSheets, canceledFaceIds, sheetId);
+
+        if (!CanCollapseWithFeaturePreserved(baseComplexSheets, canceledFaceIds, sheetId)) continue;
+        if (!can_collapse_vids_with_feature_preserved(canceledEdgeIds)) continue;
+        {
+            CollapseChordWithFeaturePreserved(key_edgeId, key_faceId, canceledFaceIds, canceledEdgeIds, SimplificationOps);
+        }
+        // break;
+    }
+} 
+
+void SheetSimplifier::CollapseChordWithFeaturePreserved(std::unordered_map<size_t, size_t>& key_edgeId, std::unordered_map<std::string, size_t>& key_faceId,
+    std::map<size_t, size_t>& canceledFaceIds, std::set<size_t>& canceledEdgeIds, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+    
+    SimplificationOperation Op;
+    Op.type = "Chord_Collapse";
+    
+    for (auto edgeId : canceledEdgeIds) {
+		auto& e = mesh.E[edgeId];
+		auto& v0 = mesh.V[e.Vids[0]];
+		auto& v1 = mesh.V[e.Vids[1]];
+		auto key = (e.Vids[0] << 32) | e.Vids[1];
+		if (key_edgeId.find(key) == key_edgeId.end()) std::cout << "Edge search Error !" << std::endl;
+		auto centerVid = e.Vids.front();
+		bool collapseToMidPoint = true;
+		size_t featureType = 0;
+		for (auto vid : e.Vids) {
+			auto& v = mesh.V.at(vid);
+			if (v.type != MAXID && v.type > featureType) {
+				featureType = v.type;
+				centerVid = vid;
+			}
+			if (v.isCorner) {
+				v.type = CORNER;
+				featureType = v.type;
+				centerVid = vid;
+			}
+		}
+        size_t source_vid = centerVid == v0.id ? v1.id : v0.id;
+        size_t target_vid = centerVid == v0.id ? v0.id : v1.id;
+        CollapseVertexToTarget(source_vid, target_vid, Op);
+    }
+
+    Op.profitability /= mesh.totalArea;
+    SimplificationOps.insert(Op);
+}
+
 void SheetSimplifier::ExtractAndCollapse(std::set<size_t>& canceledFids) {
     std::vector<std::set<size_t>> canceledEdgesIds;
     std::vector<std::map<size_t, size_t>> canceledFacesIds;
@@ -241,7 +322,8 @@ void SheetSimplifier::CollapseSelectedSheets(std::set<size_t>& canceledFids, std
     for (int i = 0; i < n; i++) {
         std::set<size_t> canceledEdgeIds = canceledEdgesIds.at(i);
         std::map<size_t, size_t> canceledFaceIds = canceledFacesIds.at(i);
-        collapse_with_feature_preserved(key_edgeId, key_faceId, canceledFaceIds, canceledEdgeIds);
+        // collapse_with_feature_preserved(key_edgeId, key_faceId, canceledFaceIds, canceledEdgeIds);
+        CollapseWithFeaturePreserved(key_edgeId, key_faceId, canceledFaceIds, canceledEdgeIds);
         for (auto& item : canceledFaceIds)
             canceledFids.insert(item.first);
         // break;

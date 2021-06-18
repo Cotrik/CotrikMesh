@@ -18,6 +18,7 @@ struct SimplificationOperation {
     std::string type;
     double profitability = 0;
     std::set<size_t> canceledFids;
+    std::set<size_t> processedFids;
     std::vector<Face> newFaces;
     std::vector<size_t> updateVertexIds;
     std::vector<glm::dvec3> updatedVertexPos;
