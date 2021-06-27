@@ -1963,7 +1963,9 @@ void Simplifier::GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool loo
 				CollapseVertexToTarget(p[1], vid, Op);
 				Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
 				Op.updateVertexIds.push_back(vid);
-				Op.profitability /= mesh.totalArea;
+				// Op.profitability /= mesh.totalArea;
+				Op.profitability /= Op.n;
+				// Op.profitability = 1;
 				SimplificationOps.insert(Op);
 			}
 		}
@@ -2013,7 +2015,9 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
 					CollapseVerticesToTargetWithFeaturePreserved(p, vid, Op);
 					Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
 					Op.updateVertexIds.push_back(vid);
-					Op.profitability /= mesh.totalArea;
+					// Op.profitability /= mesh.totalArea;
+					Op.profitability /= Op.n;
+					// Op.profitability = 1;
 					SimplificationOps.insert(Op);
                 }
             }
@@ -2054,7 +2058,9 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
 					CollapseVerticesToTargetWithFeaturePreserved(p, vid, Op);
 					Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
 					Op.updateVertexIds.push_back(vid);
-					Op.profitability /= mesh.totalArea;
+					// Op.profitability /= mesh.totalArea;
+					Op.profitability /= Op.n;
+					// Op.profitability = 1;
 					SimplificationOps.insert(Op);
                 }
             }
@@ -2065,7 +2071,8 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
 void Simplifier::CollapseVertexToTarget(size_t source_vid, size_t target_vid, SimplificationOperation& Op) {
 	auto& source = mesh.V.at(source_vid);
 	auto& target = mesh.V.at(target_vid);
-
+	Op.profitability += glm::distance(source.xyz(), target.xyz());
+	Op.n += 1;
 	for (auto fid: source.N_Fids) {
 		if (std::find(target.N_Fids.begin(), target.N_Fids.end(), fid) == target.N_Fids.end()) {
 			bool skip = false;
@@ -2086,12 +2093,13 @@ void Simplifier::CollapseVertexToTarget(size_t source_vid, size_t target_vid, Si
 			}
 			Op.newFaces.push_back(newF);
 			Op.canceledFids.insert(n_f.id);
+			// Op.profitability += mesh.GetQuadFaceArea(mesh.F.at(fid).Vids);
 			// Op.processedFids.insert(n_f.id);
 			// Op.processedFids.insert(n_f.N_Fids.begin(), n_f.N_Fids.end());
 		} else {
 			Op.canceledFids.insert(fid);
 			// Op.processedFids.insert(fid);
-			Op.profitability += mesh.GetQuadFaceArea(mesh.F.at(fid).Vids);
+			// Op.profitability += mesh.GetQuadFaceArea(mesh.F.at(fid).Vids);
 		}
 	}
 }

@@ -146,7 +146,9 @@ void SheetSimplifier::CollapseChordWithFeaturePreserved(std::unordered_map<size_
         CollapseVertexToTarget(source_vid, target_vid, Op);
     }
 
-    Op.profitability /= mesh.totalArea;
+    // Op.profitability /= mesh.totalArea;
+    Op.profitability /= Op.n;
+    // Op.profitability = 1;
     SimplificationOps.insert(Op);
 }
 

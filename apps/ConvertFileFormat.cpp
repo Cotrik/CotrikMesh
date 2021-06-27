@@ -27,10 +27,10 @@ int main(int argc, char* argv[])
     // mesh.ExtractBoundary();
     // mesh.ExtractSingularities();
     // mesh.SetOneRingNeighborhood();
-    // for (auto& v: mesh.V) {
-    //     v.y = v.z;
-    //     v.z = 0;
-    // }
+    for (auto& v: mesh.V) {
+        // v.y = v.z;
+        v.z = 0;
+    }
 
     MeshFileWriter writer(mesh, argv[2]);
     writer.WriteFile();

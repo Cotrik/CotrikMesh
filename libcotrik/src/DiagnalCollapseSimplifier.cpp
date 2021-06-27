@@ -260,12 +260,14 @@ void DiagnalCollapseSimplifier::GetDiagonalCollapseOps(std::multiset<Simplificat
             }
             if (OpExists) {
                 SimplificationOperation Op;
-                Op.type = "Diagonal_Collapse";
+                Op.type = "Strict_Diagonal_Collapse";
                 auto& source = mesh.V.at(source_id);
                 auto& target = mesh.V.at(target_id);
                 Op.updateVertexIds.push_back(target_id);
-                Op.updatedVertexPos.push_back(0.25 * (source.xyz() + target.xyz()));
-                Op.profitability = mesh.GetQuadFaceArea(f.Vids) / mesh.totalArea;
+                Op.updatedVertexPos.push_back(0.5 * (source.xyz() + target.xyz()));
+                // Op.profitability = mesh.GetQuadFaceArea(f.Vids) / mesh.totalArea;
+                Op.profitability = glm::distance(source.xyz(), target.xyz());
+                // Op.profitability = 1;
                 for (auto fid: source.N_Fids) {
                     if (std::find(target.N_Fids.begin(), target.N_Fids.end(), fid) == target.N_Fids.end()) {
                         Face& n_f = mesh.F.at(fid);

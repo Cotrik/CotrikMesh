@@ -86,7 +86,8 @@ void PatchSimplifier::Run() {
     }
     init();
     // RefineMesh();
-    SmoothMesh(true);
+    smoothGlobal = true;
+    SmoothMesh();
 }
 
 bool PatchSimplifier::SimplifyMesh(int& iter) {
@@ -94,27 +95,33 @@ bool PatchSimplifier::SimplifyMesh(int& iter) {
     init();
 
     if (iter == 0) {
-        mesh.GetQuadMeshArea();
         featurePreserved ? get_feature() : origMesh = mesh;
-        // mesh.SetOneRingNeighborhood();
         for (auto& v: origMesh.V) {
             if (v.isBoundary && !v.isCorner) {
                 origBoundaryVids.push_back(v.id);
             }
         }
-        // smoothGlobal = true;
+        smoothGlobal = true;
+        mesh.totalArea = mesh.GetQuadMeshArea();
         SmoothMesh(true);
     }
     else {
-        // smoothGlobal = true;
-        // SmoothMesh(false);
+        smoothGlobal = true;
+        SmoothMesh(true);
     }
-
+    mesh.prescribed_length = sqrt(mesh.totalArea / mesh.F.size());    
     // if (mesh.F.size() <= 0.25 * refinementFactor * origMesh.F.size()) {
     //     std::cout << "current Faces: " << mesh.F.size() << " original Faces: " << origMesh.F.size() << std::endl;
+        
     //     RefineMesh();
+    //     smoothGlobal = true;
     //     SmoothMesh(true);
     // }
+
+    bool(*fn_pt1)(SimplificationOperation, SimplificationOperation) = OpSortDescending;
+    bool(*fn_pt2)(SimplificationOperation, SimplificationOperation) = OpSortAscending;
+    std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)> SimplificationOps(fn_pt1);
+
 
     ///////////////// Cleaning Operations (Local Operations) ////////////////////
     // -- singlet collapsing
@@ -151,16 +158,25 @@ bool PatchSimplifier::SimplifyMesh(int& iter) {
         edgeRotateSimplifier.RunCollective(canceledFids);
         if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
     }
+    
     ////////////////////////////////////////////////////////////////////////////
 
     /////// Simplification Operations (Local and Semi-global Operations) ///////
     
-    bool(*fn_pt1)(SimplificationOperation, SimplificationOperation) = OpSortDescending;
-    bool(*fn_pt2)(SimplificationOperation, SimplificationOperation) = OpSortAscending;
-    std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)> SimplificationOps(fn_pt2);
-        
+    
+    
+    // if (canceledFids.empty()) {
+    //     GetOperations(SimplificationOps, "Diagonal_Collapse");
+    //     // GetOperations(SimplificationOps, "Edge_Collapse");
+    //     GetOperations(SimplificationOps, "Edge_Rotate");
+    //     // GetOperations(SimplificationOps, "Vertex_Rotate");
+    //     if (!SimplificationOps.empty()) {
+    //         PerformOperations(SimplificationOps, canceledFids);
+    //     }
+    // }
+
     if (canceledFids.empty()) {
-        GetOperations(SimplificationOps, "Diagonal_Collapse");
+        GetOperations(SimplificationOps, "Strict_Diagonal_Collapse");
         // GetOperations(SimplificationOps, "Separatrix_Collapse");
         // GetOperations(SimplificationOps, "Half_Separatrix_Collapse");
         // GetOperations(SimplificationOps, "Chord_Collapse");
@@ -169,34 +185,28 @@ bool PatchSimplifier::SimplifyMesh(int& iter) {
         }
     }
 
-    if (canceledFids.empty()) {
-        GetOperations(SimplificationOps, "Strict_Separatrix_Collapse");
-        if (!SimplificationOps.empty()) {
-            PerformOperations(SimplificationOps, canceledFids);
-        }
-    }
-
     // if (canceledFids.empty()) {
-    //     GetOperations(SimplificationOps, "Loose_Separatrix_Collapse");
+    //     GetOperations(SimplificationOps, "Separatrix_Collapse");
     //     if (!SimplificationOps.empty()) {
     //         PerformOperations(SimplificationOps, canceledFids);
     //     }
     // }
 
-    if (canceledFids.empty()) {
-        GetOperations(SimplificationOps, "Half_Separatrix_Collapse");
-        if (!SimplificationOps.empty()) {
-            PerformOperations(SimplificationOps, canceledFids);
-        }
-    }
-
-    if (canceledFids.empty()) {
-        GetOperations(SimplificationOps, "Chord_Collapse");
-        if (!SimplificationOps.empty()) {
-            PerformOperations(SimplificationOps, canceledFids);
-        }
-    }
+    // if (canceledFids.empty()) {
+    //     GetOperations(SimplificationOps, "Chord_Collapse");
+    //     if (!SimplificationOps.empty()) {
+    //         PerformOperations(SimplificationOps, canceledFids);
+    //     }
+    // }
     
+    
+    // if (canceledFids.empty()) {
+    //     GetOperations(SimplificationOps, "Half_Separatrix_Collapse");
+    //     if (!SimplificationOps.empty()) {
+    //         PerformOperations(SimplificationOps, canceledFids);
+    //     }
+    // }
+
     ////////////////////////////////////////////////////////////////////////////
 
     if (canceledFids.empty()) {
@@ -233,13 +243,29 @@ bool PatchSimplifier::SimplifyMesh(int& iter) {
 
 void PatchSimplifier::GetOperations(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps, std::string OpType) {
     BaseComplexQuad baseComplex(mesh);
+
+    if (OpType == "Edge_Rotate") {
+        EdgeRotate(SimplificationOps);
+    }
     
-    if (OpType == "Diagonal_Collapse" && Simplifier::COLLAPSE_DIAGNAL) {
+    if (OpType == "Vertex_Rotate") {
+        VertexRotate(SimplificationOps);
+    }
+
+    if (OpType == "Edge_Collapse") {
+        EdgeCollapse(SimplificationOps);
+    }
+
+    if (OpType == "Diagonal_Collapse") {
+        DiagonalCollapse(SimplificationOps);
+    }
+
+    if (OpType == "Strict_Diagonal_Collapse" && Simplifier::COLLAPSE_DIAGNAL) {
         DiagnalCollapseSimplifier diagonalCollapseSimplifier(mesh);
         diagonalCollapseSimplifier.GetDiagonalCollapseOps(SimplificationOps);
     }
 
-    if (OpType == "Strict_Separatrix_Collapse" && Simplifier::COLLAPSE) {
+    if (OpType == "Separatrix_Collapse" && Simplifier::COLLAPSE) {
         baseComplex.ExtractSingularVandE();
         baseComplex.BuildE();
         GetSeparatrixCollapseOps(baseComplex, false, SimplificationOps);
@@ -271,34 +297,35 @@ void PatchSimplifier::PerformOperations(std::multiset<SimplificationOperation, b
     for(auto op: SimplificationOps) {
         bool negativeFacePresent = false;
         for (auto& f: op.newFaces) {
-            if (GetScaledJacobianQuad(mesh, f) < 0) {
+            if (GetScaledJacobianQuad(mesh, f) < 0.0) {
+                // std::cout << "NEGATIVE FACE ENCOUNTERED" << std::endl;
+                // std::cout << GetScaledJacobianQuad(mesh, f) << std::endl;
                 negativeFacePresent = true;
                 break;
             }
             for (auto vid: f.Vids) {
                 auto& v = mesh.V.at(vid);
                 for (auto fid: v.N_Fids) {
-                    if (GetScaledJacobianQuad(mesh, mesh.F.at(fid)) < 0) {
+                    if (GetScaledJacobianQuad(mesh, mesh.F.at(fid)) < 0.0) {
+                        // std::cout << "NEGATIVE FACE ENCOUNTERED" << std::endl;
+                        // std::cout << GetScaledJacobianQuad(mesh, mesh.F.at(fid)) << std::endl;
                         negativeFacePresent = true;
                         break;
                     }
                 }
-                if (negativeFacePresent) break;
+                if (negativeFacePresent) {
+                    break;
+                }
+            }
+            if (negativeFacePresent) {
+                break;
             }
         }
-        if (negativeFacePresent) continue;
-        // bool hasBoundaryNeighbors = false; 
-        // for (auto id: op.canceledFids) {
-        //     auto& f = mesh.F.at(id);
-        //     for (auto vid: f.N_Vids) {
-        //         if (mesh.V.at(vid).isBoundary) {
-        //             hasBoundaryNeighbors = true;
-        //             break;
-        //         }
-        //         if (hasBoundaryNeighbors) break;
-        //     }
-        // }
-        // if (hasBoundaryNeighbors) continue;
+        if (negativeFacePresent) {
+            // std::cout << op.type << std::endl;
+            // std::cout << "======================" << std::endl;
+            // continue;
+        }
         bool overlappedOp = false;
         for (auto id: op.canceledFids) {
             if (std::find(processedFids.begin(), processedFids.end(), id) != processedFids.end()) {
@@ -312,16 +339,20 @@ void PatchSimplifier::PerformOperations(std::multiset<SimplificationOperation, b
             f.id = mesh.F.size();
             mesh.F.push_back(f);
         }
+        for (int i = 0; i < op.updateVertexIds.size(); i++) {
+            if (mesh.V.at(op.updateVertexIds.at(i)).type > FEATURE) continue;
+            mesh.V.at(op.updateVertexIds.at(i)) = op.updatedVertexPos.at(i);
+        }
         canceledFids.insert(op.canceledFids.begin(), op.canceledFids.end());
         processedFids.insert(op.canceledFids.begin(), op.canceledFids.end());
-        for (auto fid: op.canceledFids) {
-            Face& f = mesh.F.at(fid);
-            processedFids.insert(f.N_Fids.begin(), f.N_Fids.end());
-            for (auto n_fid: f.N_Fids) {
-                Face& nf = mesh.F.at(n_fid);
-                processedFids.insert(nf.N_Fids.begin(), nf.N_Fids.end());
-            }
-        }
+        // for (auto fid: op.canceledFids) {
+        //     Face& f = mesh.F.at(fid);
+        //     processedFids.insert(f.N_Fids.begin(), f.N_Fids.end());
+        //     for (auto n_fid: f.N_Fids) {
+        //         Face& nf = mesh.F.at(n_fid);
+        //         processedFids.insert(nf.N_Fids.begin(), nf.N_Fids.end());
+        //     }
+        // }
     }
 }
 
@@ -495,7 +526,7 @@ bool PatchSimplifier::CheckCorners() {
 }
 
 void PatchSimplifier::SmoothMesh() {
-    // mesh.SetOneRingNeighborhood();
+    mesh.SetOneRingNeighborhood();
     for (auto& v: mesh.V) {
         if (smoothGlobal) {
             smoothVids.push_back(v.id);
@@ -857,57 +888,6 @@ double PatchSimplifier::GetVertexEnergy(int vid) {
     return E;
 }
 
-bool PatchSimplifier::IsFaceNegative(int fid, int vid, glm::dvec3 false_coord) {
-    Face& f = mesh.F.at(fid);
-    int sign = 0;
-    glm::dvec3 temp_coord(0.0, 0.0, 0.0);
-    for (auto id: f.Vids) {
-        if (id == vid) {
-            temp_coord = mesh.V.at(id).xyz();
-            mesh.V.at(id) = false_coord;
-        }
-    }    
-    for (int i = 0; i < f.Vids.size(); i++) {
-        Vertex& a = mesh.V.at(f.Vids.at(i));
-        Vertex& b = mesh.V.at(f.Vids.at((i + 1) % f.Vids.size()));
-        Vertex& c = mesh.V.at(f.Vids.at((i + 2) % f.Vids.size()));
-        double det = ((b.x - a.x) * (c.y - a.y)) - ((c.x - a.x) * (b.y - a.y));
-        if (det > 0) {
-            sign += 1;
-        } else if (det < 0) {
-            sign -= 1;
-        }
-    }
-    for (auto id: f.Vids) {
-        if (id == vid) {
-            mesh.V.at(id) = temp_coord;
-        }
-    }
-    if (abs(sign) == 4 || sign == 0) {
-        return false;
-    }
-    return true;
-}
-
-bool PatchSimplifier::IsFaceNegative(Face& f) {
-    int sign = 0;    
-    for (int i = 0; i < f.Vids.size(); i++) {
-        Vertex& a = mesh.V.at(f.Vids.at(i));
-        Vertex& b = mesh.V.at(f.Vids.at((i + 1) % f.Vids.size()));
-        Vertex& c = mesh.V.at(f.Vids.at((i + 2) % f.Vids.size()));
-        double det = ((b.x - a.x) * (c.y - a.y)) - ((c.x - a.x) * (b.y - a.y));
-        if (det > 0) {
-            sign += 1;
-        } else if (det < 0) {
-            sign -= 1;
-        }
-    }
-    if (abs(sign) == 4) {
-        return false;
-    }
-    return true;
-}
-
 void PatchSimplifier::RefineMesh() {
     std::vector<Vertex> newV(mesh.V.size());
 	std::vector<Cell> newC;
@@ -1064,24 +1044,57 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
         }
     }
 	int iters = 10;
-	int iter = 0;
-	while (iters--) {
+
+    int it1 = 0;
+    while (it1++ < iters) {
+        double currentE = GetMeshEnergy();
         std::vector<glm::dvec3> centers(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
+        std::vector<glm::dvec3> temp(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
         for (auto vid: smoothVids) {
             auto& v = mesh.V.at(vid);
             if (v.type < FEATURE) {
                 centers.at(v.id) = v.xyz();
-                glm::dvec3 center(0, 0, 0);
-                for (auto nvid : v.N_Vids)
-                    center += mesh.V.at(nvid).xyz();
-                center /= v.N_Fids.size();
-                centers.at(vid) = center;
+                double n = 0.0;
+                glm::dvec3 center(0.0, 0.0, 0.0);
+                for (int i = 0; i < v.N_Eids.size(); i++) {
+                    auto& e = mesh.E.at(v.N_Eids.at(i));
+                    size_t nvid = e.Vids[0] != v.id ? e.Vids[0] : e.Vids[1];
+                    std::vector<size_t> nvids;
+                    for (auto fid: e.N_Fids) {
+                        auto& f = mesh.F.at(fid);
+                        for (auto fvid: f.Vids) {
+                            if (fvid != v.id && fvid != nvid && std::find(v.N_Vids.begin(), v.N_Vids.end(), fvid) != v.N_Vids.end()) {
+                                nvids.push_back(fvid);
+                                break;
+                            }
+                        }
+                    }
+                    auto& v_a = mesh.V.at(nvid);
+                    auto& v_b = mesh.V.at(nvids.at(0));
+                    auto& v_c = mesh.V.at(nvids.at(1));
+                    glm::dvec3 V_j = v.xyz() - v_a.xyz();
+                    glm::dvec3 V_j_minus_1 = v_b.xyz() - v_a.xyz(); 
+                    glm::dvec3 V_j_plus_1 = v_c.xyz() - v_a.xyz();
+
+                    double r = glm::length(V_j);
+
+                    glm::dvec3 p1 = v_a.xyz() + (r * glm::normalize(V_j_minus_1));
+                    glm::dvec3 p2 = v_a.xyz() + (r * glm::normalize(V_j_plus_1));
+                    if (glm::length((0.5 * (p1 + p2)) - v_a.xyz()) == 0) continue;
+                    glm::dvec3 direction = glm::normalize((0.5 * (p1 + p2)) - v_a.xyz());
+                    glm::dvec3 newPoint_p = v_a.xyz() + (r * direction);
+                    glm::dvec3 newPoint_n = v_a.xyz() + (r * (-direction));
+                    
+                    center += glm::distance(v.xyz(), newPoint_p) < glm::distance(v.xyz(), newPoint_n) ? newPoint_p : newPoint_n;
+                    n += 1;
+                }
+                centers.at(vid) = (center / n);
             }
         }
         for (auto vid: smoothVids) {
             auto& v = mesh.V.at(vid);
             if (v.type < FEATURE) {
-                glm::dvec3 temp = v.xyz();
+                temp.at(v.id) = v.xyz();
                 v = centers.at(v.id);
                 bool negativeFacePresent = false;
                 for (auto nfid: v.N_Fids) {
@@ -1090,7 +1103,190 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
                         break;
                     }
                 }
-                if (negativeFacePresent) v = temp;
+                if (negativeFacePresent) v = temp.at(v.id);
+            }
+        }
+        double newE = GetMeshEnergy();
+        if (currentE - newE < 1e-4) {
+            for (auto vid: smoothVids) {
+                auto& v = mesh.V.at(vid);
+                if (v.type < FEATURE) {
+                    v = temp.at(v.id);
+                }
+            }
+            break;                
+        }
+        int it2 = 0;
+        while (it2++ < iters) {
+            currentE = GetMeshEnergy();
+            for (auto vid: smoothVids) {
+                auto& v = mesh.V.at(vid);
+                if (v.type == FEATURE) {
+                    centers.at(v.id) = v.xyz();
+                    std::vector<size_t> neighbors = v.N_Vids;
+                    std::vector<size_t> boundary_neighbors;
+                    for (auto nvid: v.N_Vids) {
+                        if (mesh.V.at(nvid).isBoundary) boundary_neighbors.push_back(nvid);
+                    }
+                    auto& v_b = mesh.V.at(boundary_neighbors[0]);
+                    auto& v_c = mesh.V.at(boundary_neighbors[1]);
+                    glm::dvec3 center(0, 0, 0);
+                    double n = 0;
+                    for (auto nvid: v.N_Vids) {
+                        if (mesh.V.at(nvid).isBoundary) continue;
+                        auto& v_a = mesh.V.at(nvid);
+                        glm::dvec3 V_j = v.xyz() - v_a.xyz();
+                        glm::dvec3 V_j_minus_1 = v_b.xyz() - v_a.xyz();
+                        glm::dvec3 V_j_plus_1 = v_c.xyz() - v_a.xyz();
+
+                        double r = glm::length(V_j);
+
+                        glm::dvec3 p1 = v_a.xyz() + (r * glm::normalize(V_j_minus_1));
+                        glm::dvec3 p2 = v_a.xyz() + (r * glm::normalize(V_j_plus_1));
+                        if (glm::length((0.5 * (p1 + p2)) - v_a.xyz()) == 0) continue;
+                        glm::dvec3 direction = glm::normalize((0.5 * (p1 + p2)) - v_a.xyz());
+                        glm::dvec3 newPoint_p = v_a.xyz() + (r * direction);
+                        glm::dvec3 newPoint_n = v_a.xyz() + (r * (-direction));
+                        
+                        center += glm::distance(v.xyz(), newPoint_p) < glm::distance(v.xyz(), newPoint_n) ? newPoint_p : newPoint_n;
+                        n += 1;
+                    }
+                    if (n > 0) {
+                        center /= n;
+                        centers.at(v.id) = center;
+                    }
+
+                    double min_length = std::numeric_limits<double>::max();
+                    int min_index = -1;
+                    for (int i = 0; i < origBoundaryVids.size(); i++) {
+                        double length = glm::length(centers.at(v.id) - origMesh.V.at(origBoundaryVids.at(i)).xyz());
+                        if (length < min_length) {
+                            min_length = length;
+                            min_index = origBoundaryVids.at(i);
+                        }
+                    }
+                    if (min_index == -1) {
+                        continue;
+                    }
+
+                    Vertex& origv = origMesh.V.at(min_index);
+                    boundary_neighbors.clear();
+                    for (int i = 0; i < origv.N_Vids.size(); i++) {
+                        if (origMesh.V.at(origv.N_Vids.at(i)).isBoundary) {
+                            boundary_neighbors.push_back(origv.N_Vids.at(i));
+                        }                    
+                    }
+                    Vertex& b1 = origMesh.V.at(boundary_neighbors.at(0));
+                    Vertex& b2 = origMesh.V.at(boundary_neighbors.at(1));
+                    
+                    glm::dvec3 a = centers.at(v.id) - origv.xyz();
+                    glm::dvec3 b = b1.xyz() - origv.xyz();
+                    glm::dvec3 c = b2.xyz() - origv.xyz();
+
+                    double length_a = glm::dot(a, a);
+                    double length_b = glm::dot(b, b);
+                    double length_c = glm::dot(c, c);
+
+                    double dot_a_b = glm::dot(a, b) / glm::length(b);
+                    double dot_a_c = glm::dot(a, c) / glm::length(c);
+                    
+                    glm::dvec3 new_coords = centers.at(v.id);
+                    if (dot_a_b >= 0) {
+                        b = glm::normalize(b);
+                        new_coords = origv.xyz() + (dot_a_b * b);
+                    } else if (dot_a_c >= 0){
+                        c = glm::normalize(c);
+                        new_coords = origv.xyz() + (dot_a_c * c);
+                    }
+                    centers.at(v.id) = new_coords;
+                }
+            }
+            for (auto vid: smoothVids) {
+                auto& v = mesh.V.at(vid);
+                if (v.type == FEATURE) {
+                    temp.at(v.id) = v.xyz();
+                    v = centers.at(v.id);
+                    bool negativeFacePresent = false;
+                    for (auto nfid: v.N_Fids) {
+                        if (GetScaledJacobianQuad(mesh, mesh.F.at(nfid)) < 0) {
+                            negativeFacePresent = true;
+                            break;
+                        }
+                    }
+                    if (negativeFacePresent) v = temp.at(vid);
+                }
+            }
+            newE = GetMeshEnergy();
+            if (currentE - newE < 1e-4) {
+                for (auto vid: smoothVids) {
+                    auto& v = mesh.V.at(vid);
+                    if (v.type == FEATURE) {
+                        v = temp.at(v.id);
+                    }
+                }
+                break;                
+            }
+        }
+    }
+
+	/*int iter = 0;
+	while (iters--) {
+        std::vector<glm::dvec3> centers(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
+        for (auto vid: smoothVids) {
+            auto& v = mesh.V.at(vid);
+            if (v.type < FEATURE) {
+                centers.at(v.id) = v.xyz();
+                double n = 0.0;
+                glm::dvec3 center(0.0, 0.0, 0.0);
+                for (int i = 0; i < v.N_Eids.size(); i++) {
+                    auto& e = mesh.E.at(v.N_Eids.at(i));
+                    size_t nvid = e.Vids[0] != v.id ? e.Vids[0] : e.Vids[1];
+                    std::vector<size_t> nvids;
+                    for (auto fid: e.N_Fids) {
+                        auto& f = mesh.F.at(fid);
+                        for (auto fvid: f.Vids) {
+                            if (fvid != v.id && fvid != nvid && std::find(v.N_Vids.begin(), v.N_Vids.end(), fvid) != v.N_Vids.end()) {
+                                nvids.push_back(fvid);
+                                break;
+                            }
+                        }
+                    }
+                    auto& v_a = mesh.V.at(nvid);
+                    auto& v_b = mesh.V.at(nvids.at(0));
+                    auto& v_c = mesh.V.at(nvids.at(1));
+                    glm::dvec3 V_j = v.xyz() - v_a.xyz();
+                    glm::dvec3 V_j_minus_1 = v_b.xyz() - v_a.xyz(); 
+                    glm::dvec3 V_j_plus_1 = v_c.xyz() - v_a.xyz();
+
+                    double r = glm::length(V_j);
+
+                    glm::dvec3 p1 = v_a.xyz() + (r * glm::normalize(V_j_minus_1));
+                    glm::dvec3 p2 = v_a.xyz() + (r * glm::normalize(V_j_plus_1));
+                    if (glm::length((0.5 * (p1 + p2)) - v_a.xyz()) == 0) continue;
+                    glm::dvec3 direction = glm::normalize((0.5 * (p1 + p2)) - v_a.xyz());
+                    glm::dvec3 newPoint_p = v_a.xyz() + (r * direction);
+                    glm::dvec3 newPoint_n = v_a.xyz() + (r * (-direction));
+                    
+                    center += glm::distance(v.xyz(), newPoint_p) < glm::distance(v.xyz(), newPoint_n) ? newPoint_p : newPoint_n;
+                    n += 1;
+                }
+                centers.at(vid) = (center / n);
+            }
+        }
+        std::vector<glm::dvec3> temp(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
+        for (auto vid: smoothVids) {
+            auto& v = mesh.V.at(vid);
+            if (v.type < FEATURE) {
+                temp.at(v.id) = v.xyz();
+                v = centers.at(v.id);
+                bool negativeFacePresent = false;
+                for (auto nfid: v.N_Fids) {
+                    if (GetScaledJacobianQuad(mesh, mesh.F.at(nfid)) < 0) {
+                        negativeFacePresent = true;
+                        break;
+                    }
+                }
+                if (negativeFacePresent) v = temp.at(v.id);
             }
         }
         for (auto vid: smoothVids) {
@@ -1102,40 +1298,28 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
                 for (auto nvid: v.N_Vids) {
                     if (mesh.V.at(nvid).isBoundary) boundary_neighbors.push_back(nvid);
                 }
-                auto& v_a = mesh.V.at(boundary_neighbors[0]);
-                auto& v_b = mesh.V.at(boundary_neighbors[1]);
+                auto& v_b = mesh.V.at(boundary_neighbors[0]);
+                auto& v_c = mesh.V.at(boundary_neighbors[1]);
                 glm::dvec3 center(0, 0, 0);
                 double n = 0;
                 for (auto nvid: v.N_Vids) {
                     if (mesh.V.at(nvid).isBoundary) continue;
-                    n += 1;
-                    auto& v_c = mesh.V.at(nvid);
-                    glm::dvec3 V_j = v.xyz() - v_c.xyz();
-                    glm::dvec3 V_j_minus_1 = v_a.xyz() - v_c.xyz();
-                    glm::dvec3 V_j_plus_1 = v_b.xyz() - v_c.xyz();
+                    auto& v_a = mesh.V.at(nvid);
+                    glm::dvec3 V_j = v.xyz() - v_a.xyz();
+                    glm::dvec3 V_j_minus_1 = v_b.xyz() - v_a.xyz();
+                    glm::dvec3 V_j_plus_1 = v_c.xyz() - v_a.xyz();
 
-                    double a1 = glm::dot(V_j, V_j_plus_1) / (glm::length(V_j) * glm::length(V_j_plus_1));
-                    double a2 = glm::dot(V_j, V_j_minus_1) / (glm::length(V_j) * glm::length(V_j_minus_1));
-                    if (a1 < -1.0) a1 = -1.0;
-                    if (a1 > 1.0) a1 = 1.0;
-                    if (a2 < -1.0) a2 = -1.0;
-                    if (a2 > 1.0) a2 = 1.0;
+                    double r = glm::length(V_j);
+
+                    glm::dvec3 p1 = v_a.xyz() + (r * glm::normalize(V_j_minus_1));
+                    glm::dvec3 p2 = v_a.xyz() + (r * glm::normalize(V_j_plus_1));
+                    if (glm::length((0.5 * (p1 + p2)) - v_a.xyz()) == 0) continue;
+                    glm::dvec3 direction = glm::normalize((0.5 * (p1 + p2)) - v_a.xyz());
+                    glm::dvec3 newPoint_p = v_a.xyz() + (r * direction);
+                    glm::dvec3 newPoint_n = v_a.xyz() + (r * (-direction));
                     
-                    double alpha1 = acos(a1);
-                    double alpha2 = acos(a2);
-
-                    double beta = 0.5 * (alpha2 - alpha1);
-                    glm::dvec3 r1 = v.xyz();
-                    double l = 0;
-                    if (beta > 0) {
-                        r1 = v_a.xyz() - v.xyz();
-                        l = fabs(beta / alpha2) * glm::length(r1); 
-                    } else if (beta < 0) {
-                        r1 = v_b.xyz() - v.xyz();
-                        l = fabs(beta / alpha1) * glm::length(r1);
-                    }
-                    r1 = glm::normalize(r1);
-                    center += centers.at(v.id) + (l * r1);
+                    center += glm::distance(v.xyz(), newPoint_p) < glm::distance(v.xyz(), newPoint_n) ? newPoint_p : newPoint_n;
+                    n += 1;
                 }
                 if (n > 0) {
                     center /= n;
@@ -1202,7 +1386,330 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
                 if (negativeFacePresent) v = temp;
             }
         }
-	}
+	}*/
     for (auto& v: mesh.V) v.smoothLocal = false;
     smoothVids.clear();
 }
+
+void PatchSimplifier::VertexRotate(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+    for (auto& v: mesh.V) {
+        if (v.isBoundary) continue;
+        
+        SimplificationOperation op;
+        op.type = "Vertex_Rotate";
+        double sumEdges = 0;
+        double sumDiagonals = 0;
+        for (auto fid: v.N_Fids) {
+            Face& f = mesh.F.at(fid);
+            for (auto vid: f.Vids) {
+                if (vid == v.id) continue;
+                if (std::find(v.N_Vids.begin(), v.N_Vids.end(), vid) == v.N_Vids.end()) {
+                    if (mesh.prescribed_length > glm::length(mesh.V.at(vid).xyz() - v.xyz())) {
+                        op.profitability += mesh.prescribed_length - glm::length(mesh.V.at(vid).xyz() - v.xyz());
+                        op.n += 1;
+                    }
+                }
+            }
+        }
+        op.n == v.N_Fids.size() ? op.profitability /= op.n : op.profitability = 0;
+        for (auto eid: v.N_Eids) {
+            std::vector<size_t> newVids;
+            Edge& e = mesh.E.at(eid);
+            newVids.push_back(e.Vids.at(0));
+            Face& f1 = mesh.F.at(e.N_Fids.at(0));
+            op.canceledFids.insert(f1.id);
+            for (int i = 0; i < f1.Vids.size(); i++) {
+                if (f1.Vids.at(i) == v.id) continue;
+                if (std::find(v.N_Vids.begin(), v.N_Vids.end(), f1.Vids.at(i)) == v.N_Vids.end()) {
+                    newVids.push_back(f1.Vids.at(i));
+                    break;
+                }
+            }
+            newVids.push_back(e.Vids.at(1));
+            Face& f2 = mesh.F.at(e.N_Fids.at(1));
+            op.canceledFids.insert(f2.id);
+            for (int i = 0; i < f2.Vids.size(); i++) {
+                if (f2.Vids.at(i) == v.id) continue;
+                if (std::find(v.N_Vids.begin(), v.N_Vids.end(), f2.Vids.at(i)) == v.N_Vids.end()) {
+                    newVids.push_back(f2.Vids.at(i));
+                    break;
+                }
+            }
+            Face newF;
+            newF.Vids = newVids;
+        }
+        if (op.profitability > 0) {
+            SimplificationOps.insert(op);
+        }
+    }
+}
+
+void PatchSimplifier::EdgeRotate(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+    for (auto& e: mesh.E) {
+        bool isBoundary = false;
+        if (e.isBoundary || mesh.V.at(e.Vids.at(0)).isBoundary || mesh.V.at(e.Vids.at(1)).isBoundary) isBoundary = true;
+        for (auto vid: mesh.V.at(e.Vids[0]).N_Vids) {
+            if (mesh.V.at(vid).isBoundary) {
+                isBoundary = true;
+                break;
+            }
+        }
+        for (auto vid: mesh.V.at(e.Vids[1]).N_Vids) {
+            if (mesh.V.at(vid).isBoundary) {
+                isBoundary = true;
+                break;
+            }
+        }
+        if (isBoundary) continue;
+        SimplificationOperation op;
+        op.type = "Edge_Rotate";
+
+        Vertex& v1 = mesh.V.at(e.Vids.at(0));
+        Vertex& v2 = mesh.V.at(e.Vids.at(1));
+        Face& f1 = mesh.F.at(e.N_Fids.at(0));
+        Face& f2 = mesh.F.at(e.N_Fids.at(1));
+
+        std::vector<size_t> v1_nVids;
+        std::vector<size_t> v2_nVids;
+        for (auto vid: f1.Vids) {
+            if (vid == v1.id || vid == v2.id) continue;
+            if (std::find(v1.N_Vids.begin(), v1.N_Vids.end(), vid) != v1.N_Vids.end()) {
+                v1_nVids.push_back(vid);
+            }
+            if (std::find(v2.N_Vids.begin(), v2.N_Vids.end(), vid) != v2.N_Vids.end()) {
+                v2_nVids.push_back(vid);
+            }
+        }
+        for (auto vid: f2.Vids) {
+            if (vid == v1.id || vid == v2.id) continue;
+            if (std::find(v1.N_Vids.begin(), v1.N_Vids.end(), vid) != v1.N_Vids.end()) {
+                v1_nVids.push_back(vid);
+            }
+            if (std::find(v2.N_Vids.begin(), v2.N_Vids.end(), vid) != v2.N_Vids.end()) {
+                v2_nVids.push_back(vid);
+            }
+        }
+
+        double current_edge_length = glm::length(v1.xyz() - v2.xyz());
+
+        Face new_f1;
+        Face new_f2;
+        Vertex& new_v1 = mesh.V.at(v1_nVids.at(0));
+        new_f1.Vids.push_back(new_v1.id);
+        new_f2.Vids.push_back(new_v1.id);
+        double new_edge_length1 = 0;
+        double diag1 = 0;
+        double diag2 = 0;
+        double new_diag1 = glm::length(mesh.V.at(v1_nVids.at(0)).xyz() - mesh.V.at(v1_nVids.at(1)).xyz());
+        double new_diag2 = glm::length(mesh.V.at(v2_nVids.at(0)).xyz() - mesh.V.at(v2_nVids.at(1)).xyz());
+        if (std::find(new_v1.N_Vids.begin(), new_v1.N_Vids.end(), v2_nVids.at(0)) == new_v1.N_Vids.end()) {
+            new_f1.Vids.push_back(v2_nVids.at(1));
+            new_f1.Vids.push_back(v2.id);
+            new_f1.Vids.push_back(v2_nVids.at(0));
+
+            new_f2.Vids.push_back(v2_nVids.at(0));
+            new_f2.Vids.push_back(v1_nVids.at(1));
+            new_f2.Vids.push_back(v1.id);
+
+            new_edge_length1 = glm::length(mesh.V.at(v1_nVids.at(0)).xyz() - mesh.V.at(v2_nVids.at(1)).xyz());
+            diag1 = glm::length(mesh.V.at(v1_nVids.at(1)).xyz() - v2.xyz());
+            diag2 = glm::length(mesh.V.at(v2_nVids.at(0)).xyz() - v1.xyz());
+        } else {
+            new_f1.Vids.push_back(v2_nVids.at(0));
+            new_f1.Vids.push_back(v2.id);
+            new_f1.Vids.push_back(v2_nVids.at(1));
+            
+            new_f2.Vids.push_back(v2_nVids.at(1));
+            new_f2.Vids.push_back(v1_nVids.at(1));
+            new_f2.Vids.push_back(v1.id);
+            
+            new_edge_length1 = glm::length(mesh.V.at(v1_nVids.at(0)).xyz() - mesh.V.at(v2_nVids.at(0)).xyz());
+            diag1 = glm::length(mesh.V.at(v1_nVids.at(1)).xyz() - v2.xyz());
+            diag2 = glm::length(mesh.V.at(v2_nVids.at(1)).xyz() - v1.xyz());
+        }
+        double rotation1_profitability = -1;
+        // if (mesh.prescribed_length > new_edge_length1 && mesh.prescribed_length > new_diag1 && mesh.prescribed_length > new_diag2) {
+        //     rotation1_profitability = (mesh.prescribed_length - new_edge_length1) + (mesh.prescribed_length - new_diag1) + (mesh.prescribed_length - new_diag2);
+        //     rotation1_profitability /= 3;
+        // }
+        if (current_edge_length > new_edge_length1 && diag1 > new_diag1 && diag2 > new_diag2) {
+            rotation1_profitability = (current_edge_length - new_edge_length1) + (diag1 - new_diag1) + (diag2 - new_diag2);
+        }
+        Face new_f3;
+        Face new_f4;
+        Vertex& new_v2 = mesh.V.at(v1_nVids.at(1));
+        new_f3.Vids.push_back(new_v2.id);
+        new_f4.Vids.push_back(new_v2.id);
+        double new_edge_length2 = 0;
+        double diag3 = 0;
+        double diag4 = 0;
+        if (std::find(new_v2.N_Vids.begin(), new_v2.N_Vids.end(), v2_nVids.at(0)) == new_v2.N_Vids.end()) {
+            new_f3.Vids.push_back(v2_nVids.at(1));
+            new_f3.Vids.push_back(v2.id);
+            new_f3.Vids.push_back(v2_nVids.at(0));
+
+            new_f4.Vids.push_back(v2_nVids.at(0));
+            new_f4.Vids.push_back(v1_nVids.at(0));
+            new_f4.Vids.push_back(v1.id);
+                    
+            new_edge_length2 = glm::length(mesh.V.at(v1_nVids.at(1)).xyz() - mesh.V.at(v2_nVids.at(1)).xyz());
+            diag3 = glm::length(mesh.V.at(v1_nVids.at(0)).xyz() - v2.xyz());
+            diag4 = glm::length(mesh.V.at(v2_nVids.at(0)).xyz() - v1.xyz());
+        } else {
+            new_f3.Vids.push_back(v2_nVids.at(0));
+            new_f3.Vids.push_back(v2.id);
+            new_f3.Vids.push_back(v2_nVids.at(1));
+            
+            new_f4.Vids.push_back(v2_nVids.at(1));
+            new_f4.Vids.push_back(v1_nVids.at(0));
+            new_f4.Vids.push_back(v1.id);
+                    
+            new_edge_length2 = glm::length(mesh.V.at(v1_nVids.at(1)).xyz() - mesh.V.at(v2_nVids.at(0)).xyz());
+            diag3 = glm::length(mesh.V.at(v1_nVids.at(0)).xyz() - v2.xyz());
+            diag4 = glm::length(mesh.V.at(v2_nVids.at(1)).xyz() - v1.xyz());
+        }
+        double rotation2_profitability = -1;
+        // if (mesh.prescribed_length > new_edge_length2 && mesh.prescribed_length > new_diag1 && mesh.prescribed_length > new_diag2) {
+        //     rotation2_profitability = (mesh.prescribed_length - new_edge_length2) + (mesh.prescribed_length - new_diag1) + (mesh.prescribed_length - new_diag2);
+        //     rotation2_profitability /= 3;
+        // }
+        if (current_edge_length > new_edge_length2 && diag3 > new_diag1 && diag4 > new_diag2) {
+            rotation2_profitability = (current_edge_length - new_edge_length2) + (diag3 - new_diag1) + (diag4 - new_diag2);
+        }
+
+        if (rotation1_profitability > rotation2_profitability) {
+            op.newFaces.push_back(new_f1);
+            op.newFaces.push_back(new_f2);
+            op.profitability = rotation1_profitability;
+        } else {
+            op.newFaces.push_back(new_f3);
+            op.newFaces.push_back(new_f4);
+            op.profitability = rotation2_profitability;
+        }
+        op.canceledFids.insert(e.N_Fids.begin(), e.N_Fids.end());
+        if (op.profitability > 0) { 
+            SimplificationOps.insert(op);
+        }
+    }
+}
+
+void PatchSimplifier::EdgeCollapse(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+    for (auto& e: mesh.E) {
+        bool isBoundary = false;
+        if (e.isBoundary || mesh.V.at(e.Vids.at(0)).isBoundary || mesh.V.at(e.Vids.at(1)).isBoundary) isBoundary = true;
+        for (auto vid: e.N_Vids) {
+            if (mesh.V.at(vid).isBoundary) {
+                isBoundary = true;
+                break;
+            }
+        }
+        if (isBoundary) continue;
+        SimplificationOperation op;
+        op.type = "Edge_Collapse";
+        op.profitability = mesh.prescribed_length - glm::length(mesh.V.at(e.Vids[0]).xyz() - mesh.V.at(e.Vids[1]).xyz());
+        size_t source = e.Vids.at(0);
+        size_t target = e.Vids.at(1);
+        if (mesh.V.at(target).isBoundary) {
+            source = e.Vids.at(1);
+            target = e.Vids.at(0);
+        }
+        Vertex& v1 = mesh.V.at(source);
+        Vertex& v2 = mesh.V.at(target);
+        op.canceledFids.insert(v1.N_Fids.begin(), v1.N_Fids.end());
+        for (auto eid: v1.N_Eids) {
+            if (eid == e.id) continue;
+            std::vector<size_t> newVids;
+            Edge& e_n = mesh.E.at(eid);
+            newVids.push_back(e_n.Vids.at(0));
+            Face& f1 = mesh.F.at(e_n.N_Fids.at(0));
+            for (int i = 0; i < f1.Vids.size(); i++) {
+                if (f1.Vids.at(i) == v1.id) continue;
+                if (std::find(v1.N_Vids.begin(), v1.N_Vids.end(), f1.Vids.at(i)) == v1.N_Vids.end()) {
+                    newVids.push_back(f1.Vids.at(i));
+                    break;
+                }
+            }
+            newVids.push_back(e_n.Vids.at(1));
+            Face& f2 = mesh.F.at(e_n.N_Fids.at(1));
+            for (int i = 0; i < f2.Vids.size(); i++) {
+                if (f2.Vids.at(i) == v1.id) continue;
+                if (std::find(v1.N_Vids.begin(), v1.N_Vids.end(), f2.Vids.at(i)) == v1.N_Vids.end()) {
+                    newVids.push_back(f2.Vids.at(i));
+                    break;
+                }
+            }
+            Face newF;
+            newF.Vids = newVids;
+            op.newFaces.push_back(newF);
+        }
+        for (auto& f: op.newFaces) {
+            for (int i = 0; i < f.Vids.size(); i++) {
+                if (f.Vids.at(i) == v1.id) {
+                    f.Vids.at(i) = v2.id;
+                }
+            }
+        }
+        if (op.profitability > 0) {
+            SimplificationOps.insert(op);
+        }
+    }
+}
+
+void PatchSimplifier::DiagonalCollapse(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+    for (auto& f: mesh.F) {
+        bool isBoundary = false;
+        for (auto vid: f.Vids) {
+            if (mesh.V.at(vid).isBoundary) {
+                isBoundary = true;
+                break;
+            }
+        }
+        if (isBoundary) continue;
+        SimplificationOperation op;
+        op.type = "Diagonal_Collapse";
+        double l1 = glm::length(mesh.V.at(f.Vids[0]).xyz() - mesh.V.at(f.Vids[2]).xyz());
+        double l2 = glm::length(mesh.V.at(f.Vids[1]).xyz() - mesh.V.at(f.Vids[3]).xyz());
+        size_t target_id = 0;
+        size_t source_id = 0;
+        if (l1 < l2) {
+            op.profitability = l1 / (sqrt(2) * mesh.prescribed_length);
+            target_id = f.Vids[0];
+            source_id = f.Vids[2];
+        } else {
+            op.profitability = l2 / (sqrt(2) * mesh.prescribed_length);
+            
+            target_id = f.Vids[1];
+            source_id = f.Vids[3];
+        }
+        Vertex& target = mesh.V.at(target_id);
+        Vertex& source = mesh.V.at(source_id);
+        // op.updateVertexIds.push_back(target_id);
+        // op.updatedVertexPos.push_back(0.5 * (source.xyz() + target.xyz()));
+        for (auto fid: source.N_Fids) {
+            if (std::find(target.N_Fids.begin(), target.N_Fids.end(), fid) == target.N_Fids.end()) {
+                Face& n_f = mesh.F.at(fid);
+                Face newF;
+                for (int i = 0; i < n_f.Vids.size(); i++) {
+                    if (n_f.Vids.at(i) == source.id) {
+                        newF.Vids.push_back(target.id);
+                    } else {
+                        newF.Vids.push_back(n_f.Vids.at(i));
+                    }
+                }
+                op.newFaces.push_back(newF);
+                op.canceledFids.insert(n_f.id);
+            } else {
+                op.canceledFids.insert(fid);
+            }
+        }
+        if (op.profitability > 0 && op.profitability < 1) {
+            SimplificationOps.insert(op);
+        }
+    }
+}
+
+// TODO:
+// Writing section 7
+// Edit current images in results section
+// Generating results
+

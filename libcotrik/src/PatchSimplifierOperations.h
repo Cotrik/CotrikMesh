@@ -17,6 +17,7 @@
 struct SimplificationOperation {
     std::string type;
     double profitability = 0;
+    int n = 0;
     std::set<size_t> canceledFids;
     std::set<size_t> processedFids;
     std::vector<Face> newFaces;

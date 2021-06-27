@@ -630,6 +630,7 @@ public:
     bool isManifold = true;
     bool smoothGlobal = true;
     double totalArea = 0.0;
+    double prescribed_length = 0.0;
 };
 
 #endif /* MESH_H_ */

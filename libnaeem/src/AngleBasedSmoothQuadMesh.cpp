@@ -958,11 +958,11 @@ void SmoothAlgorithm::smoothMesh() {
                         v.y = delta_coords.at(i).y;
                         delta_coords.at(i) = temp_coord;
                     }
-                    remapBoundaryVertices();
+                    // remapBoundaryVertices();
                     double newE = getMeshEnergy(true);
                     // std::cout << "it2: " << it2 << " oldE: " << currentE << " newE: " << newE << std::endl;
                     if (currentE - newE < tau) {
-                        remapBoundaryVertices();
+                        // remapBoundaryVertices();
                         for (int i = 0; i < mesh.V.size(); i++) {
                             Vertex& v = mesh.V.at(i);
                             if (!v.isBoundary || !v.isMovable) {
