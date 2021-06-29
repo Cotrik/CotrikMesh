@@ -937,7 +937,7 @@ void LocalSimplifier::EdgeCollapse(Vertex&v, Edge& e, std::multiset<LocalOperati
     // std::cout << "p_ratio: " << p_ratio << std::endl;
     // std::cout << "p_lambda: " << p_labmda << std::endl;
     // op.profitability = getLength(e.Vids.at(0), e.Vids.at(1)) / (p_labmda * mesh_prescribed_length);
-    if (op.profitability > 1) {
+    if (op.profitability > 0.9) {
         return;
     }
     // double value = getLength(e.Vids.at(0), e.Vids.at(1));
@@ -1079,7 +1079,7 @@ void LocalSimplifier::DiagonalCollapse(Vertex& v, std::vector<size_t> diag, std:
     // double p_labmda1 = (p_ratio1 * p_ratio1) / p_agg;
     // op.profitability = value1 / (p_labmda1 * sqrt(2) * mesh_prescribed_length);
     // double value = value1;
-    if (op.profitability > 1) {
+    if (op.profitability > 0.9) {
         return;
     }
     // bool isSmallerThanEdges = false;

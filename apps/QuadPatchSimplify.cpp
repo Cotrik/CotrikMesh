@@ -50,10 +50,12 @@ int main(int argc, char* argv[]) {
     std::cout << "Simplification time: " << duration << " seconds" << std::endl;
     // simplifier.smoothGlobal = true;
     // simplifier.SmoothMesh();
+    // simplifier.smoothGlobal = true;
+    simplifier.SmoothMesh(true);
     // simplifier.RefineMesh();
     // simplifier.smoothGlobal = true;
-    // simplifier.SmoothMesh();
-    // simplifier.smooth_project();
+    // simplifier.SmoothMesh(true);
+    // simplifier.smooth_project(2);
 	{
         // simplifier.RefineMesh();
         // SmoothAlgorithm smoothAlgo(mesh, simplifier.origMesh, 1000, 1, true, true);

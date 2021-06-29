@@ -181,6 +181,7 @@ void SingleSheetSimplifier::ExtractAndCollapse(std::set<size_t>& canceledFids) {
     // std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
     // double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
     for (int i = 0; i < ranks.size(); i++) {
+        // std::vector<double>::iterator index = ranks.begin() + i;
         std::vector<double>::iterator index = std::max_element(ranks.begin(), ranks.end());
         // std::vector<double>::iterator index = std::min_element(ranks.begin(), ranks.end());
         sheetsPos.push_back((size_t) std::distance(ranks.begin(), index));

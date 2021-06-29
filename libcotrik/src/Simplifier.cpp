@@ -1771,6 +1771,7 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 	// std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
     // double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
 	for (int i = 0; i < ranks.size(); i++) {
+        // std::vector<double>::iterator index = ranks.begin() + i;
         std::vector<double>::iterator index = std::max_element(ranks.begin(), ranks.end());
         // std::vector<double>::iterator index = std::min_element(ranks.begin(), ranks.end());
         targetVidsPos.push_back((size_t) std::distance(ranks.begin(), index));
@@ -1961,8 +1962,8 @@ void Simplifier::GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool loo
 				auto p = get_collapse_vids(vid, eid);
 				CollapseVertexToTarget(p[0], vid, Op);
 				CollapseVertexToTarget(p[1], vid, Op);
-				Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
-				Op.updateVertexIds.push_back(vid);
+				// Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
+				// Op.updateVertexIds.push_back(vid);
 				// Op.profitability /= mesh.totalArea;
 				Op.profitability /= Op.n;
 				// Op.profitability = 1;
@@ -2006,15 +2007,15 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
 						auto eid = linkEids[i];
 						auto p = get_collapse_vids(vid, eid);
 						CollapseVerticesToTargetWithFeaturePreserved(p, vid, Op);
-						Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
-						Op.updateVertexIds.push_back(vid);
+						// Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
+						// Op.updateVertexIds.push_back(vid);
 					}
 					auto vid = link.back();
 					auto eid = linkEids.back();
 					auto p = get_collapse_vids(vid, eid);
 					CollapseVerticesToTargetWithFeaturePreserved(p, vid, Op);
-					Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
-					Op.updateVertexIds.push_back(vid);
+					// Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
+					// Op.updateVertexIds.push_back(vid);
 					// Op.profitability /= mesh.totalArea;
 					Op.profitability /= Op.n;
 					// Op.profitability = 1;
@@ -2049,15 +2050,15 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
 						auto eid = linkEids[i];
 						auto p = get_collapse_vids(vid, eid);
 						CollapseVerticesToTargetWithFeaturePreserved(p, vid, Op);
-						Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
-						Op.updateVertexIds.push_back(vid);
+						// Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
+						// Op.updateVertexIds.push_back(vid);
 					}
 					auto vid = link.back();
 					auto eid = linkEids.back();
 					auto p = get_collapse_vids(vid, eid);
 					CollapseVerticesToTargetWithFeaturePreserved(p, vid, Op);
-					Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
-					Op.updateVertexIds.push_back(vid);
+					// Op.updatedVertexPos.push_back(0.5 * (mesh.V.at(p[0]).xyz() + mesh.V.at(p[1]).xyz()));
+					// Op.updateVertexIds.push_back(vid);
 					// Op.profitability /= mesh.totalArea;
 					Op.profitability /= Op.n;
 					// Op.profitability = 1;
@@ -2423,6 +2424,7 @@ void Simplifier::half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set
 	// std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
     // double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
 	for (int i = 0; i < ranks.size(); i++) {
+        // std::vector<double>::iterator index = ranks.begin() + i;
         std::vector<double>::iterator index = std::max_element(ranks.begin(), ranks.end());
         // std::vector<double>::iterator index = std::min_element(ranks.begin(), ranks.end());
         targetVidsPos.push_back((size_t) std::distance(ranks.begin(), index));
