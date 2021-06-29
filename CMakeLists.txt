@@ -14,6 +14,7 @@ ELSE()
 ENDIF()
 
 add_subdirectory(libcotrik)
+add_subdirectory(libnaeem)
 #add_subdirectory(libframe)
 add_subdirectory(apps)
 #add_subdirectory(libigl/external/CoMISo)

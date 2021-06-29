@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <map>
 #include <iostream>
+#include <glm/gtx/vector_angle.hpp>
+#include <math.h>
 
 #include <vtkVersion.h>
 #include <vtkSmartPointer.h>
@@ -56,6 +58,7 @@
 //using namespace Eigen;
 
 const size_t MAXID = 0xffffffffffffffff;
+const double PI = 3.1415926535;
 
 Mesh::Mesh()
 : m_cellType(HEXAHEDRA)
@@ -355,6 +358,79 @@ void Mesh::BuildOrthogonalE() {
     }
 }
 
+double Mesh::getConvexVerdict(std::vector<size_t> Vids) {
+    // bool result = true;
+    const Vertex& v01 = V[Vids[0]];
+    const Vertex& v11 = V[Vids[1]];
+    const Vertex& v21 = V[Vids[2]];
+    const glm::dvec3 v101 = v01.xyz() - v11.xyz();
+    const glm::dvec3 v121 = v21.xyz() - v11.xyz();
+    const glm::dvec3 n1 = glm::normalize(glm::cross(v121, v101));
+
+    
+    const Vertex& v02 = V[Vids[1]];
+    const Vertex& v12 = V[Vids[2]];
+    const Vertex& v22 = V[Vids[3]];
+    const glm::dvec3 v102 = v02.xyz() - v12.xyz();
+    const glm::dvec3 v122 = v22.xyz() - v12.xyz();
+    const glm::dvec3 n2 = glm::normalize(glm::cross(v122, v102));
+    double dot_ab = glm::dot(n1, n2);
+    // if (dot_ab < 0.f) {
+    //     std::cout << dot_ab << std::endl;
+    //     // return true;
+    // }
+
+    return dot_ab;
+    
+}
+
+void Mesh::unifyOrientation() {
+    
+    Vertex& v0_r_f = V[F.at(0).Vids[0]];
+    Vertex& v1_r_f = V[F.at(0).Vids[1]];
+    Vertex& v2_r_f = V[F.at(0).Vids[2]];
+    
+    const glm::dvec3 v10_r_f = v0_r_f.xyz() - v1_r_f.xyz();
+    const glm::dvec3 v12_r_f = v2_r_f.xyz() - v1_r_f.xyz();
+    const glm::dvec3 n_r_f = glm::normalize(glm::cross(v12_r_f, v10_r_f));
+    
+    int fsize = F.size();
+    for (int i = 1; i < fsize; i++) {
+        Vertex& v0 = V[F.at(i).Vids[0]];
+        Vertex& v1 = V[F.at(i).Vids[1]];
+        Vertex& v2 = V[F.at(i).Vids[2]];
+
+        const glm::dvec3 v10 = v0.xyz() - v1.xyz();
+        const glm::dvec3 v12 = v2.xyz() - v1.xyz();
+        const glm::dvec3 n = glm::normalize(glm::cross(v12, v10));
+        if (glm::dot(n_r_f, n) < 0.f) {
+            std::reverse(F.at(i).Vids.begin(), F.at(i).Vids.end());
+        }
+    }
+
+    Vertex& v0_r = V[C.at(0).Vids[0]];
+    Vertex& v1_r = V[C.at(0).Vids[1]];
+    Vertex& v2_r = V[C.at(0).Vids[2]];
+
+    const glm::dvec3 v10_r = v0_r.xyz() - v1_r.xyz();
+    const glm::dvec3 v12_r = v2_r.xyz() - v1_r.xyz();
+    const glm::dvec3 n_r = glm::normalize(glm::cross(v12_r, v10_r));
+    int csize = C.size();
+    for (int i = 1; i < csize; i++) {
+        Vertex& v0 = V[C.at(i).Vids[0]];
+        Vertex& v1 = V[C.at(i).Vids[1]];
+        Vertex& v2 = V[C.at(i).Vids[2]];
+
+        const glm::dvec3 v10 = v0.xyz() - v1.xyz();
+        const glm::dvec3 v12 = v2.xyz() - v1.xyz();
+        const glm::dvec3 n = glm::normalize(glm::cross(v12, v10));
+        
+        if (glm::dot(n_r, n) < 0.f) {
+            std::reverse(C.at(i).Vids.begin(), C.at(i).Vids.end());
+        }
+    }
+}
+
 void Mesh::GetNormalOfSurfaceFaces() {
     for (size_t i = 0; i < F.size(); i++) {
         Face& face = F.at(i);
@@ -539,7 +615,7 @@ void Mesh::LabelSurface() {
         }
     }
     if (hasBoundary) return;
-
+    std::cout << "E size " << E.size() << std::endl;
     for (size_t i = 0; i < E.size(); i++) {
         Edge& edge = E.at(i);
         if (!edge.isBoundary) continue;
@@ -563,7 +639,7 @@ void Mesh::LabelSurface() {
             V.at(edge.Vids[1]).type = FEATURE;
         }
     }
-
+    std::cout << "V size: " << V.size() << std::endl;
     for (size_t i = 0; i < V.size(); i++) {
         Vertex& v = V.at(i);
         if (!v.isBoundary) continue;
@@ -610,6 +686,7 @@ void Mesh::LabelSurface() {
             }
         }
     }
+    std::cout << "number of sharp edges " << numOfSharpEdges << std::endl; 
 }
 
 void Mesh::Label2DSurfaceVertices() {
@@ -840,23 +917,45 @@ void Mesh::SetFeatureAngleThreshold(const double angle/* = 170.0*/) {
 }
 
 void Mesh::LabelFace(Face& face, size_t& label) {
-    face.label = label;
-    for (size_t i = 0; i < face.Eids.size(); i++) {
-        auto& edge = E.at(face.Eids.at(i));
-        std::vector<Face*> faces;
-        for (size_t j = 0; j < edge.N_Fids.size(); j++) {
-            Face& face2 = F.at(edge.N_Fids.at(j));
-            if (face2.isBoundary && face2.id != face.id && face2.label == MAXID) {
-                const double cos_angle = GetCosAngle(edge, face, face2);
-                //std::cout << "cos_angle = " << cos_angle << std::endl;
-                if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
-					faces.push_back(&face2);
-				//else edge.isSharpFeature = true;
+    std::vector<Face*> queue;
+    queue.push_back(&face);
+
+    while (!queue.empty()) {
+        Face& f = *queue.back();
+        queue.pop_back();
+        f.label = label;
+
+        for (size_t i = 0; i < f.Eids.size(); i++) {
+            auto& edge = E.at(f.Eids.at(i));
+            for (size_t j = 0; j < edge.N_Fids.size(); j++) {
+                Face& face2 = F.at(edge.N_Fids.at(j));
+                if (face2.isBoundary && face2.id != f.id && face2.label == MAXID) {
+                    const double cos_angle = GetCosAngle(edge, f, face2);
+                    if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
+                        queue.push_back(&face2);
+                    //else edge.isSharpFeature = true;
+                }
             }
         }
-        for (size_t i = 0; i < faces.size(); i++)
-            LabelFace(*faces.at(i), label);
+
     }
+    // face.label = label;
+    // // std::cout << face.id << std::endl;
+    // for (size_t i = 0; i < face.Eids.size(); i++) {
+    //     auto& edge = E.at(face.Eids.at(i));
+    //     std::vector<Face*> faces;
+    //     for (size_t j = 0; j < edge.N_Fids.size(); j++) {
+    //         Face& face2 = F.at(edge.N_Fids.at(j));
+    //         if (face2.isBoundary && face2.id != face.id && face2.label == MAXID) {
+    //             const double cos_angle = GetCosAngle(edge, face, face2);
+    //             if (cos_angle > cos_angle_threshold) // cos(15) = 0.9659 cos(30) = 0.866
+	// 				faces.push_back(&face2);
+	// 			//else edge.isSharpFeature = true;
+    //         }
+    //     }
+    //     for (size_t i = 0; i < faces.size(); i++)
+    //         LabelFace(*faces.at(i), label);
+    // }
 }
 
 void Mesh::RemoveUselessVertices() {
@@ -878,9 +977,21 @@ void Mesh::RemoveUselessVertices() {
         const Vertex& v = V.at(v_real_index.at(i));
         Vertex& newv = newV.at(i);
         newv.id = i;
-        newv.x = v.x;
-        newv.y = v.y;
-        newv.z = v.z;
+        // newv.x = v.x;
+        // newv.y = v.y;
+        // newv.z = v.z;
+        newv = v;
+        newv.type = v.type;
+        newv.isCorner = v.isCorner;
+		newv.label = v.label;
+		newv.patch_id = v.patch_id;
+		newv.isSpecial = v.isSpecial;
+		newv.isConvex = v.isConvex;
+		newv.labels = v.labels;
+		newv.patch_ids = v.patch_ids;
+		newv.idealValence = v.idealValence;
+        newv.prescribed_length = v.prescribed_length;
+        newv.smoothLocal = v.smoothLocal;
     }
     V = newV;
     m_refIds = v_real_index;
@@ -951,7 +1062,11 @@ void Mesh::CompressWithFeaturePreserved() {
 		newv.labels = v.labels;
 		newv.patch_ids = v.patch_ids;
 		newv.idealValence = v.idealValence;
+        newv.prescribed_length = v.prescribed_length;
+        newv.smoothLocal = v.smoothLocal;
+        // std::cout << newv.prescribed_length << " ";
     }
+    // std::cout << "END" << std::endl;
     V = newV;
     for (size_t i = 0; i < newV.size(); i++) {
         Vertex& v = V.at(i);
@@ -966,7 +1081,11 @@ void Mesh::CompressWithFeaturePreserved() {
 		v.labels = newv.labels;
 		v.patch_ids = newv.patch_ids;
         v.idealValence = newv.idealValence;
+        v.prescribed_length = newv.prescribed_length;
+        v.smoothLocal = newv.smoothLocal;
+        // std::cout << v.prescribed_length << " ";
     }
+    // std::cout << "END" << std::endl;
     m_refIds = v_real_index;
     //////////////////////////////////////////////////////
     std::map<size_t, size_t> v_v;
@@ -2917,12 +3036,30 @@ void Mesh::BuildF_F()
                 Face& neighborFace = F.at(vertex.N_Fids.at(k));
                 if (neighborFace.id != face.id)
                     face.N_Fids.push_back(neighborFace.id);
+                    if (IsSurfaceMesh()) {
+                        face.N_Cids.push_back(neighborFace.id);
+                        C.at(i).N_Cids.push_back(neighborFace.id);
+                        C.at(i).N_Fids.push_back(neighborFace.id);
+                    }
             }
         }
 
         std::sort(face.N_Fids.begin(), face.N_Fids.end());
         std::vector<size_t>::iterator iter = std::unique(face.N_Fids.begin(), face.N_Fids.end());
         face.N_Fids.resize(std::distance(face.N_Fids.begin(), iter));
+        if (IsSurfaceMesh()) {
+            std::sort(face.N_Cids.begin(), face.N_Cids.end());
+            iter = std::unique(face.N_Cids.begin(), face.N_Cids.end());
+            face.N_Cids.resize(std::distance(face.N_Cids.begin(), iter));
+
+            std::sort(C.at(i).N_Cids.begin(), C.at(i).N_Cids.end());
+            iter = std::unique(C.at(i).N_Cids.begin(), C.at(i).N_Cids.end());
+            C.at(i).N_Cids.resize(std::distance(C.at(i).N_Cids.begin(), iter));
+
+            std::sort(C.at(i).N_Fids.begin(), C.at(i).N_Fids.end());
+            iter = std::unique(C.at(i).N_Fids.begin(), C.at(i).N_Fids.end());
+            C.at(i).N_Fids.resize(std::distance(C.at(i).N_Fids.begin(), iter));    
+        }
     }
 }
 void Mesh::BuildF_C()
@@ -3106,6 +3243,13 @@ void Mesh::ExtractBoundary() {
 //        }
         for (size_t i = 0; i < F.size(); i++)
             F[i].isBoundary = true;
+
+        std::vector<size_t> boundary;
+        for (auto&e : E) {
+            if (e.isBoundary) {
+                boundary.push_back(e.id);
+            }
+        }
         return;
     }
 
@@ -3441,6 +3585,133 @@ void Mesh::ExtractTwoRingNeighborSurfaceFaceIdsForEachVertex(int N/* = 2*/)
 //    }
 }
 
+void Mesh::SetOneRingNeighborhood() {
+    ArrangeFaceVerticesAntiClockwise();
+    for (auto& v: V) {
+        ExtractOneRingNeighbors(v);
+    }
+}
+
+void Mesh::ArrangeFaceVerticesAntiClockwise() {
+    // Arrange face vertices in anti clockwise direction
+    for (auto& f: F) {
+        int sign = 0;
+        for (int i = 0; i < f.Vids.size(); i++) {
+            Vertex& a = V.at(f.Vids.at(i));
+            Vertex& b = V.at(f.Vids.at((i + 1) % f.Vids.size()));
+            Vertex& c = V.at(f.Vids.at((i + 2) % f.Vids.size()));
+            double det = ((b.x - a.x) * (c.y - a.y)) - ((c.x - a.x) * (b.y - a.y));
+            if (det > 0) {
+                sign += 1;
+            } else if (det < 0) {
+                sign -= 1;
+            }
+        }
+        if (sign < 0) {
+            std::reverse(f.Vids.begin(), f.Vids.end());
+        }
+        if (sign == 0) {
+            isManifold = false;
+        }
+    }
+}
+
+void Mesh::ExtractOneRingNeighbors(Vertex& source) {
+    // Arrange neighboring vertices in anti clokcwise direction
+    std::vector<double> N_V_angles;
+    N_V_angles.resize(source.N_Vids.size());
+    Vertex& v_a = V.at(source.N_Vids.at(0));
+    glm::dvec3 a(v_a.x - source.x, v_a.y - source.y, v_a.z - source.z);
+    if (glm::length(a) > 0) {
+        a = glm::normalize(a);
+    }
+    for (int i = 0; i < source.N_Vids.size(); i++) {
+        Vertex& v_b = V.at(source.N_Vids.at(i));
+        glm::dvec3 b(v_b.x - source.x, v_b.y - source.y, v_b.z - source.z);
+        if (glm::length(b) > 0) {
+            b = glm::normalize(b);
+        }
+        double angle = (atan2(glm::cross(a, b).z, glm::dot(a, b))) * 180 / PI;
+        if (angle < 0) {
+            angle += 360;
+        }
+        N_V_angles.at(i) = angle;
+    }
+    for (int i = source.N_Vids.size() - 1; i >= 0; i--) {
+        double max = 0;
+        int index = -1;
+        for (int j = 0; j < N_V_angles.size(); j++) {
+            if (N_V_angles.at(j) >= max) {
+                max = N_V_angles.at(j);
+                index = j;
+            }
+        }
+        std::iter_swap(N_V_angles.begin() + i, N_V_angles.begin() + index);
+        std::iter_swap(source.N_Vids.begin() + i, source.N_Vids.begin() + index);
+        N_V_angles.at(i) = -1;
+    }
+    // Arrange neighboring faces in anti clockwise direction
+    std::vector<size_t> new_N_Fids;
+    for (int i = 0; i < source.N_Vids.size(); i++) {
+        // int index = -1;
+        for (int j = 0; j < source.N_Fids.size(); j++) {
+            Face& f = F.at(source.N_Fids.at(j));
+            int index_a = source.N_Vids.at(i);
+            int index_b = source.N_Vids.at((i + 1) % source.N_Vids.size());
+            if (std::find(f.Vids.begin(), f.Vids.end(), index_a) != f.Vids.end() && 
+                std::find(f.Vids.begin(), f.Vids.end(), index_b) != f.Vids.end() &&
+                std::find(new_N_Fids.begin(), new_N_Fids.end(), f.id) == new_N_Fids.end()) {
+                new_N_Fids.push_back(f.id);
+                break;
+            }
+        }
+    }
+    source.N_Fids.swap(new_N_Fids);
+
+    // Get one ring neighbors in sorted order
+    source.oneRingNeighborVertices.clear();
+    for (int i = 0; i < source.N_Fids.size(); i++) {
+        Face& f = F.at(source.N_Fids.at(i));
+        int start_index = -1;
+        for (int j = 0; j < f.Vids.size(); j++) {
+            if (f.Vids.at(j) == source.id) {
+                start_index = j + 1;
+                break;
+            }
+        }
+        int end_index = start_index + 3;
+        for (int j = start_index; j < end_index; j++) {
+            int id = f.Vids.at(j % f.Vids.size());
+            if (std::find(source.oneRingNeighborVertices.begin(), source.oneRingNeighborVertices.end(), id) == source.oneRingNeighborVertices.end()) {
+                source.oneRingNeighborVertices.push_back(id);
+            }
+        }
+    }
+
+    // check if they are arranged in order
+        // if (!source.isBoundary) {        
+        //     std::cout << "Vertex: " << source.id << std::endl;
+        //     Vertex& v_v_a = V.at(source.oneRingNeighborVertices.at(0));
+        //     glm::dvec3 a_a = glm::normalize(glm::dvec3(v_v_a.x - source.x, v_v_a.y - source.y, v_v_a.z - source.y));
+        //     double prev_angle = 0;
+        //     for (int i = 0; i < source.oneRingNeighborVertices.size(); i++) {
+        //         Vertex& v_v_b = V.at(source.oneRingNeighborVertices.at(i));
+        //         glm::dvec3 b_b = glm::normalize(glm::dvec3(v_v_b.x - source.x, v_v_b.y - source.y, v_v_b.z - source.z));
+
+        //         double angle = (atan2(glm::cross(a_a, b_b).z, glm::dot(a_a, b_b))) * 180 / PI;
+        //         if (angle < 0) {
+        //             angle = std::fmod(angle + 360, 360);
+        //         }
+        //         std::cout << angle << std::endl;
+        //         if (angle < prev_angle) {
+        //             std::cout << "fault in our arrangements" << std::endl;
+        //         }
+        //         prev_angle = angle;
+        //     }
+        //     std::cout << "----------------------------------------" << std::endl;
+        // }
+}
+
 void Mesh::Zoom(const glm::dvec3& ref, const double scale/* = 1*/) {
     if (scale == 1.0)  return;
 //    if (glm::length(m_center) == 0)
@@ -3457,6 +3728,14 @@ void Mesh::Zoom(const glm::dvec3& ref, const double scale/* = 1*/) {
 
 bool Mesh::HasBoundary() const {
     return hasBoundary;
+}
+
+double Mesh::GetQuadFaceArea(std::vector<size_t>& Vids) {
+    return 0.5 * glm::length(glm::cross(V.at(Vids.at(2)).xyz() - V.at(Vids.at(0)).xyz(), V.at(Vids.at(3)).xyz() - V.at(Vids.at(1)).xyz()));
+}
+
+double Mesh::GetQuadMeshArea() {
+    for (auto& f: F) totalArea += GetQuadFaceArea(f.Vids);
 }
 
 const unsigned int HexEdges[12][2] =

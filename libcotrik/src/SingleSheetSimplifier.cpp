@@ -36,13 +36,250 @@ void SingleSheetSimplifier::Run(std::set<size_t>& canceledFids) {
             if (!CanCollapseWithFeaturePreserved(baseComplexSheets, canceledFaceIds)) continue;
             if (!can_collapse_vids_with_feature_preserved(canceledEdgeIds)) continue;
             {
-                std::cout << "collapse sheet edge " << e.id << "(" << v0.id << "," << v1.id << ")" << "\n";
+                // std::cout << "collapse sheet edge " << e.id << "(" << v0.id << "," << v1.id << ")" << "\n";
+                // std::cout << "chord edges " << linkEids.size() << "\n";
+                
+                // std::ofstream ofs("chord_canceledFaces.vtk");
+                // ofs << "# vtk DataFile Version 3.0\n"
+                //     << "cross_quads.vtk\n"
+                //     << "ASCII\n\n"
+                //     << "DATASET UNSTRUCTURED_GRID\n";
+                // ofs << "POINTS " << mesh.V.size() << " double\n";
+
+                // for (auto& v: mesh.V) {
+                //     ofs << v.x << " " << v.y << " " << v.z << std::endl;
+                // }
+
+                // ofs << "CELLS " << canceledFaceIds.size() << " " << canceledFaceIds.size() * 5 << std::endl;
+                // for (auto fid: canceledFaceIds) {
+                //     Face& f = mesh.F.at(fid.first);
+                //     ofs << "4 " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) <<  std::endl; 
+                // }
+                // ofs << "CELL_TYPES " << canceledFaceIds.size() << "\n";
+                // for (auto fid: canceledFaceIds) {
+                //     ofs << "9 " << std::endl; 
+                // }
+                
+                // std::ofstream ofs1("chord_canceledEdgeIds.vtk");
+                // ofs1 << "# vtk DataFile Version 3.0\n"
+                //     << "cross_quads.vtk\n"
+                //     << "ASCII\n\n"
+                //     << "DATASET UNSTRUCTURED_GRID\n";
+                // ofs1 << "POINTS " << mesh.V.size() << " double\n";
+
+                // for (auto& v: mesh.V) {
+                //     ofs1 << v.x << " " << v.y << " " << v.z << std::endl;
+                // }
+
+                // ofs1 << "CELLS " << canceledEdgeIds.size() << " " << canceledEdgeIds.size() * 3 << std::endl;
+                // for (auto eid: canceledEdgeIds) {
+                //     Edge& e = mesh.E.at(eid);
+                //     ofs1 << "2 " << e.Vids.at(0) << " " << e.Vids.at(1) <<  std::endl; 
+                // }
+                // ofs1 << "CELL_TYPES " << canceledEdgeIds.size() << "\n";
+                // for (auto fid: canceledEdgeIds) {
+                //     ofs1 << "3 " << std::endl; 
+                // }
+                
+                // std::ofstream ofs2("chord_Edges.vtk");
+                // ofs2 << "# vtk DataFile Version 3.0\n"
+                //     << "cross_quads.vtk\n"
+                //     << "ASCII\n\n"
+                //     << "DATASET UNSTRUCTURED_GRID\n";
+                // ofs2 << "POINTS " << mesh.V.size() << " double\n";
+
+                // for (auto& v: mesh.V) {
+                //     ofs2 << v.x << " " << v.y << " " << v.z << std::endl;
+                // }
+
+                // ofs2 << "CELLS " << linkEids.size() << " " << linkEids.size() * 3 << std::endl;
+                // for (auto eid: linkEids) {
+                //     Edge& e = mesh.E.at(eid);
+                //     ofs2 << "2 " << e.Vids.at(0) << " " << e.Vids.at(1) <<  std::endl; 
+                // }
+                // ofs2 << "CELL_TYPES " << linkEids.size() << "\n";
+                // for (auto fid: linkEids) {
+                //     ofs2 << "3 " << std::endl; 
+                // }
+                
+                
+                // std::cout << "canceledEdgeIds: " << canceledEdgeIds.size() << " canceledFaceIds: " << canceledFaceIds.size() << std::endl; 
                 collapse_with_feature_preserved(key_edgeId, key_faceId, canceledFaceIds, canceledEdgeIds);
-                for (auto& item : canceledFaceIds)
+                // for (auto& item : canceledFaceIds)
+                //     canceledFids.insert(item.first);
+                
+                for (auto& item : canceledFaceIds) {
+                    if (item.second >= 4) {
+                        canceledFids.insert(item.first);
+                    }
+                }
+
+                for (auto edgeId : canceledEdgeIds) {
+                    canceledFids.insert(e.N_Fids.begin(), e.N_Fids.end());
+                }
+                for (auto& item: canceledFaceIds) {
                     canceledFids.insert(item.first);
+                }
+
                 return;
             }
         }
+    }
+}
+
+void SingleSheetSimplifier::ExtractAndCollapse(std::set<size_t>& canceledFids) {
+    std::vector<std::set<size_t>> canceledEdgesIds;
+    std::vector<std::map<size_t, size_t>> canceledFacesIds;
+    GetSheetsProvisions(canceledEdgesIds, canceledFacesIds);
+    std::vector<std::set<size_t>> canceledVerticesIds;
+    for (int i = 0; i < canceledEdgesIds.size(); i++) {
+        std::set<size_t> canceledEdgeIds = canceledEdgesIds.at(i);
+        std::set<size_t> canceledVIds;
+        for (auto eid: canceledEdgeIds) {
+            canceledVIds.insert(mesh.E.at(eid).Vids.at(0));
+            canceledVIds.insert(mesh.E.at(eid).Vids.at(1));
+        }
+        canceledVerticesIds.push_back(canceledVIds);
+    }
+    std::map<size_t, double> sheetsRank;
+    double aggRanks = 0;
+    std::vector<double> ranks;
+    for (int i = 0; i < canceledEdgesIds.size(); i++) {
+        double agg_center = 0;
+        double agg_length = 0;
+        std::set<size_t> canceledEdgeIds = canceledEdgesIds.at(i);
+        for (int j = 0; j < canceledEdgeIds.size(); j++) {
+            int index1 = j;
+            int index2 = (j + 1) % canceledEdgeIds.size();
+
+            std::set<size_t>::iterator it1 = canceledEdgeIds.begin();
+            std::advance(it1, index1);
+
+            std::set<size_t>::iterator it2 = canceledEdgeIds.begin();
+            std::advance(it2, index2);
+
+            auto& e1 = mesh.E.at(*it1);
+            auto& e2 = mesh.E.at(*it2);
+
+            auto& v0 = mesh.V.at(e1.Vids.at(0));
+            auto& v1 = mesh.V.at(e1.Vids.at(1));
+            auto& v2 = mesh.V.at(e2.Vids.at(0));
+            auto& v3 = mesh.V.at(e2.Vids.at(1));
+
+            glm::dvec3 center1((v0.x + v1.x) / 2, (v0.y + v1.y) / 2, (v0.z + v1.z) / 2);
+            glm::dvec3 center2((v2.x + v3.x) / 2, (v2.y + v3.y) / 2, (v2.z + v3.z) / 2);
+            double t1 = glm::length(glm::dvec3(center1.x - center2.x, center1.y - center2.y, center1.z - center2.z));
+            double t2 = glm::length(glm::dvec3(v0.x - v1.x, v0.y - v1.y, v0.z - v1.z));
+            agg_center += t1;
+            agg_length += t2;
+        }
+        ranks.push_back(agg_center * agg_length);
+        aggRanks += (agg_center * agg_length);
+    }
+
+    std::vector<size_t> sheetsPos;
+    // std::vector<double>::iterator max_index = std::max_element(ranks.begin(), ranks.end());
+    // double max_rank = (double) std::distance(ranks.begin(), max_index) + 1;
+    for (int i = 0; i < ranks.size(); i++) {
+        // std::vector<double>::iterator index = ranks.begin() + i;
+        std::vector<double>::iterator index = std::max_element(ranks.begin(), ranks.end());
+        // std::vector<double>::iterator index = std::min_element(ranks.begin(), ranks.end());
+        sheetsPos.push_back((size_t) std::distance(ranks.begin(), index));
+        // targetVidsPos.push_back(i);
+        *index = -1;
+        // *index = max_rank;
+		// ranks.erase(ranks.begin() + (size_t) std::distance(ranks.begin(), index));
+		// i = 0;
+    }
+    std::vector<std::set<size_t>> finalCanceledEdgesIds;
+    std::vector<std::map<size_t, size_t>> finalCanceledFacesIds;
+    for (auto sId: sheetsPos) {
+        if (sId == -1) {
+            continue;
+        }
+        finalCanceledEdgesIds.push_back(canceledEdgesIds.at(sId));
+        finalCanceledFacesIds.push_back(canceledFacesIds.at(sId));
+        std::set<size_t> canceledEdgeIds1 = canceledEdgesIds.at(sId);
+        for (int j = 0; j < canceledEdgesIds.size(); j++) {
+            if (j == sId) {
+                continue;
+            }
+            std::set<size_t> canceledEdgeIds2 = canceledEdgesIds.at(j);
+            bool disjoint = true;
+            for (auto e1: canceledEdgeIds1) {
+                if (canceledEdgeIds2.find(e1) != canceledEdgeIds2.end()) {
+                    disjoint = false;
+                    break;
+                }
+            }
+            if (!disjoint) {
+                auto it = std::find(sheetsPos.begin(), sheetsPos.end(), j);
+                if (it != sheetsPos.end()) {
+                    sheetsPos.at(std::distance(sheetsPos.begin(), it)) = -1;
+                }
+            }   
+        }
+        
+        std::set<size_t> canceledVIds1 = canceledVerticesIds.at(sId);
+        for (int j = 0; j < canceledVerticesIds.size(); j++) {
+            if (j == sId) {
+                continue;
+            }
+            std::set<size_t> canceledVIds2 = canceledVerticesIds.at(j);
+            bool disjoint = true;
+            for (auto v1: canceledVIds1) {
+                if (canceledVIds2.find(v1) != canceledVIds2.end()) {
+                    disjoint = false;
+                    break;
+                }
+            }
+            if (!disjoint) {
+                auto it = std::find(sheetsPos.begin(), sheetsPos.end(), j);
+                if (it != sheetsPos.end()) {
+                    sheetsPos.at(std::distance(sheetsPos.begin(), it)) = -1;
+                }
+            }   
+        }
+    }
+    CollapseSelectedSheets(canceledFids, finalCanceledEdgesIds, finalCanceledFacesIds);
+}
+
+void SingleSheetSimplifier::GetSheetsProvisions(std::vector<std::set<size_t>>& canceledEdgesIds, std::vector<std::map<size_t, size_t>>& canceledFacesIds) {
+    BaseComplexQuad baseComplex(mesh);
+    baseComplex.Build();
+
+    BaseComplexSheetQuad baseComplexSheets(baseComplex);
+    baseComplexSheets.Extract();
+
+    for (const auto& e : mesh.E) {
+        auto& v0 = mesh.V.at(e.Vids[0]);
+        auto& v1 = mesh.V.at(e.Vids[1]);
+        if (!v0.isCorner && !v1.isCorner && (v0.N_Fids.size() == 3 || v1.N_Fids.size() == 3)/*(v0.isSingularity || v1.isSingularity)*/) {
+            std::map<size_t, size_t> canceledFaceIds;
+            std::vector<size_t> linkEids(1, e.id);
+            std::set<size_t> canceledEdgeIds = GetCanceledEdgeIds(linkEids, canceledFaceIds);
+            if (!CanCollapseWithFeaturePreserved(baseComplexSheets, canceledFaceIds)) continue;
+            if (!can_collapse_vids_with_feature_preserved(canceledEdgeIds)) continue;
+            {
+                canceledEdgesIds.push_back(canceledEdgeIds);
+                canceledFacesIds.push_back(canceledFaceIds);
+            }
+        }
+    }
+}
+
+void SingleSheetSimplifier::CollapseSelectedSheets(std::set<size_t>& canceledFids, std::vector<std::set<size_t>>& canceledEdgesIds, std::vector<std::map<size_t, size_t>>& canceledFacesIds) {
+    auto key_edgeId = get_key_edgeId(mesh);
+    auto key_faceId = get_key_faceId(mesh);
+
+    size_t n = canceledEdgesIds.size();
+    for (int i = 0; i < n; i++) {
+        std::set<size_t> canceledEdgeIds = canceledEdgesIds.at(i);
+        std::map<size_t, size_t> canceledFaceIds = canceledFacesIds.at(i);
+        collapse_with_feature_preserved(key_edgeId, key_faceId, canceledFaceIds, canceledEdgeIds);
+        for (auto& item : canceledFaceIds)
+            canceledFids.insert(item.first);
+        break;
     }
 }
 

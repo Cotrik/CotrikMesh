@@ -18,5 +18,6 @@ size_t GetQuality(const char* filename, std::vector<size_t>& badCellIds, std::ve
 
 size_t GetMinScaledJacobianQuad(const Mesh& mesh, double& MinScaledJacobian, const double minSJ = 0.0);
 double GetScaledJacobianQuad(const Mesh& mesh, size_t faceId);
+double GetScaledJacobianQuad(const Mesh& mesh, Face& f);
 
 #endif // MESH_QUALITY_H

@@ -216,8 +216,14 @@ public:
     bool isCorner;
 	bool isSpecial;
 	bool isConvex;
+    bool isVisited;
+    bool isMovable = true;
 	size_t idealValence = 0;
     std::vector<size_t> twoRingNeighborSurfaceFaceIds; // for surface projecting;
+    std::vector<size_t> oneRingNeighborVertices; // for 2D surface smoothing
+
+    double prescribed_length;
+    bool smoothLocal;
 };
 
 class Edge : public GeoInfo, public NeighborInfo
@@ -296,6 +302,7 @@ public:
     size_t label;     // patch number starting from 0, MAXID is invalid
     size_t componentEid = MAXID;
     size_t singularEid = MAXID;
+    bool isVisited = false;
 };
 
 class Face : public GeoInfo, public NeighborInfo
@@ -347,6 +354,8 @@ public:
     glm::dvec3 normal;
     size_t label;     // patch number starting from 0, MAXID is invalid
     size_t componentFid = MAXID;
+    bool isNegative = false;
+    bool isVisited = false;
 };
 
 class Cell : public GeoInfo, public NeighborInfo
@@ -392,6 +401,7 @@ public:
     std::vector<size_t> Fids;
     //glm::dvec3 cv;                 // center vertex's x,y,z coordinate of the Cell;  For Node of Frame
     size_t componentCid = MAXID;
+    double qualityValue = 0;
 };
 
 class Layer
@@ -500,6 +510,9 @@ public:
     void BuildParallelE();
     void BuildConsecutiveE();
     void BuildOrthogonalE();
+    void ReOrientSurfaceFaces();
+    double getConvexVerdict(std::vector<size_t> Vids);
+    void unifyOrientation();
     void GetNormalOfSurfaceFaces();             // must ExtractBoundary(); first
     void GetNormalOfSurfaceVertices();          // must ExtractBoundary(); first
     void RemoveUselessVertices();
@@ -583,6 +596,12 @@ public:
     size_t GetQualityVerdict(double& minValue, double& avgValue, const double minSJ = 0.0);
     void OutputBadCells(const std::vector<size_t>& badCellIds, const char* filename);
 public:
+    void SetOneRingNeighborhood(); // 2D surface smoothing
+    void ArrangeFaceVerticesAntiClockwise();
+    void ExtractOneRingNeighbors(Vertex& source);
+    double GetQuadFaceArea(std::vector<size_t>& Vids);
+    double GetQuadMeshArea();
+public:
     std::vector<Vertex> V;
     std::vector<Edge> E;
     std::vector<Face> F;
@@ -608,6 +627,10 @@ public:
     size_t numberOfPatches = 0;
 
     bool hasBoundary = false;
+    bool isManifold = true;
+    bool smoothGlobal = true;
+    double totalArea = 0.0;
+    double prescribed_length = 0.0;
 };
 
 #endif /* MESH_H_ */

@@ -29,7 +29,7 @@ std::vector<glm::dvec2> GetPolarCoordinates(const Vertex& v0, const Vertex& v1, 
 	for (auto& v : V) {
 		glm::dvec3 d1 = v - v0;
 		if (glm::length(d1) < 1e-8 || std::isnan(glm::length(d1))) continue;
-		auto d1n = glm::normalize(d1);				
+		auto d1n = glm::normalize(d1);
 		auto det = glm::dot(v.normal, glm::cross(d0n, d1n));
 		auto dot = glm::dot(d0n, d1n);
 		res[v.id].x = glm::length(d1); // radius
@@ -487,6 +487,7 @@ int main(int argc, char* argv[]) {
     mesh.ExtractBoundary();
 	mesh.GetAvgEdgeLength();
 	mesh.GetNormalOfSurfaceFaces();
+	mesh.unifyOrientation();
 	mesh.GetNormalOfSurfaceVertices();
 
 	bool useLocalPolarCoordinate = false;
