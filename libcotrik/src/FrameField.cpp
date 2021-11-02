@@ -152,6 +152,16 @@ void FrameField::WriteFile(const char* filename)
     for (size_t i = 0; i < frameEdges.size(); i++){
         ofs << "2 " << frameEdges.at(i).Vids[0] << " " << frameEdges.at(i).Vids[1] << std::endl;
     }
+
+    std::string filename2 = std::string(filename).substr(0, std::string(filename).size() - 15) + ".ff";
+    std::ofstream ofs2(filename2);
+    ofs2 << frameEdges.size() << " 4" << std::endl;
+    ofs2 << std::fixed << std::setprecision(7);
+    for (size_t i = 0; i < frameEdges.size(); i++){
+        ofs2 << frameNodes.at(frameEdges.at(i).Vids[0]).x << " " << frameNodes.at(frameEdges.at(i).Vids[0]).y << " " << frameNodes.at(frameEdges.at(i).Vids[0]).z << std::endl;
+        ofs2 << frameNodes.at(frameEdges.at(i).Vids[1]).x << " " << frameNodes.at(frameEdges.at(i).Vids[1]).y << " " << frameNodes.at(frameEdges.at(i).Vids[1]).z << std::endl;
+        // ofs << "2 " << frameEdges.at(i).Vids[0] << " " << frameEdges.at(i).Vids[1] << std::endl;
+    }
 }
 
 void FrameField::WriteFile(const char* filename, const std::vector<size_t>& frameIds)

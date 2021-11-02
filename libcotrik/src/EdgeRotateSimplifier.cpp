@@ -263,6 +263,108 @@ void EdgeRotateSimplifier::Run() {
 }
 
 void EdgeRotateSimplifier::Run(std::set<size_t>& canceledFids) {
+    std::vector<size_t> vertex_indices;
+    std::vector<size_t> edge_indices;
+    auto patchid_fids = GetPatchid_Fids();
+    auto patchid_vids = GetPatchid_Vids(patchid_fids);
+    for (auto& item : patchid_vids) {
+        for (auto vid : item.second) {
+            auto& v = mesh.V.at(vid);
+            if ((v.type == CORNER || v.isCorner) && !v.isSpecial) {
+                // v.type = CORNER;
+                auto fids = GetNeighborFids(v, patchid_fids[item.first]);
+                //if (fids.size() < 2) continue;
+                //if (!is_convex(v, fids) && fids.size() < 4) continue;
+                if (v.idealValence >= fids.size()) continue;
+                std::cout << "Corner" << std::endl;
+                // std::cout << "fids: " << fids.size() << std::endl;
+                // reduceValence(v, canceledFids);
+                auto eids = GetRotateEids(v, fids);
+                if (eids.empty()) continue;
+                auto& e = mesh.E.at(*eids.begin());
+                vertex_indices.push_back(v.id);
+                edge_indices.push_back(e.id);
+                Rotate(e, v, canceledFids);
+                return;
+            } else if (v.type == FEATURE) {
+                auto fids = GetNeighborFids(v, patchid_fids[item.first]);
+                if (fids.size() < 3/* || fids.size() == 4*/) continue;
+                std::cout << "Feature" << std::endl;
+                // std::cout << "fids: " << fids.size() << std::endl;
+                // reduceValence(v, canceledFids);
+                auto eids = GetRotateEids(v, fids);
+                if (eids.empty()) continue;
+                auto& e = mesh.E.at(*eids.begin());
+                vertex_indices.push_back(v.id);
+                edge_indices.push_back(e.id);
+                Rotate(e, v, canceledFids);
+                return;
+            }
+        }
+    }
+}
+
+void EdgeRotateSimplifier::reduceValence(const Vertex& v, std::set<size_t>& canceledFids) {
+    size_t canceledFid = v.N_Fids.at(0);
+    for (auto fid: v.N_Fids) {
+        Face& f = mesh.F.at(fid);
+        bool isNonBoundaryFace = true;
+        for (auto eid: f.Eids) {
+            if (mesh.E.at(eid).isBoundary) {
+                isNonBoundaryFace = false;
+                break;
+            }
+        }
+        if (isNonBoundaryFace) {
+            canceledFid = f.id;
+            break;
+        }
+    }
+    Face& sourceF = mesh.F.at(canceledFid);
+    for (auto eid: sourceF.Eids) {
+        if (mesh.E.at(eid).isBoundary) {
+            return;
+        }
+    }
+    
+    int index = 0;
+    for (int i = 0; i < sourceF.Vids.size(); i++) {
+        if (sourceF.Vids.at(i) == v.id) {
+            index = i;
+            break;
+        }
+    }
+    size_t diagVid1 = sourceF.Vids.at((index + 1) % sourceF.Vids.size());
+    size_t diagVid2 = sourceF.Vids.at((index + 3) % sourceF.Vids.size());
+    Vertex& source = mesh.V.at(diagVid1);
+    Vertex& target = mesh.V.at(diagVid2);
+
+    glm::dvec3 curr_target_coords(target.x, target.y, target.z);
+    glm::dvec3 target_dir((source.x - target.x), (source.y - target.y), (source.z - target.z));
+    glm::dvec3 target_new_coords = curr_target_coords + (glm::normalize(target_dir) * (glm::length(target_dir) / 2));
+
+    target.x = target_new_coords.x;
+    target.y = target_new_coords.y;
+    target.z = target_new_coords.z;
+
+    for (auto fid: source.N_Fids) {
+        if (fid == canceledFid) {
+            continue;
+        }
+        Face& source_nF = mesh.F.at(fid);
+        for (int i = 0; i < source_nF.Vids.size(); i++) {
+            if (source_nF.Vids.at(i) == source.id) {
+                source_nF.Vids.at(i) = target.id;
+                break;
+            }
+        }
+    }
+    canceledFids.insert(canceledFid);
+}
+
+void EdgeRotateSimplifier::RunCollective(std::set<size_t>& canceledFids) {
+    std::vector<size_t> vertex_indices;
+    std::vector<size_t> edge_indices;
     auto patchid_fids = GetPatchid_Fids();
     auto patchid_vids = GetPatchid_Vids(patchid_fids);
     for (auto& item : patchid_vids) {
@@ -277,17 +379,49 @@ void EdgeRotateSimplifier::Run(std::set<size_t>& canceledFids) {
                 auto eids = GetRotateEids(v, fids);
                 if (eids.empty()) continue;
                 auto& e = mesh.E.at(*eids.begin());
-                Rotate(e, v, canceledFids);
-                return;
+                vertex_indices.push_back(v.id);
+                edge_indices.push_back(e.id);
             } else if (v.type == FEATURE) {
                 auto fids = GetNeighborFids(v, patchid_fids[item.first]);
                 if (fids.size() < 3/* || fids.size() == 4*/) continue;
                 auto eids = GetRotateEids(v, fids);
                 if (eids.empty()) continue;
                 auto& e = mesh.E.at(*eids.begin());
-                Rotate(e, v, canceledFids);
-                return;
+                vertex_indices.push_back(v.id);
+                edge_indices.push_back(e.id);
             }
         }
+    }
+    std::vector<bool> edge_status(edge_indices.size(), true); 
+    std::vector<size_t> final_vertex_indices;
+    std::vector<size_t> final_edge_indices;
+    for (int i = 0; i < edge_indices.size(); i++) {
+        if (!edge_status.at(i)) continue;
+        final_vertex_indices.push_back(vertex_indices.at(i));
+        final_edge_indices.push_back(edge_indices.at(i));
+        auto faces_ids = mesh.E.at(edge_indices.at(i)).N_Fids;
+        for (int j = i + 1; j < edge_indices.size(); j++) {
+            auto edge_vids = mesh.E.at(edge_indices.at(j)).Vids;
+            for (auto id: faces_ids) {
+                auto face_vids = mesh.F.at(id).Vids;
+                if (std::find(face_vids.begin(), face_vids.end(), edge_vids[0]) != face_vids.end() || 
+                    std::find(face_vids.begin(), face_vids.end(), edge_vids[1]) != face_vids.end()) {
+                    edge_status.at(j) = false;
+                }
+                break;    
+            }
+            auto edge_faces_ids = mesh.E.at(edge_indices.at(j)).N_Fids;
+            for (auto id: faces_ids) {
+                if (id == edge_faces_ids[0] || id == edge_faces_ids[1]) {
+                    edge_status.at(j) = false;
+                    break;
+                }
+            }
+        }
+    }
+    for (int i = 0; i < final_edge_indices.size(); i++) {
+        auto& v = mesh.V.at(final_vertex_indices.at(i));
+        auto& e = mesh.E.at(final_edge_indices.at(i));
+        Rotate(e, v, canceledFids);
     }
 }

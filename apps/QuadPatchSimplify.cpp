@@ -8,6 +8,8 @@
 #include "Simplifier.h"
 #include "PatchSimplifier.h"
 #include "ArgumentManager.h"
+#include "AngleBasedSmoothQuadMesh.h"
+#include <ctime>
 
 void setup(ArgumentManager& argumentManager, Simplifier& s);
 
@@ -31,18 +33,48 @@ int main(int argc, char* argv[]) {
     MeshFileReader reader(input.c_str());
     Mesh& mesh = (Mesh&) reader.GetMesh();
     mesh.RemoveUselessVertices();
+
     PatchSimplifier simplifier(mesh);
     setup(argumentManager, simplifier);
+
+
+    std::clock_t start;
+    double duration;
+    start = std::clock();
+
     simplifier.Run();
 	{
 		MeshFileWriter writer(mesh, "VertexFeature.vtk");
 		writer.WriteVertexFeatureVtk();
 	}
 	simplifier.init();
-	simplifier.smooth_project();
+    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    std::cout << "Simplification time: " << duration << " seconds" << std::endl;
+    // simplifier.smoothGlobal = true;
+    // simplifier.SmoothMesh();
+    // simplifier.smoothGlobal = true;
+    simplifier.SmoothMesh(true);
+    // simplifier.RefineMesh();
+    // simplifier.init();
+    // SurfaceMapper sm(mesh, simplifier.origMesh);
+    // for (auto& v: mesh.V) {
+    //     v = sm.MapPoint(v.xyz());
+    // }
+    // simplifier.smoothGlobal = true;
+    // simplifier.SmoothMesh(true);
+    // simplifier.smooth_project(2);
 	{
+        // simplifier.RefineMesh();
+        // SmoothAlgorithm smoothAlgo(mesh, simplifier.origMesh, 1000, 1, true, true);
+        // smoothAlgo.smoothMesh();
+
 		MeshFileWriter writer(mesh, output.c_str());
 		writer.WriteFile();
+        for (auto& f: mesh.F) {
+            if (f.Vids.size() < 4) {
+                std::cout << "Face " << f.id << " has less than 4 vertices" << std::endl;
+            }
+        }
 		std::cout << "V = " << mesh.V.size() << std::endl;
 		std::cout << "E = " << mesh.E.size() << std::endl;
 		std::cout << "F = " << mesh.F.size() << std::endl;
@@ -97,3 +129,33 @@ void setup(ArgumentManager& argumentManager, Simplifier& s) {
     std::cout << "writeFile = " << Simplifier::writeFile << std::endl;
     std::cout << "---------------------------------------" << std::endl;
 }
+
+
+// TO DO:
+// Fix 5 5 split
+// 3 5 chord collapsing
+// reproduce the results
+// 5 5 split
+// collapse causes overlaps
+// write the paper
+// make the illustrations
+// start from siggraph asia
+// methodology part can be extended
+// results and discussion
+
+// Introduction: Decide what style we want for introduction. Mathematical notations move to later section in overview.
+// what is quad mesh and why is it important, problem why we need to simplify it, talk about issues of existing methods
+// because of those limitations we propose semi-global simplification, integrate with existing local operators and then we integrate
+// a unified operation and decide which operations to perform and achieve boundary configuration. describe briefly.
+// optional paragraph: the rest of the paper is structured as follows.
+
+// Related work: Quad mesh generation, cite a lot of papers. Talk about techniques for mesh generation. emphasize the issues of some of
+// quad mesh generation. Quad layout in some papers. Structure simplification of quad mesh. Add additional papers if we can find more. 
+
+// Background: how separatrices relate to poincare index, talk about valence, discrete index of each singularity. 
+
+// Our pipeline contains two types of operation; semi-global and local and integrate them into once complete piepline. 
+// 5-5 operator is optional which user can turn on or off. In our experiments we turn it off. 
+// local smoothing optional every other step.
+// Evaluation with certain things turned on or off
+// Impact of ranking the operations.

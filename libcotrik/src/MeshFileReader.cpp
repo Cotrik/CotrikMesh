@@ -377,6 +377,7 @@ void MeshFileReader::ReadMeshFile()
         m_mesh.m_cellType = HEXAHEDRA;
         csize = 8;
     } else if (str == "Tetrahedra") {
+        cnum = cnum / 4;
         C.resize(cnum, Cell(4));
         m_mesh.m_cellType = TETRAHEDRA;
         csize = 4;
@@ -411,6 +412,7 @@ void MeshFileReader::ReadMeshFile()
             m_mesh.F[i].Vids = m_mesh.C[i].Vids;
     }
 }
+
 
 const Mesh& MeshFileReader::GetMesh() const
 {

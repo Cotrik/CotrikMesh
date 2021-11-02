@@ -1,3 +1,7 @@
+#include <iostream>
+#include "MeshFileReader.h"
+#include "MeshFileWriter.h"
+
 #include <vtkVersion.h>
 #include <vtkSmartPointer.h>
 #include <vtkPolyData.h>
@@ -182,12 +186,13 @@ void OutputMetricFile(const char* vtkfilename, const char* filename = "metric.tx
 }
 int main(int argc, char *argv[]) {
     if (argc < 2) {
-        std::cout << "Usage: " << argv[0] << " Filename(.vtk) opacity metricFileName=<> " << std::endl;
+        std::cout << "Usage: " << argv[0] << " Filename(.vtk) outputFileName(.vtk) opacity metricFileName=<> " << std::endl;
         return EXIT_FAILURE;
     }
     OutputMetricFile(argv[1]);
     // Get the filename from the command line
     std::string inputFilename = argv[1];
+    std::string outputFilename = argv[2];
 
     // Get all data from the file
     vtkSmartPointer<vtkUnstructuredGridReader> reader = vtkSmartPointer<vtkUnstructuredGridReader>::New();
@@ -228,7 +233,8 @@ int main(int argc, char *argv[]) {
     //qualityFilter->SetHexQualityMeasureToOddy()
     //qualityFilter->SetHexQualityMeasureToCondition()
     //qualityFilter->SetHexQualityMeasureToJacobian()
-    qualityFilter->SetHexQualityMeasureToScaledJacobian();
+    // qualityFilter->SetHexQualityMeasureToScaledJacobian();
+    qualityFilter->SetQuadQualityMeasureToScaledJacobian();
     //qualityFilter->SetHexQualityMeasureToShear()
     //qualityFilter->SetHexQualityMeasureToShape()
     //qualityFilter->SetHexQualityMeasureToRelativeSizeSquared()
@@ -242,15 +248,18 @@ int main(int argc, char *argv[]) {
     maxValue = qualityArray->GetValue(0);
     avgValue = 0;
     size_t numOfInvertedElements = 0;
+    // std::cout << "# cells: " << reader->GetOutput()->GetNumberOfCells() << "# jacobians: " << qualityArray->GetNumberOfTuples() << std::endl;
+    std::vector<double> qualityValues;
     for (vtkIdType i = 0; i < qualityArray->GetNumberOfTuples(); i++) {
         double val = qualityArray->GetValue(i);
+        qualityValues.push_back(val);
         if (minValue > val) minValue = val;
         if (maxValue < val) maxValue = val;
         avgValue += val;
 
         if (val < 0) numOfInvertedElements++;
         else if (val > 1) numOfInvertedElements++;
-        //std::cout << "value " << i << " : " << val << std::endl;
+        // std::cout << "value " << i << " : " << val << std::endl;
     }
     avgValue /= qualityArray->GetNumberOfTuples();
     std::cout << "min value = " << minValue << std::endl;
@@ -258,7 +267,55 @@ int main(int argc, char *argv[]) {
     std::cout << "avg value = " << avgValue << std::endl;
     std::cout << "#InvertedElements = " << numOfInvertedElements << std::endl;
 
-    if (argc == 2) return 0;
+    MeshFileReader meshReader(inputFilename.c_str());
+    Mesh& mesh = (Mesh&)meshReader.GetMesh();
+    for (size_t i = 0; i < mesh.C.size(); i++) {
+        Cell& c = mesh.C.at(i);
+        // if (qualityValues.at(i) < 0 ) {
+        //     c.qualityValue = -1;
+        // } else {
+        //     c.qualityValue = 1;
+        // }
+        c.qualityValue = qualityValues.at(i);
+    }
+
+    const size_t vnum = mesh.V.size();
+    const size_t cnum = mesh.C.size();
+
+    std::cout << outputFilename.c_str() << std::endl;
+
+    std::ofstream ofs(outputFilename.c_str());
+    ofs << "# vtk DataFile Version 3.0\n"
+        << "jacobian" << "\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs << "POINTS " << vnum << " double\n";
+    // ofs << "POINTS " << vnum << " float\n";
+    for (size_t i = 0; i < vnum; i++)
+        ofs << mesh.V.at(i).x << " " << mesh.V.at(i).y << " " << mesh.V.at(i).z << "\n";
+        // ofs << (float) V.at(i).x << " " << (float) V.at(i).y << " " << (float) V.at(i).z << "\n";
+    ofs << "CELLS " << cnum << " " << cnum*5 << "\n";
+
+    for (size_t i = 0; i < cnum; i++){
+        ofs << mesh.C.at(i).Vids.size();
+        for (size_t j = 0; j < mesh.C.at(i).Vids.size(); j++)
+            ofs << " " << mesh.C.at(i).Vids.at(j);
+        ofs << "\n";
+    }
+    ofs << "CELL_TYPES " << cnum << "\n";
+    for (size_t i = 0; i < cnum; i++) {
+        ofs << "9\n";
+    }
+
+    ofs << "CELL_DATA " << cnum << "\n";
+    ofs << "SCALARS fixed double\n";
+    ofs << "LOOKUP_TABLE default\n";
+
+    for (auto& c: mesh.C) {
+        ofs << c.qualityValue << "\n";
+    }
+
+    if (argc == 3) return 0;
 
     // Hightlight inverted elements
     vtkDataSet* qualityMesh = qualityFilter->GetOutput();

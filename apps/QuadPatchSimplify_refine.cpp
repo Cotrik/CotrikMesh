@@ -67,8 +67,10 @@ int main(int argc, char* argv[]) {
 	    }
 	}
     simplifier.init();
-	// // simplifier.smooth_project1(Simplifier::resolution);
-	simplifier.smooth_project(3);
+    simplifier.smoothGlobal = true;
+    simplifier.SmoothMesh();
+	// simplifier.smooth_project(Simplifier::resolution);
+	// simplifier.smooth_project();
 	{
 		MeshFileWriter writer(mesh, output.c_str());
 		writer.WriteFile();
