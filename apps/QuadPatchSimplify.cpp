@@ -33,8 +33,10 @@ int main(int argc, char* argv[]) {
     MeshFileReader reader(input.c_str());
     Mesh& mesh = (Mesh&) reader.GetMesh();
     mesh.RemoveUselessVertices();
+
     PatchSimplifier simplifier(mesh);
     setup(argumentManager, simplifier);
+
 
     std::clock_t start;
     double duration;
@@ -53,6 +55,11 @@ int main(int argc, char* argv[]) {
     // simplifier.smoothGlobal = true;
     simplifier.SmoothMesh(true);
     // simplifier.RefineMesh();
+    // simplifier.init();
+    // SurfaceMapper sm(mesh, simplifier.origMesh);
+    // for (auto& v: mesh.V) {
+    //     v = sm.MapPoint(v.xyz());
+    // }
     // simplifier.smoothGlobal = true;
     // simplifier.SmoothMesh(true);
     // simplifier.smooth_project(2);
