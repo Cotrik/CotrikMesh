@@ -4,7 +4,6 @@
 #include "Simplifier.h"
 #include "PatchSimplifierOperations.h"
 // #include "AngleBasedSmoothQuadMesh.h"
-
 class PatchSimplifier : public Simplifier {
 public:
 	PatchSimplifier(Mesh& mesh);
@@ -37,7 +36,7 @@ public:
 	void PerformOperations(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps, std::set<size_t>& canceledFids);
 
 	std::vector<Vertex> refinedV;
-	double refinementFactor = 0.5;
+	double refinementFactor = 1;
 	std::vector<size_t> smoothVids;
 	std::vector<size_t> origBoundaryVids;
 	bool smoothGlobal = false;
@@ -52,6 +51,8 @@ public:
 	std::map<size_t, std::set<size_t>> label_vids;
 	std::map<size_t, std::set<size_t>> sharpEdgeVid_NVids;
 	std::vector<Vertex> centerVertices;
+	
+	
 };
 
 #endif // !PATCH_SIMPLIFIER_H

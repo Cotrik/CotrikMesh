@@ -14,6 +14,8 @@
 #include "BaseComplexSheetQuad.h"
 #include "Patches.h"
 #include "PatchSimplifierOperations.h"
+#include "QuadSurfaceMapper.h"
+#include "MeshUtil.h"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -191,6 +193,9 @@ public:
 	static bool TRIP/* = true*/;
 	static bool checkCorner/* = true*/;
 	static bool writeFile/* = true*/;
+
+	SurfaceMapper sm;
+	MeshUtil mu;
 };
 
 const extern double PI/* = 3.1415926535*/;

@@ -84,7 +84,9 @@ void PatchSimplifier::Run() {
         }
         ++Simplifier::maxValence;
     }
+    
     // init();
+    
     // RefineMesh();
     // smoothGlobal = true;
     // SmoothMesh(true);
@@ -388,22 +390,47 @@ bool PatchSimplifier::Simplify(int& iter) {
         MeshFileWriter writer(mesh, "rotate_eids.vtk");
         writer.WriteEdgesVtk(eids);
         smoothGlobal = true;
+        std::cout << "Begin simplification" << std::endl;
         SmoothMesh(true);
     }
     else {
         // smoothGlobal = true;
-        SmoothMesh(false);  
+        SmoothMesh(false);
+        // for (auto& v: mesh.V) {
+        //     std::cout << v.x << " " << v.y << " " << v.z << std::endl; 
+        // }
+        // SurfaceMapper sm(mesh, origMesh);
+        // sm.Map();
+        // smooth_project();
     }
-    // if (mesh.F.size() <= 0.25 * refinementFactor * origMesh.F.size()) {
+    
+    /*if (mesh.F.size() <= 0.25 * origMesh.F.size()) {
     //     std::cout << "current Faces: " << mesh.F.size() << " original Faces: " << origMesh.F.size() << std::endl;
         
     //     smoothGlobal = true;
     //     SmoothMesh();
-    //     RefineMesh();
+        // RefineMesh();
+        // SmoothMesh(true);
+        mesh = RefineWithFeaturePreserved(mesh, 0);
+        size_t id = 0;
+        for (auto& c : mesh.C) {
+            c.cellType = VTK_QUAD;
+            c.id = id++;
+        }
+        for (auto& v : mesh.V) {
+	        v.N_Vids.clear();
+            v.N_Eids.clear();
+            v.N_Fids.clear();
+            v.N_Cids.clear();
+	    }
+        init();
+        std::cout << "Refined Mesh" << std::endl;
     //     smoothGlobal = true;
     //     SmoothMesh();
-    // }
+    }*/
     
+   
+
     // Step 1 -- doublet removal
     if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
         DoubletSimplifier doubletSimplifier(mesh);
@@ -457,7 +484,7 @@ bool PatchSimplifier::Simplify(int& iter) {
     // }
     
     // Step 5 -- <separatrix splitting> and <separatrix splitting (optional)>
-    if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
+    /*if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
         BaseComplexQuad baseComplex(mesh);
         baseComplex.ExtractSingularVandE();
         baseComplex.BuildE();
@@ -495,7 +522,7 @@ bool PatchSimplifier::Simplify(int& iter) {
         half_separatrix_collapse(baseComplex, canceledFids);
 
         if (!canceledFids.empty()) std::cout << "half_simplify\n";
-   }
+   }*/
 
     if (canceledFids.empty()) {
         update(canceledFids);
@@ -1246,6 +1273,7 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
         }
     }*/
 
+    // SurfaceMapper sm(mesh, origMesh);
 	while (iters--) {
         std::vector<glm::dvec3> centers(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
         for (auto vid: smoothVids) {
@@ -1288,12 +1316,14 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
                 centers.at(vid) = (center / n);
             }
         }
-        std::vector<glm::dvec3> temp(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
+        // std::vector<glm::dvec3> temp(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
         for (auto vid: smoothVids) {
             auto& v = mesh.V.at(vid);
             if (v.type < FEATURE) {
-                temp.at(v.id) = v.xyz();
-                v = centers.at(v.id);
+                // temp.at(v.id) = v.xyz();
+                // v = centers.at(v.id);
+                // v = sm.MapPoint(centers.at(v.id));
+                v = sm.GetClosestPoint(centers.at(v.id));
                 // bool negativeFacePresent = false;
                 // for (auto nfid: v.N_Fids) {
                 //     if (GetScaledJacobianQuad(mesh, mesh.F.at(nfid)) < 0) {
@@ -1304,7 +1334,8 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
                 // if (negativeFacePresent) v = temp.at(v.id);
             }
         }
-        for (auto vid: smoothVids) {
+        // sm.Map();
+        /*for (auto vid: smoothVids) {
             auto& v = mesh.V.at(vid);
 			if (v.type == FEATURE) {
                 centers.at(v.id) = v.xyz();
@@ -1384,6 +1415,7 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
                 centers.at(v.id) = new_coords;
             }
         }
+
         for (auto vid: smoothVids) {
             auto& v = mesh.V.at(vid);
             if (v.type == FEATURE) {
@@ -1398,7 +1430,7 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
                 // }
                 // if (negativeFacePresent) v = temp;
             }
-        }
+        }*/
 	}
     for (auto& v: mesh.V) v.smoothLocal = false;
     smoothVids.clear();

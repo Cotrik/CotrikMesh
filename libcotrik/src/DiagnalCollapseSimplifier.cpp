@@ -7,6 +7,16 @@
 
 #include "DiagnalCollapseSimplifier.h"
 
+
+struct collapsableDiagonal {
+    size_t vid;
+    size_t target_vid;
+    double ranking;
+};
+bool opComp(const collapsableDiagonal& a, const collapsableDiagonal& b) {
+    return a.ranking < b.ranking;
+}
+
 DiagnalCollapseSimplifier::DiagnalCollapseSimplifier(Mesh& mesh) : Simplifier(mesh) {
     // TODO Auto-generated constructor stub
 
@@ -124,10 +134,6 @@ void DiagnalCollapseSimplifier::Run(std::set<size_t>& canceledFids) {
 }
 
 void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
-    struct collapsableDiagonal {
-		size_t vid;
-		size_t target_vid;
-	};
     std::vector<collapsableDiagonal> diagonals;
     for (auto& f: mesh.F) f.isVisited = false;
     for (auto valence = Simplifier::maxValence - 1; valence > 4; --valence) {
@@ -145,6 +151,10 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
                     collapsableDiagonal d;
                     d.vid = v0.id;
                     d.target_vid = v2.id;
+                    double min = mu.GetVertexEnergy(v0.id) + mu.GetVertexEnergy(v2.id);
+                    double max = mu.GetVertexEnergy(v1.id) + mu.GetVertexEnergy(v3.id);
+                    double normalizedArea = mu.GetMeshArea() / mu.GetFaceArea(f.id);
+                    d.ranking = min / (max * normalizedArea);
                     diagonals.push_back(d);
 
                     // Collapse(v0.id, v2.id);
@@ -160,6 +170,10 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
                     collapsableDiagonal d;
                     d.vid = v2.id;
                     d.target_vid = v0.id;
+                    double min = mu.GetVertexEnergy(v0.id) + mu.GetVertexEnergy(v2.id);
+                    double max = mu.GetVertexEnergy(v1.id) + mu.GetVertexEnergy(v3.id);
+                    double normalizedArea = mu.GetMeshArea() / mu.GetFaceArea(f.id);
+                    d.ranking = min / (max * normalizedArea);
                     diagonals.push_back(d);
                     
                     // Collapse(v2.id, v0.id);
@@ -180,6 +194,10 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
                     collapsableDiagonal d;
                     d.vid = v1.id;
                     d.target_vid = v3.id;
+                    double min = mu.GetVertexEnergy(v1.id) + mu.GetVertexEnergy(v3.id);
+                    double max = mu.GetVertexEnergy(v0.id) + mu.GetVertexEnergy(v2.id);
+                    double normalizedArea = mu.GetMeshArea() / mu.GetFaceArea(f.id);
+                    d.ranking = min / (max * normalizedArea);
                     diagonals.push_back(d);
                     
                     // Collapse(v1.id, v3.id);
@@ -194,6 +212,10 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
                     collapsableDiagonal d;
                     d.vid = v3.id;
                     d.target_vid = v1.id;
+                    double min = mu.GetVertexEnergy(v1.id) + mu.GetVertexEnergy(v3.id);
+                    double max = mu.GetVertexEnergy(v0.id) + mu.GetVertexEnergy(v2.id);
+                    double normalizedArea = mu.GetMeshArea() / mu.GetFaceArea(f.id);
+                    d.ranking = min / (max * normalizedArea);
                     diagonals.push_back(d);
                     
                     // Collapse(v3.id, v1.id);
@@ -208,6 +230,7 @@ void DiagnalCollapseSimplifier::RunCollective(std::set<size_t>& canceledFids) {
             }
         }
     }
+    std::sort(diagonals.begin(), diagonals.end(), opComp);
     for (auto d: diagonals) {
         Collapse(d.vid, d.target_vid);
     }

@@ -34,7 +34,7 @@ bool Simplifier::checkCorner = true;
 bool Simplifier::writeFile = false;
 
 Simplifier::Simplifier(Mesh& mesh) : mesh(mesh) {
-
+	mu.SetMesh(mesh);
 }
 
 Simplifier::~Simplifier() {}
@@ -1135,6 +1135,7 @@ void Simplifier::get_feature() {
 //	    }
 	}
 	origMesh = mesh;
+	sm.SetTarget(origMesh);
 }
 
 void Simplifier::update(std::set<size_t>& canceledFids) {
@@ -2840,7 +2841,7 @@ void Simplifier::smooth_project() {
 	int iters = smoothIters;
 	int iter = 0;
 	while (iters--) {
-		std::cout << "smooth iter = " << iter++ << std::endl;
+		// std::cout << "smooth iter = " << iter++ << std::endl;
 		// std::cout << "sharpEdgeVid_NVids: " << sharpEdgeVid_NVids.size() << std::endl;
 		for (auto& item : sharpEdgeVid_NVids) {
 			auto& v = mesh.V.at(item.first);
