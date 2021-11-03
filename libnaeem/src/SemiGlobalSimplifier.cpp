@@ -43,9 +43,9 @@ void SemiGlobalSimplifier::SetDiagonalCollapseOperations() {
     for (auto& op: Ops) {
         op->PerformOperation();
         std::cout << op->ranking << std::endl;
-        // if (i == 10) {
+        if (i == 3) {
             break;
-        // }
-        // i += 1;
+        }
+        i += 1;
     }
 }

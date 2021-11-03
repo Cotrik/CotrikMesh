@@ -25,6 +25,7 @@ class DiagonalCollapse : public SimplificationOperation {
 
     private:
         void UpdateNeighborInfo(Vertex& target, Vertex& source);
+        void AddContents(std::vector<size_t>& a, std::vector<size_t>& b);
         void UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b);
         std::vector<size_t> GetDifference(std::vector<size_t>& a, std::vector<size_t>& b);
         size_t fId, d_idx1, d_idx2;

@@ -72,46 +72,21 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
 
     std::vector<size_t> diffTargetVertices = GetDifference(target.N_Vids, source.N_Vids);
     std::vector<size_t> diffTargetEdges = GetDifference(target.N_Eids, edgesToKeep);
-    std::vector<size_t> diffTargetFaces = GetDifference(source.N_Fids, facesToRemove);
-
-    std::cout << "target: ";
-    for (auto id: target.N_Vids) {
-        std::cout << id << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "source: ";
-    for (auto id: source.N_Vids) {
-        std::cout << id << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "diffTargetVertices: ";
-    for (auto id: diffTargetVertices) {
-        std::cout << id << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "diffSourceVertices: ";
-    for (auto id: diffSourceVertices) {
-        std::cout << id << " ";
-    }
-    std::cout << std::endl;
+    std::vector<size_t> diffTargetFaces = GetDifference(target.N_Fids, facesToRemove);
 
     for (auto vid: source.N_Vids) {
         Vertex& v = mesh.V.at(vid);
-        for (size_t i = 0; i < v.N_Vids.size(); i++) {
-            if (v.N_Vids.at(i) == source.id) v.N_Vids.at(i) = target.id;
-        }
+        AddContents(v.N_Vids, std::vector<size_t>{target.id});
+        UpdateContents(v.N_Vids, verticesToRemove);
+        UpdateContents(v.N_Eids, edgesToRemove);
+        UpdateContents(v.N_Fids, facesToRemove);
     }
+
 
     for (auto eid: diffSourceEdges) {
         Edge& e = mesh.E.at(eid);
         if (e.Vids.at(0) == source.id) e.Vids.at(0) = target.id;
         if (e.Vids.at(1) == source.id) e.Vids.at(1) = target.id;
-        e.N_Vids.insert(e.N_Vids.end(), diffTargetVertices.begin(), diffTargetVertices.end());
-        e.N_Eids.insert(e.N_Eids.end(), target.N_Eids.begin(), target.N_Eids.end());
-        UpdateContents(e.N_Eids, edgesToRemove);
     }
 
     for (auto fid: diffSourceFaces) {
@@ -122,35 +97,18 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
                 break;
             }
         }
-        f.N_Vids.insert(f.N_Vids.end(), diffTargetVertices.begin(), diffTargetVertices.end());
-        f.N_Eids.insert(f.N_Eids.end(), diffTargetEdges.begin(), diffTargetEdges.end());
-        UpdateContents(f.N_Eids, edgesToRemove);
-        for (auto nfid: diffTargetFaces) {
-            if (std::find(f.N_Fids.begin(), f.N_Fids.end(), nfid) != f.N_Fids.end()) continue;
-            f.N_Fids.push_back(nfid);
-        }
+        AddContents(f.N_Fids, diffTargetFaces);
         UpdateContents(f.N_Fids, facesToRemove);
     }
 
-    target.N_Vids.insert(target.N_Vids.end(), diffSourceVertices.begin(), diffSourceVertices.end());
-    target.N_Eids.insert(target.N_Eids.end(), diffSourceEdges.begin(), diffSourceEdges.end());
-    target.N_Fids.insert(target.N_Fids.end(), diffSourceFaces.begin(), diffSourceFaces.end());
+    AddContents(target.N_Vids, diffSourceVertices);
+    AddContents(target.N_Eids, diffSourceEdges);
+    AddContents(target.N_Fids, diffSourceFaces);
     UpdateContents(target.N_Fids, facesToRemove);
     
-    for (auto eid: target.N_Eids) {
-        Edge& e = mesh.E.at(eid);
-        e.N_Vids.insert(e.N_Vids.end(), diffSourceVertices.begin(), diffSourceVertices.end());
-        e.N_Eids.insert(e.N_Eids.end(), diffSourceEdges.begin(), diffSourceEdges.end());
-        UpdateContents(e.N_Eids, edgesToRemove);
-    }
-
-    for (auto fid: target.N_Fids) {
-        if (fid == face.id) continue; 
+    for (auto fid: diffTargetFaces) { 
         Face& f = mesh.F.at(fid);
-        f.N_Vids.insert(f.N_Vids.end(), diffSourceVertices.begin(), diffSourceVertices.end());
-        f.N_Eids.insert(f.N_Eids.end(), diffSourceEdges.begin(), diffSourceEdges.end());
-        UpdateContents(f.N_Eids, edgesToRemove);
-        f.N_Fids.insert(f.N_Fids.end(), diffSourceFaces.begin(), diffSourceFaces.end());
+        AddContents(f.N_Fids, diffSourceFaces);
         UpdateContents(f.N_Fids, facesToRemove);
     }
 
@@ -160,6 +118,7 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
         size_t e1, e2;
         for (auto eid: face.Eids) {
             Edge& e = mesh.E.at(eid);
+
             if (std::find(e.Vids.begin(), e.Vids.end(), target.id) != e.Vids.end() &&
                 std::find(e.Vids.begin(), e.Vids.end(), v.id) != e.Vids.end()) {
                     e1 = e.id;
@@ -183,36 +142,35 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
                 edgeToKeep.N_Fids.at(i) = faceToChange.id;
             }
         }
+
         UpdateContents(v.N_Vids, verticesToRemove);
         UpdateContents(v.N_Eids, edgesToRemove);
         UpdateContents(v.N_Fids, facesToRemove);
-        for (auto neid: v.N_Eids) {
-            Edge& e = mesh.E.at(neid);
-            UpdateContents(e.N_Vids, verticesToRemove);
-            UpdateContents(e.N_Eids, edgesToRemove);
-        }
         for (auto nfid: v.N_Fids) {
             Face& f = mesh.F.at(nfid);
-            UpdateContents(f.N_Vids, verticesToRemove);
-            UpdateContents(f.N_Eids, edgesToRemove);
             UpdateContents(f.N_Fids, facesToRemove);
         }
-        edgeToRemove.N_Vids.clear();
-        edgeToRemove.N_Eids.clear();
-        edgeToRemove.N_Fids.clear();
     }
     source.N_Vids.clear();
     source.N_Eids.clear();
     source.N_Fids.clear();
-    face.N_Vids.clear();
-    face.N_Eids.clear();
     face.N_Fids.clear();
 }
 
 std::vector<size_t> DiagonalCollapse::GetDifference(std::vector<size_t>& a, std::vector<size_t>& b) {
     std::vector<size_t> diff;
+    std::sort(a.begin(), a.end());
+    std::sort(b.begin(), b.end());
     std::set_difference(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(diff));
     return diff;
+}
+
+void DiagonalCollapse::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+    std::set<size_t> temp;
+    temp.insert(a.begin(), a.end());
+    temp.insert(b.begin(), b.end());
+    a.clear();
+    a.insert(a.begin(), temp.begin(), temp.end());
 }
 
 void DiagonalCollapse::UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b) {
