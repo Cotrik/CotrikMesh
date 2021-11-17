@@ -4,6 +4,7 @@
 #include "QuadSurfaceMapper.h"
 #include "MeshUtil.h"
 #include "SemiGlobalSimplifier.h"
+#include "FeatureExtractor.h"
 
 int main(int argc, char* argv[]) {
     std::string source_f = argv[1];
@@ -18,12 +19,13 @@ int main(int argc, char* argv[]) {
     //     std:cout << el.N_Fids.size() << std::endl;
     // }
 
+    FeatureExtractor fe(source, 20.0);
+    fe.Extract();
 
-    // for (auto& e: source.E) {
-    //     std::cout << e.N_Fids.size() << std::endl;
-    // }
     SemiGlobalSimplifier sg(source);
-    sg.SetSimplificationOperations();
+    sg.SetDirectSeparatrixOperations(); 
+    // sg.SetSimplificationOperations();
+    // sg.SetDiagonalCollapseOperations();
     // for (auto& v: source.V) {
     //     // vu.GetVertexEnergy(v.id);
     //     std::cout << mu.GetVertexEnergy(v.id) << std::endl;
@@ -38,7 +40,7 @@ int main(int argc, char* argv[]) {
     // sm.Map();
 
     // source.RemoveUselessVertices();
-    // std::cout << source.C.size() << std::endl;
+    std::cout << "# F in input mesh: " << source.C.size() << std::endl;
     // std::cout << source.F.size() << std::endl;
     std::vector<Cell> newC;
     for (auto& f: source.F) {
@@ -54,7 +56,32 @@ int main(int argc, char* argv[]) {
     source.C.insert(source.C.begin(), newC.begin(), newC.end());
     // source.BuildAllConnectivities();
     // std::cout << newC.size() << std::endl;
-    std::cout << source.C.size() << std::endl;
+    std::cout <<  "# F in output mesh: " << source.C.size() << std::endl;
+
+    // std::cout << "Writing output file" << std::endl;
+    // std::ofstream ofs(output_f.c_str());
+    // ofs << "# vtk DataFile Version 3.0\n"
+    //     << output_f.c_str() << ".vtk\n"
+    //     << "ASCII\n\n"
+    //     << "DATASET UNSTRUCTURED_GRID\n";
+    // ofs << "POINTS " << source.V.size() << " double\n";
+    // std::vector<size_t> c_indices;
+    // for (auto& v: source.V) {
+    //     if (v.type == FEATURE) c_indices.push_back(v.id);
+    // }
+    // // std::vector<size_t> c_indices = {12, 296};
+    // // std::cout << c_indices.size() << std::endl;
+    // for (size_t i = 0; i < source.V.size(); i++) {
+    //     ofs << std::fixed << std::setprecision(7) <<  source.V.at(i).x << " " <<  source.V.at(i).y << " " <<  source.V.at(i).z << "\n";
+    // }
+    // ofs << "CELLS " << c_indices.size() << " " << 2 * c_indices.size() << std::endl;
+    // for (size_t i = 0; i < c_indices.size(); i++) {
+    //     ofs << "1 " << c_indices.at(i) << std::endl;
+    // }
+    // ofs << "CELL_TYPES " << c_indices.size() << "\n";
+    // for (size_t i = 0; i < c_indices.size(); i++) {
+    //     ofs << "1" << std::endl;
+    // }
 
     MeshFileWriter writer(source, output_f.c_str());
     writer.WriteFile();

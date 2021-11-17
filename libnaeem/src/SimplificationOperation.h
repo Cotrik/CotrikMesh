@@ -17,21 +17,27 @@ class SimplificationOperation {
     public:
         // Constructors and Destructor
         SimplificationOperation();
-        SimplificationOperation(Mesh& mesh_);
+        SimplificationOperation(Mesh& mesh_, MeshUtil& mu_);
         ~SimplificationOperation();
 
-        // MeshUtil setters and getters
+        // setters and getters
         void SetMesh(Mesh& mesh_);
 
-        virtual void SetRanking(MeshUtil& mu) = 0;
+        virtual void SetRanking() = 0;
         virtual bool IsOperationValid() = 0;
         virtual void PerformOperation() = 0;
 
         double ranking = -1.0;
+        std::vector<size_t> smoothV;
 
     protected:
         void CheckValidity();
+        void AddContents(std::vector<size_t>& a, std::vector<size_t>& b);
+        void UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b);
+        std::vector<size_t> GetDifference(std::vector<size_t>& a, std::vector<size_t>& b);
+        
         Mesh& mesh = Mesh();
+        MeshUtil& mu = MeshUtil();
 };
 
 #endif

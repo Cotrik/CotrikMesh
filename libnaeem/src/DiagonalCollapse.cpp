@@ -1,7 +1,7 @@
 #include "DiagonalCollapse.h"
 
 DiagonalCollapse::DiagonalCollapse() : SimplificationOperation() {}
-DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, size_t f, size_t d_idx1_, size_t d_idx2_) : SimplificationOperation(mesh_) {
+DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, size_t f, size_t d_idx1_, size_t d_idx2_) : SimplificationOperation(mesh_, mu_) {
     fId = f;
     d_idx1 = d_idx1_;
     d_idx2 = d_idx2_;
@@ -9,7 +9,7 @@ DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, size_t f, size_t d_idx1_, size_t
 
 DiagonalCollapse::~DiagonalCollapse() {}
 
-void DiagonalCollapse::SetRanking(MeshUtil& mu) {
+void DiagonalCollapse::SetRanking() {
     CheckValidity();
 
     Face& f = mesh.F.at(fId);
@@ -21,12 +21,14 @@ void DiagonalCollapse::SetRanking(MeshUtil& mu) {
 
     double min = mu.GetVertexEnergy(diag_v1.id) + mu.GetVertexEnergy(diag_v2.id);
     double max = mu.GetVertexEnergy(v3.id) + mu.GetVertexEnergy(v4.id);
-    double normalized_area = mu.GetMeshArea() / mu.GetFaceArea(fId);
+    double normalized_area = mu.GetFaceArea(fId) / mu.GetMeshArea();
 
     ranking = min / (max * normalized_area);
 }
 
 bool DiagonalCollapse::IsOperationValid() {
+    CheckValidity();
+    
     if (mesh.F.at(fId).N_Fids.size() == 0) return false;
     return true;
 }
@@ -156,29 +158,6 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
     source.N_Fids.clear();
     face.N_Fids.clear();
 }
-
-std::vector<size_t> DiagonalCollapse::GetDifference(std::vector<size_t>& a, std::vector<size_t>& b) {
-    std::vector<size_t> diff;
-    std::sort(a.begin(), a.end());
-    std::sort(b.begin(), b.end());
-    std::set_difference(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(diff));
-    return diff;
-}
-
-void DiagonalCollapse::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
-    std::set<size_t> temp;
-    temp.insert(a.begin(), a.end());
-    temp.insert(b.begin(), b.end());
-    a.clear();
-    a.insert(a.begin(), temp.begin(), temp.end());
-}
-
-void DiagonalCollapse::UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b) {
-    std::vector<size_t> temp = GetDifference(a, b);
-    a.clear();
-    a.insert(a.begin(), temp.begin(), temp.end());
-}
-
 // std::cout << "";
 // for (auto id: ) {
 //     std::cout << id << " ";

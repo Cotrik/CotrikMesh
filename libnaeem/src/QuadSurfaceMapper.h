@@ -13,6 +13,7 @@
 #include <glm/glm.hpp>
 
 #include "Mesh.h"
+#include "MeshUtil.h"
 
 class SurfaceMapper {
     public:
@@ -23,13 +24,12 @@ class SurfaceMapper {
 
         void SetSource(Mesh& mesh);
         void SetTarget(Mesh& mesh);
-        void Map();
-        glm::dvec3 MapPoint(glm::dvec3 p);
         glm::dvec3 GetClosestPoint(glm::dvec3 p);
         
     private:
         Mesh& source = Mesh();
         Mesh& target = Mesh();
+        MeshUtil mu;
         vtkSmartPointer<vtkPolyData> source_polyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> target_polyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> target_cellPolyData = vtkSmartPointer<vtkPolyData>::New();

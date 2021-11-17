@@ -2,7 +2,7 @@
 
 SimplificationOperation::SimplificationOperation() {}
 
-SimplificationOperation::SimplificationOperation(Mesh& mesh_) : mesh(mesh_) {}
+SimplificationOperation::SimplificationOperation(Mesh& mesh_, MeshUtil& mu_) : mesh(mesh_), mu(mu_) {}
 
 SimplificationOperation::~SimplificationOperation() {}
 
@@ -16,4 +16,17 @@ void SimplificationOperation::CheckValidity() {
 void SimplificationOperation::SetMesh(Mesh& mesh_) {
     mesh = mesh_;
 }
+
+std::vector<size_t> SimplificationOperation::GetDifference(std::vector<size_t>& a, std::vector<size_t>& b) {
+    return mu.GetDifference(a, b);
+}
+
+void SimplificationOperation::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+    mu.AddContents(a, b);
+}
+
+void SimplificationOperation::UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+    mu.UpdateContents(a, b);
+}
+
 

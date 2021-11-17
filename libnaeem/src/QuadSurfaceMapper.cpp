@@ -61,79 +61,8 @@ void SurfaceMapper::SetCellLocator() {
 }
 
 vtkSmartPointer<vtkPolyData> SurfaceMapper::GetPolyDataFromMesh(Mesh& mesh) {
-    vtkNew<vtkPoints> points;
-    vtkNew<vtkCellArray> cells;
-    auto polyData = vtkSmartPointer<vtkPolyData>::New();
-
-    for (auto& v: mesh.V) {
-        points->InsertNextPoint(v.x, v.y, v.z);
-    }
-    for (auto& c: mesh.C) {
-        vtkNew<vtkPolygon> p;
-        p->GetPointIds()->SetNumberOfIds(c.Vids.size());
-        for (int i = 0; i < c.Vids.size(); i++) {
-            p->GetPointIds()->SetId(i, c.Vids.at(i));
-        }
-        cells->InsertNextCell(p);
-    }
-    
-    polyData->SetPoints(points);
-    polyData->SetPolys(cells);
-
-    return polyData;
-}
-
-void SurfaceMapper::Map() {
-    // auto p1 = GetPolyDataFromMesh(source);
-    // auto p2 = GetPolyDataFromMesh(target);
-
-    auto nf = vtkSmartPointer<vtkPolyDataNormals>::New();
-    nf->SetInputData(source_polyData);
-    nf->ComputePointNormalsOn();
-    nf->ComputeCellNormalsOff();
-    nf->SplittingOff();
-    nf->FlipNormalsOff();
-    nf->ConsistencyOn();
-    nf->AutoOrientNormalsOn();
-    nf->Update();
-
-    auto df = vtkSmartPointer<vtkDistancePolyDataFilter>::New();
-    df->SetInputDataObject(0, source_polyData);
-    df->SetInputDataObject(1, target_polyData);
-    df->Update();
-
-    auto points = source_polyData->GetPointData();
-    auto normalsData = nf->GetOutput();
-    auto normals = normalsData->GetPointData()->GetNormals();
-    auto distanceData = df->GetOutput();
-    auto scalars = distanceData->GetPointData()->GetScalars();
-
-    vtkIdType numPoints = source_polyData->GetNumberOfPoints();
-    for (vtkIdType i = 0; i < numPoints; i++) {
-        double p[3];
-        source_polyData->GetPoint(i, p);
-        double n[3];
-        normals->GetTuple(i, n);
-        double d = scalars->GetTuple1(i);
-
-        glm::dvec3 point(p[0], p[1], p[2]);
-        glm::dvec3 normal = glm::normalize(glm::dvec3(n[0], n[1], n[2]));
-
-        glm::dvec3 updatedPoint = point + (normal * -d);
-        source_polyData->GetPoints()->SetPoint(i, updatedPoint.x, updatedPoint.y, updatedPoint.z);
-        source.V.at(i) = updatedPoint;
-        // std::cout << source.V.at(i).x << " " << source.V.at(i).y << " " << source.V.at(i).z << " " << std::endl;
-    }
-}
-
-glm::dvec3 SurfaceMapper::MapPoint(glm::dvec3 p) {
-    double closestPoint[3];
-    double point[] = {p.x, p.y, p.z};
-    auto df = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
-    df->SetInput(target_polyData);
-    df->EvaluateFunctionAndGetClosestPoint(point, closestPoint);
-
-    return glm::dvec3(closestPoint[0], closestPoint[1], closestPoint[2]);
+    mu.SetMesh(mesh);
+    return mu.GetPolyData();
 }
 
 glm::dvec3 SurfaceMapper::GetClosestPoint(glm::dvec3 p) {

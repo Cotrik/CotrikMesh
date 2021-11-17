@@ -1755,9 +1755,11 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 			++id;
 		}
 	}
+	std::cout << threeLinks.size() << std::endl;
 	std::vector<double> ranks;
 	for (auto l : threeLinks) {
 		double rank = 0;
+		double min, max, linkArea;
 		for (int i = 0; i < l.target.size(); i++) {
 			auto& v1 = mesh.V.at(l.target.at(i));
 			for (auto value: l.collapse.at(i)) {
@@ -1765,6 +1767,20 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 				rank += glm::length(glm::dvec3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z));
 			}
 		}
+		// std::set<size_t> linkFaces;
+		// for (int i = 0; i < l.target.size(); i++) {
+		// 	auto& v = mesh.V.at(l.target.at(i));
+		// 	max += mu.GetVertexEnergy(v.id);
+		// 	for (auto vid: l.collapse.at(i)) {
+		// 		min += mu.GetVertexEnergy(vid);
+		// 	}
+		// 	linkFaces.insert(v.N_Fids.begin(), v.N_Fids.end());
+		// }
+		// for (auto fid: linkFaces) {
+		// 	linkArea += mu.GetFaceArea(fid);
+		// }
+		// linkArea /= mu.GetMeshArea();
+		// rank = min / (max * linkArea);
 		ranks.push_back(rank);
 	}
 	// std::cout << "RANKS: " << ranks.size() << std::endl;

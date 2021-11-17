@@ -13,7 +13,9 @@
 #include "Mesh.h"
 // #include "SimplificationOperation.h"
 #include "DiagonalCollapse.h"
+#include "DirectSeparatrixCollapse.h"
 #include "MeshUtil.h"
+#include "Smooth.h"
 
 class SemiGlobalSimplifier {
     public:
@@ -28,12 +30,14 @@ class SemiGlobalSimplifier {
         // Simplification Operations
         void SetSimplificationOperations();
         void SetDiagonalCollapseOperations();
+        void SetDirectSeparatrixOperations();
 
         MeshUtil mu;
         
     private:
         Mesh& mesh = Mesh();
-        
+        Smoother smoother;
+
         void CheckValidity();
         std::vector<std::unique_ptr<SimplificationOperation>> Ops;
 };

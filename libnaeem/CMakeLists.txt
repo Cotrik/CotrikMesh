@@ -32,6 +32,10 @@ add_library(naeem SHARED STATIC
     src/AngleBasedSmoothQuadMesh.cpp
     src/DiagonalCollapse.h
     src/DiagonalCollapse.cpp
+    src/DirectSeparatrixCollapse.h
+    src/DirectSeparatrixCollapse.cpp
+    src/FeatureExtractor.h
+    src/FeatureExtractor.cpp
     src/LocalSimplifier.h
     src/LocalSimplifier.cpp
     src/QuadSurfaceMapper.h
@@ -42,5 +46,7 @@ add_library(naeem SHARED STATIC
     src/SemiGlobalSimplifier.cpp
     src/SimplificationOperation.h
     src/SimplificationOperation.cpp
+    src/Smooth.h
+    src/Smooth.cpp
 )
 target_link_libraries(naeem cotrik ${ALL_LIBS})

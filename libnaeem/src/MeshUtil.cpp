@@ -1,10 +1,19 @@
 #include <algorithm>
 #include <math.h>
+#include <vtkSmartPointer.h>
+#include <vtkPolygon.h>
+#include <vtkPoints.h>
+#include <vtkCellArray.h>
+
 #include "MeshUtil.h"
 
 #define PI 3.14159265
 
 MeshUtil::MeshUtil() {}
+
+MeshUtil::MeshUtil(const MeshUtil& r) {
+    mesh = r.mesh;
+}
 
 MeshUtil::MeshUtil(Mesh& mesh_) : mesh(mesh_) {}
 
@@ -21,6 +30,33 @@ void MeshUtil::SetMesh(Mesh& mesh_) {
     mesh = mesh_;
     SetMeshArea();
 }
+
+vtkSmartPointer<vtkPolyData> MeshUtil::GetPolyData() {
+    CheckValidity();
+
+    vtkNew<vtkPoints> points;
+    vtkNew<vtkCellArray> cells;
+    auto polyData = vtkSmartPointer<vtkPolyData>::New();
+
+    for (auto& v: mesh.V) {
+        vtkIdType pId = v.id;
+        points->InsertPoint(pId, v.x, v.y, v.z);
+    }
+    for (auto& c: mesh.C) {
+        vtkNew<vtkPolygon> p;
+        p->GetPointIds()->SetNumberOfIds(c.Vids.size());
+        for (int i = 0; i < c.Vids.size(); i++) {
+            p->GetPointIds()->SetId(i, c.Vids.at(i));
+        }
+        cells->InsertNextCell(p);
+    }
+    
+    polyData->SetPoints(points);
+    polyData->SetPolys(cells);
+
+    return polyData;
+}
+
 
 void MeshUtil::SetMeshArea() {
     CheckValidity();
@@ -96,3 +132,31 @@ double MeshUtil::GetInteriorAngleAtEdge(int vid, int eid) {
     return alpha1 + alpha2;
 }
 
+std::vector<size_t> MeshUtil::GetDifference(std::vector<size_t>& a, std::vector<size_t>& b) {
+    std::vector<size_t> diff;
+    std::sort(a.begin(), a.end());
+    std::sort(b.begin(), b.end());
+    std::set_difference(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(diff));
+    return diff;
+}
+
+std::vector<size_t> MeshUtil::GetUnion(std::vector<size_t>& a, std::vector<size_t>& b) {
+    std::vector<size_t> uni;
+    std::sort(a.begin(), a.end());
+    std::sort(b.begin(), b.end());
+    std::set_union(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(uni));
+    return uni;
+}
+
+
+void MeshUtil::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+    std::vector<size_t> temp = GetUnion(a, b);
+    a.clear();
+    a.insert(a.begin(), temp.begin(), temp.end());
+}
+
+void MeshUtil::UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+    std::vector<size_t> temp = GetDifference(a, b);
+    a.clear();
+    a.insert(a.begin(), temp.begin(), temp.end());
+}

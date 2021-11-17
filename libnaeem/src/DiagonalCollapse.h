@@ -11,23 +11,21 @@
 #include <glm/glm.hpp>
 
 #include "SimplificationOperation.h"
+#include "MeshUtil.h"
 
 class DiagonalCollapse : public SimplificationOperation {
     public:
         // Constructors and Destructor
         DiagonalCollapse();
-        DiagonalCollapse(Mesh& mesh_, size_t f, size_t d_idx1_, size_t d_idx2_);
+        DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, size_t f, size_t d_idx1_, size_t d_idx2_);
         ~DiagonalCollapse();
 
-        void SetRanking(MeshUtil& mu);
+        void SetRanking();
         bool IsOperationValid();
         void PerformOperation();
 
     private:
         void UpdateNeighborInfo(Vertex& target, Vertex& source);
-        void AddContents(std::vector<size_t>& a, std::vector<size_t>& b);
-        void UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b);
-        std::vector<size_t> GetDifference(std::vector<size_t>& a, std::vector<size_t>& b);
         size_t fId, d_idx1, d_idx2;
 };
 

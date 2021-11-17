@@ -484,7 +484,7 @@ bool PatchSimplifier::Simplify(int& iter) {
     // }
     
     // Step 5 -- <separatrix splitting> and <separatrix splitting (optional)>
-    /*if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
+    if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
         BaseComplexQuad baseComplex(mesh);
         baseComplex.ExtractSingularVandE();
         baseComplex.BuildE();
@@ -506,6 +506,8 @@ bool PatchSimplifier::Simplify(int& iter) {
        SheetSimplifier sheetSimplifier(mesh);
     //    sheetSimplifier.Run(canceledFids);
        sheetSimplifier.ExtractAndCollapse(canceledFids);
+        if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
+
    }
 
 //    if (canceledFids.empty() && Simplifier::GLOBAL) {
@@ -514,7 +516,7 @@ bool PatchSimplifier::Simplify(int& iter) {
 //        sheetSimplifier.ExtractAndCollapse(canceledFids);
 //    }
 
-   if (canceledFids.empty() && Simplifier::HALF) {
+   /*if (canceledFids.empty() && Simplifier::HALF) {
        BaseComplexQuad baseComplex(mesh);
        baseComplex.ExtractSingularVandE();
        baseComplex.BuildE();
