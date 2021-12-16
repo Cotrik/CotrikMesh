@@ -4,6 +4,11 @@ Smoother::Smoother() {}
 Smoother::Smoother(Mesh& mesh_) : mesh(mesh_) {
     sm.SetTarget(mesh);
 }
+
+Smoother::Smoother(const Smoother& r) {
+    mesh = r.mesh;
+}
+
 Smoother::~Smoother() {}
 
 void Smoother::CheckValidity() {

@@ -9,7 +9,7 @@ DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, size_t f, size_t 
 
 DiagonalCollapse::~DiagonalCollapse() {}
 
-void DiagonalCollapse::SetRanking() {
+void DiagonalCollapse::SetRanking(glm::dvec3 d) {
     CheckValidity();
 
     Face& f = mesh.F.at(fId);

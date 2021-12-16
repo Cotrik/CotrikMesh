@@ -9,34 +9,60 @@ DirectSeparatrixCollapse::DirectSeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, s
 
 DirectSeparatrixCollapse::~DirectSeparatrixCollapse() {}
 
-void DirectSeparatrixCollapse::SetRanking() {
+void DirectSeparatrixCollapse::SetRanking(glm::dvec3 d) {
     CheckValidity();
-
+    if (!IsOperationValid()) {
+        ranking = -1;
+        return;
+    }
     auto& centerV = mesh.V.at(cid);
 
     double min = 0.0;
+    double max = 0.0;
+    std::vector<size_t> sepVertices = {s1.at(0), s1.at(1), s2.at(0), s2.at(1)};
+    std::vector<size_t> maxVertices;
     for (auto id: s1) {
         auto& v = mesh.V.at(id);
         auto& f = mesh.F.at(GetDifference(v.N_Fids, centerV.N_Fids).at(0));
-        size_t idx = 0;
-        for (idx < f.Vids.size(); idx++;) {
-            if (f.Vids.at(idx) == id) break;
-        }
-        min += mu.GetVertexEnergy(f.Vids.at((idx + 2) % f.Vids.size()));
+        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), id));
+        // min += mu.GetVertexEnergy(f.Vids.at((idx + 2) % f.Vids.size()));
+
+        sepVertices.push_back(f.Vids.at((idx + 2) % f.Vids.size()));
+        auto& v1 = mesh.V.at(f.Vids.at((idx + 2) % f.Vids.size()));
+        max += v1.N_Vids.size() == 4 ? v1.N_Vids.size() * 4 : v1.N_Vids.size();  
+
+        std::vector<size_t> maxV = GetDifference(mesh.V.at(f.Vids.at((idx + 1) % f.Vids.size())).N_Vids, sepVertices);
+        if (maxV.size() > 0) std::move(maxV.begin(), maxV.begin()+1, std::back_inserter(maxVertices));
+        maxV.clear();
+        maxV = GetDifference(mesh.V.at(f.Vids.at((idx + 3) % f.Vids.size())).N_Vids, sepVertices);
+        if (maxV.size() > 0) std::move(maxV.begin(), maxV.begin()+1, std::back_inserter(maxVertices));
     }
 
-    double max = mu.GetVertexEnergy(s2.at(0)) + mu.GetVertexEnergy(s1.at(1));
-
-    double normalized_area = 0.0;
-    std::vector<size_t> fids;
-    AddContents(fids, mesh.V.at(s1.at(0)).N_Fids);
-    AddContents(fids, mesh.V.at(s1.at(1)).N_Fids);
-    for (auto fid: fids) {
-        normalized_area += mu.GetFaceArea(fid);
+    for (auto id: maxVertices) {
+        auto& v = mesh.V.at(id);
+        max += v.N_Vids.size() == 4 ? v.N_Vids.size() * 2 : v.N_Vids.size();
     }
-    normalized_area /= mu.GetMeshArea();
 
-    ranking = min / (max * normalized_area);
+    min += mesh.V.at(s2.at(0)).N_Vids.size() + mesh.V.at(s2.at(1)).N_Vids.size();
+
+    ranking = max / min;
+
+    // if (glm::length(d) > 0) {
+    //     ranking /= GetDistance(d);
+    // }
+
+    // double max = mu.GetVertexEnergy(s2.at(0)) + mu.GetVertexEnergy(s1.at(1));
+
+    // double normalized_area = 0.0;
+    // std::vector<size_t> fids;
+    // AddContents(fids, mesh.V.at(s1.at(0)).N_Fids);
+    // AddContents(fids, mesh.V.at(s1.at(1)).N_Fids);
+    // for (auto fid: fids) {
+    //     normalized_area += mu.GetFaceArea(fid);
+    // }
+    // normalized_area /= mu.GetMeshArea();
+
+    // ranking = (min / max) * normalized_area;
 } 
 
 bool DirectSeparatrixCollapse::IsOperationValid() {
@@ -44,17 +70,36 @@ bool DirectSeparatrixCollapse::IsOperationValid() {
 
     if (mesh.V.at(cid).N_Fids.size() == 0) return false;
     if (mesh.V.at(s1.at(0)).N_Fids.size() != 3 || mesh.V.at(s1.at(1)).N_Fids.size() != 3) return false;
+    if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 || mesh.V.at(s2.at(1)).N_Fids.size() == 4) return false;
 
     return true;
 }
 
 void DirectSeparatrixCollapse::PerformOperation() {
     CheckValidity();
+    
+    // centerV is the center vertex on which two neighboring 3-singularities are collapsed 
+    auto& centerV = mesh.V.at(cid);    
+    // for (auto nvid: centerV.N_Vids) SetUpdateElements(nvid);
 
     if (!IsOperationValid()) return;
 
-    // centerV is the center vertex on which two neighboring 3-singularities are collapsed 
-    auto& centerV = mesh.V.at(cid);
+    std::cout << ranking << std::endl;
+
+    // collect vertices to update connected operations
+    for (auto id: s1) {
+        auto& v = mesh.V.at(id);
+        std::vector<size_t> s1F = GetDifference(v.N_Fids, centerV.N_Fids);
+        if (s1F.empty()) continue;
+        auto& f = mesh.F.at(s1F.at(0));
+        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), id));
+        SetUpdateElements(f.Vids.at((idx + 3) % f.Vids.size()));
+    }
+    for (auto id: s2) {
+        SetUpdateElements(id);
+    }
+    if (ranking < 0) return;
+
     std::vector<size_t> prev_v = centerV.N_Vids;
     std::vector<size_t> prev_e = centerV.N_Eids;
     std::vector<size_t> prev_f = centerV.N_Fids;
@@ -99,7 +144,7 @@ void DirectSeparatrixCollapse::PerformOperation() {
             edgeToKeep.Vids.at(1) == s1.at(1) ? idx = 1 : 1;
             if (idx < 0) {
                 edgeToKeep.N_Fids.at(0) == faceToRemove.id ? edgeToKeep.N_Fids.at(0) = faceToKeep.id : 1;
-                edgeToKeep.N_Fids.at(1) == faceToRemove.id ? edgeToKeep.N_Fids.at(1) = faceToKeep.id : 1;
+                edgeToKeep.N_Fids.size() > 1 && edgeToKeep.N_Fids.at(1) == faceToRemove.id ? edgeToKeep.N_Fids.at(1) = faceToKeep.id : 1;
                 continue;
             }
             
@@ -188,4 +233,27 @@ void DirectSeparatrixCollapse::PerformOperation() {
     smoothV.push_back(s2_2.id);
     smoothV.insert(smoothV.end(), s2_1.N_Vids.begin(), s2_1.N_Vids.end());
     smoothV.insert(smoothV.end(), s2_2.N_Vids.begin(), s2_2.N_Vids.end());
+}
+
+void DirectSeparatrixCollapse::SetUpdateElements(size_t vid) {
+    auto& v = mesh.V.at(vid);
+    for (auto nvid: v.N_Vids) {
+        if (mesh.V.at(nvid).N_Vids.size() == 4 && mesh.V.at(nvid).type != FEATURE) AddContents(toUpdate, std::vector<size_t>{nvid});
+    }
+    for (auto fid: v.N_Fids) {
+        auto& f = mesh.F.at(fid);
+        int index = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+        auto& diagV = mesh.V.at(f.Vids.at((index+2)%f.Vids.size()));
+        for (auto nvid: diagV.N_Vids) {
+            if (mesh.V.at(nvid).N_Vids.size() == 4 && mesh.V.at(nvid).type != FEATURE) AddContents(toUpdate, std::vector<size_t>{nvid});
+        }
+    }
+}
+
+glm::dvec3 DirectSeparatrixCollapse::GetLocation() {
+    return mesh.V.at(cid).xyz();
+}
+
+double DirectSeparatrixCollapse::GetDistance(glm::dvec3 a) {
+    return glm::length(mesh.V.at(cid).xyz() - a);
 }

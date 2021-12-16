@@ -3,9 +3,9 @@
 
 SemiGlobalSimplifier::SemiGlobalSimplifier() {}
 
-SemiGlobalSimplifier::SemiGlobalSimplifier(Mesh& mesh_) : mesh(mesh_) {
-    mu.SetMesh(mesh);
-    smoother.SetMesh(mesh);
+SemiGlobalSimplifier::SemiGlobalSimplifier(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_) : mesh(mesh_), mu(mu_), smoother(smoother_) {
+    // mu.SetMesh(mesh);
+    // smoother.SetMesh(mesh);
 }
 
 SemiGlobalSimplifier::~SemiGlobalSimplifier() {}
@@ -59,7 +59,7 @@ void SemiGlobalSimplifier::SetDiagonalCollapseOperations() {
 void SemiGlobalSimplifier::SetDirectSeparatrixOperations() {
     CheckValidity();
 
-    Smoother meshSmoother(mesh);
+    Op_Q.setMaxQueueOn();
     for (auto& v: mesh.V) {
         if (v.N_Vids.size() != 4 || v.type == FEATURE) continue;
         std::vector<size_t> c1, c2;
@@ -67,25 +67,98 @@ void SemiGlobalSimplifier::SetDirectSeparatrixOperations() {
         if (c1.size() < 2) continue;
         auto& s3_v1 = mesh.V.at(c1.at(0));
         auto& s3_v2 = mesh.V.at(c1.at(1));
-
         if (mu.GetDifference(s3_v1.N_Fids, s3_v2.N_Fids).size() != s3_v1.N_Fids.size()) continue;
-        std::unique_ptr<SimplificationOperation> ds = std::make_unique<DirectSeparatrixCollapse>(mesh, mu, v.id, c1, c2);
+
+        std::shared_ptr<SimplificationOperation> ds = std::make_shared<DirectSeparatrixCollapse>(mesh, mu, v.id, c1, c2);
         ds->SetRanking();
-        Ops.push_back(std::move(ds));
+        if (ds->ranking < 0) continue;
+        Op_Q.insert(ds->ranking, v.id, ds);
     }
-
-    std::cout << Ops.size() << std::endl;
-    while (!Ops.empty()) {
-        auto& op = Ops.back();
-        std::cout << op->ranking << std::endl;
+    int i = 0;
+    while (!Op_Q.empty()) {
+        auto& op = Op_Q.pop();
         op->PerformOperation();
-        // meshSmoother.Smooth(op->smoothV);
-        Ops.pop_back();
+        // smoother.Smooth(op->smoothV);
+        for (auto key: op->toUpdate) {
+            auto nop = Op_Q.getByKey(key);
+            if (!nop) continue;
+            nop->SetRanking(op->GetLocation());
+            Op_Q.update(nop->ranking, key);
+        }
     }
 
-    std::cout << "Smoothing mesh" << std::endl;
-    std::vector<size_t> smoothv;
-    for (auto& v: mesh.V) smoothv.push_back(v.id);
-    meshSmoother.Smooth(smoothv);
+    // std::cout << "Smoothing mesh" << std::endl;
+    // std::vector<size_t> smoothv;
+    // for (auto& v: mesh.V) smoothv.push_back(v.id);
+    // smoother.Smooth(smoothv);
 
+}
+
+void SemiGlobalSimplifier::SetSeparatrixOperations() {
+    CheckValidity();
+
+    BaseComplexQuad bc(mesh);
+    for (auto& v: mesh.V) {
+        if (!v.isSingularity) continue;
+        TraceSingularityLinks(v, bc);
+    }
+    for (int i = 0; i < bc.separatedVertexIdsLink.size(); i++) {
+        auto& linkV = bc.separatedVertexIdsLink.at(i);
+        auto& linkE = bc.separatedEdgeIdsLink.at(i);
+
+        std::cout << "s1: " << linkV.front() << " valence: " << mesh.V.at(linkV.front()).N_Vids.size() << " s2: " << linkV.back() << " valence: " << mesh.V.at(linkV.back()).N_Vids.size() << std::endl; 
+        std::cout << "link V: " << linkV.size() << " link e: " << linkE.size() << std::endl;
+        std::cout << "*******************************" << std::endl;
+    }
+    std::cout << "printed all singularities links " << bc.separatedVertexIdsLink.size() << std::endl;
+}
+
+void SemiGlobalSimplifier::TraceSingularityLinks(Vertex& v, BaseComplexQuad& bc) {
+    std::vector<bool> is_mesh_edge_visited(mesh.E.size(), false);
+    for (auto edgeid : v.N_Eids) {
+        const Edge& edge = mesh.E.at(edgeid);
+        if (!is_mesh_edge_visited[edgeid]) {
+            std::vector<size_t> link_vids;
+            std::vector<size_t> link_eids;
+            bc.TraceAlongEdge(v, edge, is_mesh_edge_visited, link_vids, link_eids);
+
+            auto& v_front = mesh.V.at(link_vids.front());
+            auto& v_back = mesh.V.at(link_vids.back());
+            if (v_front.isBoundary || v_back.isBoundary) continue;
+            if (v_front.N_Fids.size() != 3 || v_back.N_Fids.size() != 3) continue;
+            if (mesh.V.at(GetDiagonalV(v_front.id, GetFaceId(v_front.id, link_vids.at(1)))).N_Fids.size() <= 4 || mesh.V.at(GetDiagonalV(v_back.id, GetFaceId(v_back.id, link_vids.at(link_vids.size()-2)))).N_Fids.size() <= 4) continue;
+
+            bc.separatedVertexIdsLink.push_back(link_vids);
+            bc.separatedEdgeIdsLink.push_back(link_eids);
+        }
+    }
+}
+
+void SemiGlobalSimplifier::PerformGlobalOperations() {
+    CheckValidity();
+}
+
+size_t SemiGlobalSimplifier::GetFaceId(size_t vid, size_t exclude_vid) {
+	auto& v = mesh.V.at(vid);
+	size_t res;
+	for (auto fid : v.N_Fids) {
+		auto& f = mesh.F.at(fid);
+		bool found_exclude_vid = false;
+		for (auto fvid : f.Vids)
+			if (fvid == exclude_vid) {
+				found_exclude_vid = true;
+				break;
+			}
+		if (!found_exclude_vid) {
+			res = fid;
+			break;
+		}
+	}
+	return res;
+}
+
+size_t SemiGlobalSimplifier::GetDiagonalV(size_t vid, size_t fid) {
+	auto& f = mesh.F.at(fid);
+    int index = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), vid));
+	return f.Vids.at((index+2)%f.Vids.size());
 }

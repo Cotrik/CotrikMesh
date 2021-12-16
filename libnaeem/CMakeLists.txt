@@ -42,8 +42,12 @@ add_library(naeem SHARED STATIC
     src/QuadSurfaceMapper.cpp
     src/MeshUtil.h
     src/MeshUtil.cpp
+    src/PQueue.h
+    src/PQueue.cpp
     src/SemiGlobalSimplifier.h
     src/SemiGlobalSimplifier.cpp
+    src/SeparatrixCollapse.h
+    src/SeparatrixCollapse.cpp
     src/SimplificationOperation.h
     src/SimplificationOperation.cpp
     src/Smooth.h

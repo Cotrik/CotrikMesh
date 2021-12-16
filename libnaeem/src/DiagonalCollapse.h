@@ -20,9 +20,11 @@ class DiagonalCollapse : public SimplificationOperation {
         DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, size_t f, size_t d_idx1_, size_t d_idx2_);
         ~DiagonalCollapse();
 
-        void SetRanking();
+        void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));
         bool IsOperationValid();
         void PerformOperation();
+        glm::dvec3 GetLocation() {return glm::dvec3(0, 0, 0);}
+        size_t GetCenterId() {return fId;}
 
     private:
         void UpdateNeighborInfo(Vertex& target, Vertex& source);

@@ -23,12 +23,15 @@ class SimplificationOperation {
         // setters and getters
         void SetMesh(Mesh& mesh_);
 
-        virtual void SetRanking() = 0;
+        virtual void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0)) = 0;
         virtual bool IsOperationValid() = 0;
         virtual void PerformOperation() = 0;
+        virtual glm::dvec3 GetLocation() = 0;
+        virtual size_t GetCenterId() = 0;
 
         double ranking = -1.0;
         std::vector<size_t> smoothV;
+        std::vector<size_t> toUpdate;
 
     protected:
         void CheckValidity();

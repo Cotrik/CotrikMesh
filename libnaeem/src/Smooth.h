@@ -15,6 +15,7 @@ class Smoother {
     public:
         Smoother();
         Smoother(Mesh& mesh_);
+        Smoother(const Smoother& r);
         ~Smoother();
 
         void SetMesh(Mesh& mesh_);

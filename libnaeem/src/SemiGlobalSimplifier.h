@@ -11,17 +11,20 @@
 #include <glm/glm.hpp>
 
 #include "Mesh.h"
+#include "BaseComplexQuad.h"
 // #include "SimplificationOperation.h"
 #include "DiagonalCollapse.h"
 #include "DirectSeparatrixCollapse.h"
 #include "MeshUtil.h"
 #include "Smooth.h"
+#include "PQueue.h"
+#include "PQueue.cpp"
 
 class SemiGlobalSimplifier {
     public:
         // Constructors and Destructor
         SemiGlobalSimplifier();
-        SemiGlobalSimplifier(Mesh& mesh_);
+        SemiGlobalSimplifier(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_);
         ~SemiGlobalSimplifier();
 
         // MeshUtil setters and getters
@@ -31,15 +34,21 @@ class SemiGlobalSimplifier {
         void SetSimplificationOperations();
         void SetDiagonalCollapseOperations();
         void SetDirectSeparatrixOperations();
+        void SetSeparatrixOperations();
+        void TraceSingularityLinks(Vertex& v, BaseComplexQuad& bc);
+        void PerformGlobalOperations();
 
-        MeshUtil mu;
+        MeshUtil& mu = MeshUtil();
         
     private:
         Mesh& mesh = Mesh();
-        Smoother smoother;
+        Smoother& smoother = Smoother();
 
         void CheckValidity();
-        std::vector<std::unique_ptr<SimplificationOperation>> Ops;
+        size_t GetFaceId(size_t vid, size_t exclude_vid);
+        size_t GetDiagonalV(size_t vid, size_t fid);
+        std::vector<std::shared_ptr<SimplificationOperation>> Ops;
+        PQueue<std::shared_ptr<SimplificationOperation>> Op_Q;
 };
 
 #endif

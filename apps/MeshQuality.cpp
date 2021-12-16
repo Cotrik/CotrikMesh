@@ -233,8 +233,8 @@ int main(int argc, char *argv[]) {
     //qualityFilter->SetHexQualityMeasureToOddy()
     //qualityFilter->SetHexQualityMeasureToCondition()
     //qualityFilter->SetHexQualityMeasureToJacobian()
-    // qualityFilter->SetHexQualityMeasureToScaledJacobian();
-    qualityFilter->SetQuadQualityMeasureToScaledJacobian();
+    qualityFilter->SetHexQualityMeasureToScaledJacobian();
+    // qualityFilter->SetQuadQualityMeasureToScaledJacobian();
     //qualityFilter->SetHexQualityMeasureToShear()
     //qualityFilter->SetHexQualityMeasureToShape()
     //qualityFilter->SetHexQualityMeasureToRelativeSizeSquared()
@@ -294,7 +294,7 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < vnum; i++)
         ofs << mesh.V.at(i).x << " " << mesh.V.at(i).y << " " << mesh.V.at(i).z << "\n";
         // ofs << (float) V.at(i).x << " " << (float) V.at(i).y << " " << (float) V.at(i).z << "\n";
-    ofs << "CELLS " << cnum << " " << cnum*5 << "\n";
+    ofs << "CELLS " << cnum << " " << cnum*9 << "\n";
 
     for (size_t i = 0; i < cnum; i++){
         ofs << mesh.C.at(i).Vids.size();
@@ -304,7 +304,7 @@ int main(int argc, char *argv[]) {
     }
     ofs << "CELL_TYPES " << cnum << "\n";
     for (size_t i = 0; i < cnum; i++) {
-        ofs << "9\n";
+        ofs << "12\n";
     }
 
     ofs << "CELL_DATA " << cnum << "\n";

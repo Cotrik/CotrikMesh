@@ -20,11 +20,15 @@ class DirectSeparatrixCollapse : public SimplificationOperation {
         DirectSeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, size_t cid_, std::vector<size_t> s1_, std::vector<size_t> s2_);
         ~DirectSeparatrixCollapse();
 
-        void SetRanking();
+        void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));
         bool IsOperationValid();
         void PerformOperation();
-
+        glm::dvec3 GetLocation();
+        size_t GetCenterId() {return cid;}
     private:
+        void SetUpdateElements(size_t vid);
+        double GetDistance(glm::dvec3 a);
+
         size_t cid;
         std::vector<size_t> s1, s2;
 };

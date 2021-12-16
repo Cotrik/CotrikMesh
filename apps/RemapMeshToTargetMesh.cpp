@@ -5,8 +5,27 @@
 #include "MeshUtil.h"
 #include "SemiGlobalSimplifier.h"
 #include "FeatureExtractor.h"
+#include "Smooth.h"
 
 int main(int argc, char* argv[]) {
+
+    // PQueue<std::string> pq;
+    // std::vector<std::string> i = {"am ", "Hello ", "Naeem ", "World ", "I "};
+    // std::vector<double> p = {0.6, 0.25, 0.7, 0.3, 0.4};
+    // std::vector<int> s = {1, 2, 3, 4, 5};
+    // // pq.setMaxQueueOn();
+    // for (int j = 0; j < 5; j++) {
+    //     pq.insert(p[j], s[j], i[j]);
+    // }
+    // // pq.update(2.5, 2);
+    // // pq.update(1.8, 4);
+    // // pq.update(1.5, 5);
+    // // pq.update(0.1, 3);
+    // // std::cout << pq.size() << std::endl;
+    // while (!pq.empty()) {
+    //     std::cout << pq.pop() << std::endl;
+    // }
+    // return 0;
     std::string source_f = argv[1];
     // std::string target_f = argv[2];
     std::string output_f = argv[2];
@@ -15,6 +34,7 @@ int main(int argc, char* argv[]) {
     Mesh& source = (Mesh&) source_reader.GetMesh();
     source.RemoveUselessVertices();
     source.BuildAllConnectivities();
+    // source.ExtractSingularities();
     // for (auto& el: source.F) {
     //     std:cout << el.N_Fids.size() << std::endl;
     // }
@@ -22,8 +42,12 @@ int main(int argc, char* argv[]) {
     FeatureExtractor fe(source, 20.0);
     fe.Extract();
 
-    SemiGlobalSimplifier sg(source);
+    MeshUtil mu(source);
+    Smoother sm(source);
+    SemiGlobalSimplifier sg(source, mu, sm);
+    // sg.PerformGlobalOperations(); 
     sg.SetDirectSeparatrixOperations(); 
+    // sg.SetSeparatrixOperations(); 
     // sg.SetSimplificationOperations();
     // sg.SetDiagonalCollapseOperations();
     // for (auto& v: source.V) {
@@ -54,7 +78,7 @@ int main(int argc, char* argv[]) {
     source.F.clear();
     source.C.clear();
     source.C.insert(source.C.begin(), newC.begin(), newC.end());
-    // source.BuildAllConnectivities();
+    source.BuildAllConnectivities();
     // std::cout << newC.size() << std::endl;
     std::cout <<  "# F in output mesh: " << source.C.size() << std::endl;
 
