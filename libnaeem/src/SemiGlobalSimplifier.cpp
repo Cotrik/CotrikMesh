@@ -87,10 +87,10 @@ void SemiGlobalSimplifier::SetDirectSeparatrixOperations() {
         }
     }
 
-    // std::cout << "Smoothing mesh" << std::endl;
-    // std::vector<size_t> smoothv;
-    // for (auto& v: mesh.V) smoothv.push_back(v.id);
-    // smoother.Smooth(smoothv);
+    std::cout << "Smoothing mesh" << std::endl;
+    std::vector<size_t> smoothv;
+    for (auto& v: mesh.V) smoothv.push_back(v.id);
+    smoother.Smooth(smoothv);
 
 }
 

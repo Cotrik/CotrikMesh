@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
     source.F.clear();
     source.C.clear();
     source.C.insert(source.C.begin(), newC.begin(), newC.end());
-    source.BuildAllConnectivities();
+    // source.BuildAllConnectivities();
     // std::cout << newC.size() << std::endl;
     std::cout <<  "# F in output mesh: " << source.C.size() << std::endl;
 
