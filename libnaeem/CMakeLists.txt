@@ -30,20 +30,29 @@ set(ALL_LIBS
 add_library(naeem SHARED STATIC 
     src/AngleBasedSmoothQuadMesh.h
     src/AngleBasedSmoothQuadMesh.cpp
+    src/ChordCollapse.h
+    src/ChordCollapse.cpp
+    src/ChordExtractor.h
+    src/ChordExtractor.cpp
     src/DiagonalCollapse.h
     src/DiagonalCollapse.cpp
     src/DirectSeparatrixCollapse.h
     src/DirectSeparatrixCollapse.cpp
+    src/EdgeCollapse.h
+    src/EdgeCollapse.cpp
+    src/EdgeRotation.h
+    src/EdgeRotation.cpp
     src/FeatureExtractor.h
     src/FeatureExtractor.cpp
     src/LocalSimplifier.h
     src/LocalSimplifier.cpp
-    src/QuadSurfaceMapper.h
-    src/QuadSurfaceMapper.cpp
     src/MeshUtil.h
     src/MeshUtil.cpp
+    src/ParallelFor.h
     src/PQueue.h
     src/PQueue.cpp
+    src/QuadSurfaceMapper.h
+    src/QuadSurfaceMapper.cpp
     src/SemiGlobalSimplifier.h
     src/SemiGlobalSimplifier.cpp
     src/SeparatrixCollapse.h
@@ -52,5 +61,9 @@ add_library(naeem SHARED STATIC
     src/SimplificationOperation.cpp
     src/Smooth.h
     src/Smooth.cpp
+    src/VertexRotation.h
+    src/VertexRotation.cpp
+    src/VertexSplit.h
+    src/VertexSplit.cpp
 )
 target_link_libraries(naeem cotrik ${ALL_LIBS})

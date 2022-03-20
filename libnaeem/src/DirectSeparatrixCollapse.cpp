@@ -63,16 +63,35 @@ void DirectSeparatrixCollapse::SetRanking(glm::dvec3 d) {
     // normalized_area /= mu.GetMeshArea();
 
     // ranking = (min / max) * normalized_area;
+    // ranking = 1;
 } 
 
 bool DirectSeparatrixCollapse::IsOperationValid() {
     CheckValidity();
 
-    if (mesh.V.at(cid).N_Fids.size() == 0) return false;
-    if (mesh.V.at(s1.at(0)).N_Fids.size() != 3 || mesh.V.at(s1.at(1)).N_Fids.size() != 3) return false;
-    if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 || mesh.V.at(s2.at(1)).N_Fids.size() == 4) return false;
-
-    return true;
+    bool isValid = true;
+    auto& v = mesh.V.at(cid);
+    if (v.N_Fids.size() == 0) isValid = false;
+    if (mesh.V.at(s1.at(0)).N_Fids.size() != 3 || mesh.V.at(s1.at(1)).N_Fids.size() != 3) isValid = false;
+    if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 || mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+    // for (auto id: s2) {
+    //     auto& s = mesh.V.at(id);
+    //     if (s.type != FEATURE) continue;
+    //     for (auto eid: v.N_Eids) {
+    //         auto& e = mesh.E.at(eid);
+    //         if (e.Vids.at(0) == id || e.Vids.at(1) == 1) {
+    //             int count = 0;
+    //             for (auto fid: e.N_Fids) {
+    //                 auto& f = mesh.F.at(fid);
+    //                 for (auto vid: f.Vids) {
+    //                     if (mesh.V.at(vid).type == FEATURE) count += 1;
+    //                 }
+    //             }
+    //             if (count == 4) isValid = false;
+    //         }
+    //     }
+    // }
+    return isValid;
 }
 
 void DirectSeparatrixCollapse::PerformOperation() {
@@ -84,7 +103,7 @@ void DirectSeparatrixCollapse::PerformOperation() {
 
     if (!IsOperationValid()) return;
 
-    std::cout << ranking << std::endl;
+    std::cout << "Performing Direct Separatrix Collapse: " << ranking << std::endl;
 
     // collect vertices to update connected operations
     for (auto id: s1) {
@@ -122,8 +141,9 @@ void DirectSeparatrixCollapse::PerformOperation() {
         auto& faceToKeep = mesh.F.at(e.N_Fids.at(0)); // one face is kept and its vertices are updated
         auto& faceToRemove = mesh.F.at(e.N_Fids.at(1)); // one face is removed as part of simplification
         
-        centerV.N_Fids.push_back(faceToKeep.id); // add faces kept to the center vertex neighborhood
-        
+        // centerV.N_Fids.push_back(faceToKeep.id); // add faces kept to the center vertex neighborhood
+        AddContents(centerV.N_Fids, std::vector<size_t>{faceToKeep.id});
+
         // edges kept in the above two faces to form new connections
         std::vector<size_t> edgesToKeep;
         AddContents(edgesToKeep, GetDifference(faceToKeep.Eids, prev_e));
@@ -154,8 +174,10 @@ void DirectSeparatrixCollapse::PerformOperation() {
             
             // updates related to center vertex
             edgeToKeep.Vids.at(idx) = centerV.id;
-            centerV.N_Vids.push_back(etk_v.id);
-            centerV.N_Eids.push_back(edgeToKeep.id);
+            AddContents(centerV.N_Vids, std::vector<size_t>{etk_v.id});
+            AddContents(centerV.N_Eids, std::vector<size_t>{edgeToKeep.id});
+            // centerV.N_Vids.push_back(etk_v.id);
+            // centerV.N_Eids.push_back(edgeToKeep.id);
             for (int i = 0; i < etk_v.N_Vids.size(); i++) {
                 if (etk_v.N_Vids.at(i) == s1.at(0) || etk_v.N_Vids.at(i) == s1.at(1)) etk_v.N_Vids.at(i) = centerV.id;
             }
@@ -172,7 +194,7 @@ void DirectSeparatrixCollapse::PerformOperation() {
 
             // updates related to face kept during simplification process
             if (std::find(faceToKeep.Eids.begin(), faceToKeep.Eids.end(), edgeToKeep.id) != faceToKeep.Eids.end()) {
-                edgeToKeep.N_Fids.at(0) == faceToKeep.id ? centerV.N_Fids.push_back(edgeToKeep.N_Fids.at(1)) : centerV.N_Fids.push_back(edgeToKeep.N_Fids.at(0)); 
+                edgeToKeep.N_Fids.at(0) == faceToKeep.id ? AddContents(centerV.N_Fids, std::vector<size_t>{edgeToKeep.N_Fids.at(1)}) : AddContents(centerV.N_Fids, std::vector<size_t>{edgeToKeep.N_Fids.at(0)}); 
                 
                 int nv_idx = std::distance(faceToKeep.Vids.begin(), std::find(faceToKeep.Vids.begin(), faceToKeep.Vids.end(), edgeToKeep.Vids.at(idx2)));
                 if (s1.at(0) == faceToKeep.Vids.at((nv_idx+1)%faceToKeep.Vids.size()) || s1.at(1) == faceToKeep.Vids.at((nv_idx+1)%faceToKeep.Vids.size())) {
@@ -181,7 +203,7 @@ void DirectSeparatrixCollapse::PerformOperation() {
                     newVids.push_back(faceToKeep.Vids.at(nv_idx));
                 }
             } else {
-                edgeToKeep.N_Fids.at(0) == faceToRemove.id ? centerV.N_Fids.push_back(edgeToKeep.N_Fids.at(1)) : centerV.N_Fids.push_back(edgeToKeep.N_Fids.at(0));
+                edgeToKeep.N_Fids.at(0) == faceToRemove.id ? AddContents(centerV.N_Fids, std::vector<size_t>{edgeToKeep.N_Fids.at(1)}) : AddContents(centerV.N_Fids, std::vector<size_t>{edgeToKeep.N_Fids.at(0)});
                 edgeToKeep.N_Fids.at(0) == faceToRemove.id ? edgeToKeep.N_Fids.at(0) = faceToKeep.id : edgeToKeep.N_Fids.at(1) = faceToKeep.id;
                 
                 int nv_idx = std::distance(faceToRemove.Vids.begin(), std::find(faceToRemove.Vids.begin(), faceToRemove.Vids.end(), edgeToKeep.Vids.at(idx2)));
@@ -197,6 +219,8 @@ void DirectSeparatrixCollapse::PerformOperation() {
         faceToKeep.Eids = edgesToKeep;
 
         // updates related to removed face and neighboring elements
+        faceToRemove.Vids.clear();
+        faceToRemove.Eids.clear();
         faceToRemove.N_Fids.clear();
         UpdateContents(mesh.V.at(s2.at(0)).N_Fids, std::vector<size_t>{faceToRemove.id});
         UpdateContents(mesh.V.at(s2.at(1)).N_Fids, std::vector<size_t>{faceToRemove.id});
@@ -217,6 +241,10 @@ void DirectSeparatrixCollapse::PerformOperation() {
     mesh.V.at(s1.at(1)).N_Vids.clear();
     mesh.V.at(s1.at(1)).N_Eids.clear();
     mesh.V.at(s1.at(1)).N_Fids.clear();
+    for (auto eid: prev_e) {
+        mesh.E.at(eid).Vids.clear();
+        mesh.E.at(eid).N_Fids.clear();
+    }
 
     
     // update n-singularities
@@ -227,6 +255,10 @@ void DirectSeparatrixCollapse::PerformOperation() {
     UpdateContents(s2_1.N_Eids, prev_e);
     UpdateContents(s2_2.N_Eids, prev_e);
 
+    SetSingularity(centerV.id);
+    SetSingularity(s2_1.id);
+    SetSingularity(s2_2.id);
+    
     // collect vertices to smooth
     smoothV.push_back(centerV.id);
     smoothV.push_back(s2_1.id);

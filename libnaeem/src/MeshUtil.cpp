@@ -148,6 +148,14 @@ std::vector<size_t> MeshUtil::GetUnion(std::vector<size_t>& a, std::vector<size_
     return uni;
 }
 
+std::vector<size_t> MeshUtil::GetIntersection(std::vector<size_t>& a, std::vector<size_t>& b) {
+    std::vector<size_t> itn;
+    std::sort(a.begin(), a.end());
+    std::sort(b.begin(), b.end());
+    std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(itn));
+    return itn;
+}
+
 
 void MeshUtil::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
     std::vector<size_t> temp = GetUnion(a, b);

@@ -28,12 +28,12 @@ public:
 	void SetOriginalRefinedMesh();
 	void SmoothMesh(bool smoothGlobal_);
 
-	void VertexRotate(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
-	void EdgeRotate(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
-	void EdgeCollapse(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
-	void DiagonalCollapse(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
-	void GetOperations(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps, std::string OpType);
-	void PerformOperations(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps, std::set<size_t>& canceledFids);
+	void VertexRotate(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
+	void EdgeRotate(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
+	void EdgeCollapse(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
+	void DiagonalCollapse(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
+	void GetOperations(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps, std::string OpType);
+	void PerformOperations(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps, std::set<size_t>& canceledFids);
 
 	std::vector<Vertex> refinedV;
 	double refinementFactor = 1;

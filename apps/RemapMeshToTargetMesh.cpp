@@ -4,6 +4,7 @@
 #include "QuadSurfaceMapper.h"
 #include "MeshUtil.h"
 #include "SemiGlobalSimplifier.h"
+// #include "ParallelFor.h"
 #include "FeatureExtractor.h"
 #include "Smooth.h"
 
@@ -29,25 +30,47 @@ int main(int argc, char* argv[]) {
     std::string source_f = argv[1];
     // std::string target_f = argv[2];
     std::string output_f = argv[2];
+    int iters = atoi(argv[3]);
 
     MeshFileReader source_reader(source_f.c_str());
     Mesh& source = (Mesh&) source_reader.GetMesh();
     source.RemoveUselessVertices();
     source.BuildAllConnectivities();
-    // source.ExtractSingularities();
-    // for (auto& el: source.F) {
+    source.ExtractSingularities();
+    source.ExtractBoundary();
+	source.BuildParallelE();	
+    // for (auto& el: source.V) {
     //     std:cout << el.N_Fids.size() << std::endl;
     // }
-
+    // return 0;
     FeatureExtractor fe(source, 20.0);
     fe.Extract();
+
 
     MeshUtil mu(source);
     Smoother sm(source);
     SemiGlobalSimplifier sg(source, mu, sm);
+    sg.SetIters(iters);
+    // sg.SetVertexSplitOperations();
+    // sg.FixBoundary();
+    sg.SetDirectSeparatrixOperations();
+    sg.FixBoundary();
+    // for (auto& v: source.V) {
+    //     if (v.N_Vids.size() != v.N_Eids.size() || v.N_Vids.size() != v.N_Fids.size()) {
+    //         std::cout << v.id << ": " << v.N_Vids.size() << " " << v.N_Eids.size() << " " << v.N_Fids.size() << std::endl;
+    //     }
+    // }
     // sg.PerformGlobalOperations(); 
-    sg.SetDirectSeparatrixOperations(); 
+    // std::cout << "Done with Direct Separatrix Operations" << std::endl; 
     // sg.SetSeparatrixOperations(); 
+    // sg.FixBoundary();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetChordCollapseOperations();
+    // sg.SetEdgeRotationOperations();
+    // sg.SetVertexRotationOperations();
+    // sg.SetDiagonalCollapseOperations();
+    // sg.SetEdgeCollapseOperations();
+    sg.Smooth();
     // sg.SetSimplificationOperations();
     // sg.SetDiagonalCollapseOperations();
     // for (auto& v: source.V) {
@@ -55,6 +78,47 @@ int main(int argc, char* argv[]) {
     //     std::cout << mu.GetVertexEnergy(v.id) << std::endl;
     // }
 
+    /*for (auto& f: source.F) {
+        if (f.Vids.empty()) continue;
+        for (auto eid: f.Eids) {
+            auto& e = source.E.at(eid);
+            if (e.Vids.size() != 2) {
+                std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+                std::cout << e.id << " vertices: " << e.Vids.size() << std::endl;
+            }
+        }
+    }
+    for (auto& e: source.E) {
+        if (e.Vids.empty()) continue;
+        for (auto fid: e.N_Fids) {
+            auto& f = source.F.at(fid);
+            if (f.Vids.empty()) {
+                std::cout << "edge face is empty" << std::endl;
+            }
+            for (auto feid: f.Eids) {
+                auto& fe = source.E.at(feid);
+                if (fe.Vids.size() != 2) {
+                    std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+                    std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
+                }
+            }
+        }
+    }
+    for (auto& v: source.V) {
+        for (auto eid: v.N_Eids) {
+            auto& e = source.E.at(eid);
+            for (auto fid: e.N_Fids) {
+                auto& f = source.F.at(fid);
+                for (auto feid: f.Eids) {
+                    auto& fe = source.E.at(feid);
+                    if (fe.Vids.size() != 2) {
+                        std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+                        std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
+                    }
+                }
+            }    
+        }
+    }*/
     // MeshFileReader target_reader(target_f.c_str());
     // Mesh& target = (Mesh&) target_reader.GetMesh();
     // target.RemoveUselessVertices();
@@ -112,3 +176,68 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+
+/* Edge rotation Validation
+
+std::cout << e.Vids.size() << " " << e.N_Fids.size() << std::endl;
+for (auto fid: e.N_Fids) {
+    auto& f = mesh.F.at(fid);
+    for (auto feid: f.Eids) {
+        auto& fe = mesh.E.at(feid);
+        if (fe.Vids.size() != 2) {
+            std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+            std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
+            breakLoop = true;
+            break;
+        }
+    }
+    if (breakLoop) break;    
+}
+break;
+}
+if (breakLoop) break;*/
+
+/* Direct Separatrix Validation
+// bool breakLoop = false;
+auto& centerV = mesh.V.at(op->GetCenterId());
+std::cout << "validating operation" << std::endl;
+for (auto fid: centerV.N_Fids) {
+    auto& f = mesh.F.at(fid);
+    for (auto eid: f.Eids) {
+        auto& e = mesh.E.at(eid);
+        if (e.Vids.size() != 2) {
+            std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+            std::cout << e.id << " vertices: " << e.Vids.size() << std::endl;
+            breakLoop = true;
+        }
+    }
+}
+for (auto vid: centerV.N_Vids) {
+    auto& v = mesh.V.at(vid);
+    for (auto fid: v.N_Fids) {
+        auto& f = mesh.F.at(fid);
+        for (auto eid: f.Eids) {
+            auto& e = mesh.E.at(eid);
+            if (e.Vids.size() != 2) {
+                std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+                std::cout << e.id << " vertices: " << e.Vids.size() << std::endl;
+                breakLoop = true;
+            }
+        }
+    }    
+}
+if (breakLoop) break;*/
+
+// Edge Rotation cases:
+// 1. Boundary conformity
+// 2. To cennect 3-5 singularities directly
+// 3. Edge length update
+// 4. Rotate and analyze if it improves base complex configuration
+
+// Diagonal Collapse cases:
+// 1. Get out of local minimum or maxima
+// 2. Create new singularity to enable new operations
+
+// Vertex Rotation:
+// Edge Collapse:

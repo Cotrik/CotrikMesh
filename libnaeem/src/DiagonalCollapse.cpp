@@ -1,13 +1,20 @@
 #include "DiagonalCollapse.h"
 
 DiagonalCollapse::DiagonalCollapse() : SimplificationOperation() {}
-DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, size_t f, size_t d_idx1_, size_t d_idx2_) : SimplificationOperation(mesh_, mu_) {
+DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, int f, size_t d_idx1_, size_t d_idx2_) : SimplificationOperation(mesh_, mu_) {
     fId = f;
     d_idx1 = d_idx1_;
     d_idx2 = d_idx2_;
 }
 
 DiagonalCollapse::~DiagonalCollapse() {}
+
+void DiagonalCollapse::SetFaceInfo() {
+    fId = GetIntersection(mesh.V.at(d_idx1).N_Fids, mesh.V.at(d_idx2).N_Fids)[0];
+    auto& f = mesh.F.at(fId);
+    d_idx1 = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), d_idx1));
+    d_idx2 = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), d_idx2));
+}
 
 void DiagonalCollapse::SetRanking(glm::dvec3 d) {
     CheckValidity();
@@ -28,16 +35,19 @@ void DiagonalCollapse::SetRanking(glm::dvec3 d) {
 
 bool DiagonalCollapse::IsOperationValid() {
     CheckValidity();
-    
-    if (mesh.F.at(fId).N_Fids.size() == 0) return false;
+    auto& f = mesh.F.at(fId);
+    if (f.N_Fids.size() == 0 || f.Vids.empty()) return false;
+    if (mesh.V.at(f.Vids.at(d_idx1)).N_Fids.size() != 3 || mesh.V.at(f.Vids.at(d_idx2)).N_Fids.size() != 3) return false;
     return true;
 }
 
 void DiagonalCollapse::PerformOperation() {
     CheckValidity();
-
-    if (!IsOperationValid()) return;
-
+    if (fId == -1) {
+        SetFaceInfo();
+    } else {
+        if (!IsOperationValid()) return;
+    }
     Face& f = mesh.F.at(fId);
 
     Vertex& target = mesh.V.at(f.Vids.at(d_idx1));
@@ -58,7 +68,7 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
     std::vector<size_t> verticesToRemove{source.id};
     std::vector<size_t> edgesToRemove;
     std::vector<size_t> edgesToKeep;
-    std::vector<size_t> facesToRemove{fId};
+    std::vector<size_t> facesToRemove{(size_t) fId};
     for (auto eid: face.Eids) {
         Edge& e = mesh.E.at(eid);
         if (std::find(e.Vids.begin(), e.Vids.end(), source.id) != e.Vids.end()) {
@@ -156,6 +166,9 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
     source.N_Vids.clear();
     source.N_Eids.clear();
     source.N_Fids.clear();
+    for (auto id: face.Vids) {
+        SetSingularity(id);
+    }
     face.N_Fids.clear();
 }
 // std::cout << "";

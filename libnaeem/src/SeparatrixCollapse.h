@@ -17,21 +17,25 @@ class SeparatrixCollapse : public SimplificationOperation {
     public:
         // Constructors and Destructor
         SeparatrixCollapse();
-        SeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, std::vector<size_t> linkV, std::vector<size_t> linkE);
+        SeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, std::vector<size_t> linkV, std::vector<size_t> linkE, bool half_ = false);
         ~SeparatrixCollapse();
 
         void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));
         bool IsOperationValid();
         void PerformOperation();
         glm::dvec3 GetLocation() {return glm::dvec3(0, 0, 0);}
-        size_t GetCenterId() {return -1;}
+        size_t GetCenterId() {return target.front();}
+
     private:
         std::vector<size_t> target;
         std::vector<std::vector<size_t>> collapse;
 
         void BuildSeparatrix(std::vector<size_t> linkV, std::vector<size_t> linkE);
-        void Collapse(size_t targetId, std::vector<size_t> collapseIds);
+        void Collapse(size_t targetId, size_t collapseId);
         std::vector<size_t> GetCollapseVids(size_t vid, size_t eid);
+        void SetUpdateElements();
+        double GetRanking();
+        bool half = false;
 };
 
 #endif

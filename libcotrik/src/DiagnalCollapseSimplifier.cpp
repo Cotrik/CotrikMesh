@@ -19,6 +19,7 @@ bool opComp(const collapsableDiagonal& a, const collapsableDiagonal& b) {
 
 DiagnalCollapseSimplifier::DiagnalCollapseSimplifier(Mesh& mesh) : Simplifier(mesh) {
     // TODO Auto-generated constructor stub
+    mu.SetMesh(mesh);
 
 }
 
@@ -249,7 +250,7 @@ bool DiagnalCollapseSimplifier::CanCollapseDiagnal(const Vertex& v, const Vertex
     return !v.isBoundary && !target_v.isBoundary && v.N_Fids.size() == 3 && (target_v.N_Fids.size() >= Simplifier::minValence && target_v.N_Fids.size() <= Simplifier::maxValence);
 }
 
-void DiagnalCollapseSimplifier::GetDiagonalCollapseOps(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+void DiagnalCollapseSimplifier::GetDiagonalCollapseOps(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
     for (auto valence = Simplifier::maxValence - 1; valence > 4; --valence) {
         for (auto& f: mesh.F) {
             auto& v0 = mesh.V.at(f.Vids[0]);
@@ -282,7 +283,7 @@ void DiagnalCollapseSimplifier::GetDiagonalCollapseOps(std::multiset<Simplificat
                 }
             }
             if (OpExists) {
-                SimplificationOperation Op;
+                SimplificationOperationStruct Op;
                 Op.type = "Strict_Diagonal_Collapse";
                 auto& source = mesh.V.at(source_id);
                 auto& target = mesh.V.at(target_id);

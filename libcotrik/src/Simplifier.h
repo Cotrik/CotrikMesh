@@ -121,10 +121,10 @@ public:
 	void five_connections_split(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify);
 	void three_connections_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids, bool looseSimplify);
 	void half_separatrix_collapse(BaseComplexQuad& baseComplex, std::set<size_t>& canceledFids);
-	void GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool looseSimplify, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
-	void GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
-	void CollapseVertexToTarget(size_t source_vid, size_t target_vid, SimplificationOperation& Op);
-	void CollapseVerticesToTargetWithFeaturePreserved(std::vector<size_t>& source_vids, size_t target_vid, SimplificationOperation& Op);
+	void GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool looseSimplify, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
+	void GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
+	void CollapseVertexToTarget(size_t source_vid, size_t target_vid, SimplificationOperationStruct& Op);
+	void CollapseVerticesToTargetWithFeaturePreserved(std::vector<size_t>& source_vids, size_t target_vid, SimplificationOperationStruct& Op);
 
 	Mesh RefineWithFeaturePreserved(const Mesh& hex_mesh, int clockwise);
 	Mesh RefineWithFeaturePreserved2(const Mesh& hex_mesh, int clockwise);

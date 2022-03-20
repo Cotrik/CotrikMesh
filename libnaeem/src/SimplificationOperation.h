@@ -38,7 +38,14 @@ class SimplificationOperation {
         void AddContents(std::vector<size_t>& a, std::vector<size_t>& b);
         void UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b);
         std::vector<size_t> GetDifference(std::vector<size_t>& a, std::vector<size_t>& b);
+        std::vector<size_t> GetUnion(std::vector<size_t>& a, std::vector<size_t>& b);
+        std::vector<size_t> GetIntersection(std::vector<size_t>& a, std::vector<size_t>& b);
         
+        bool IsCollapsable(size_t vid1, size_t vid2);
+
+        void FixDoublet(size_t vid);
+        void SetSingularity(size_t vid);
+
         Mesh& mesh = Mesh();
         MeshUtil& mu = MeshUtil();
 };

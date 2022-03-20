@@ -17,7 +17,7 @@ class DiagonalCollapse : public SimplificationOperation {
     public:
         // Constructors and Destructor
         DiagonalCollapse();
-        DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, size_t f, size_t d_idx1_, size_t d_idx2_);
+        DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, int f, size_t d_idx1_, size_t d_idx2_);
         ~DiagonalCollapse();
 
         void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));
@@ -28,7 +28,9 @@ class DiagonalCollapse : public SimplificationOperation {
 
     private:
         void UpdateNeighborInfo(Vertex& target, Vertex& source);
-        size_t fId, d_idx1, d_idx2;
+        void SetFaceInfo();
+        int fId;
+        size_t d_idx1, d_idx2;
 };
 
 #endif

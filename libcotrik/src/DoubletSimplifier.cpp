@@ -9,7 +9,6 @@
 
 DoubletSimplifier::DoubletSimplifier(Mesh& mesh) : Simplifier(mesh) {
     // TODO Auto-generated constructor stub
-
 }
 
 DoubletSimplifier::~DoubletSimplifier() {

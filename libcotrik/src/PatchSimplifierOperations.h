@@ -14,7 +14,7 @@
 #include <set>
 #include <iostream>
 
-struct SimplificationOperation {
+struct SimplificationOperationStruct {
     std::string type;
     double profitability = 0;
     int n = 0;

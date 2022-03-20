@@ -1,7 +1,5 @@
 #include "FeatureExtractor.h"
-#include <vtkFeatureEdges.h>
-#include <vtkPointData.h>
-#include <vtkPointLocator.h>
+#include "ParallelFor.h"
 
 FeatureExtractor::FeatureExtractor() {}
 FeatureExtractor::FeatureExtractor(Mesh& mesh_, double angle_threshold_) : mesh(mesh_) {
@@ -22,26 +20,49 @@ vtkSmartPointer<vtkPolyData> FeatureExtractor::GetPolyDataFromMesh() {
 
 void FeatureExtractor::Extract() {
     vtkSmartPointer<vtkFeatureEdges> fe = vtkSmartPointer<vtkFeatureEdges>::New();
-    fe->BoundaryEdgesOn();
-    fe->FeatureEdgesOn();
     fe->SetFeatureAngle(angle_threshold);
     fe->SetInputData(mesh_polyData);
-    fe->Update();
 
-    int numBucketPoints = mesh_polyData->GetNumberOfPoints() * 0.01;
     vtkSmartPointer<vtkPointLocator> pl = vtkSmartPointer<vtkPointLocator>::New();
     pl->AutomaticOn();
-    pl->SetNumberOfPointsPerBucket(numBucketPoints);
     pl->SetDataSet(mesh_polyData);
     pl->BuildLocator();
 
-    auto res = fe->GetOutput()->GetPoints();
-    auto n = res->GetNumberOfPoints();
+    
+    fe->FeatureEdgesOn();
+    fe->BoundaryEdgesOff();
+    fe->Update();
+    
+    vtkSmartPointer<vtkPoints> res = fe->GetOutput()->GetPoints();
+    int n = res->GetNumberOfPoints();
+    if (n > 0) {
+        std::cout << "Feature points: " << n << std::endl;
+        PARALLEL_FOR_BEGIN(n) {
+            SetFeatures(i, res, pl, false);
+        } PARALLEL_FOR_END();
+    }
 
-    for (vtkIdType i = 0; i < n; i++) {
-        double point[3];
-        res->GetPoint(i, point);
-        vtkIdType id = pl->FindClosestPoint(point);
+    fe->BoundaryEdgesOn();
+    fe->FeatureEdgesOff();
+    fe->Update();
+
+    res = fe->GetOutput()->GetPoints();
+    n = res->GetNumberOfPoints();
+    if (n > 0) {
+        std::cout << "Boundary Points: " << n << std::endl;
+        PARALLEL_FOR_BEGIN(n) {
+            SetFeatures(i, res, pl, true);
+        } PARALLEL_FOR_END();
+    }
+}
+
+void FeatureExtractor::SetFeatures(int i, vtkSmartPointer<vtkPoints> res, vtkSmartPointer<vtkPointLocator> pl, bool boundary) {
+    double point[3];
+    res->GetPoint(i, point);
+    vtkIdType id = pl->FindClosestPoint(point);
+    if (boundary) {
+        mesh.V.at(id).isBoundary = true;
+    } else {
         mesh.V.at(id).type = FEATURE;
     }
 }

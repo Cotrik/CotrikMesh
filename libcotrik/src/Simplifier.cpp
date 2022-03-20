@@ -34,7 +34,7 @@ bool Simplifier::checkCorner = true;
 bool Simplifier::writeFile = false;
 
 Simplifier::Simplifier(Mesh& mesh) : mesh(mesh) {
-	mu.SetMesh(mesh);
+	// mu.SetMesh(mesh);
 }
 
 Simplifier::~Simplifier() {}
@@ -1940,7 +1940,7 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 	// }
 }
 
-void Simplifier::GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool looseSimplify, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+void Simplifier::GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool looseSimplify, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
 	size_t id = 0;
 	if (looseSimplify) id = -1;
 	for (const auto& link : baseComplex.separatedVertexIdsLink) {
@@ -1963,7 +1963,7 @@ void Simplifier::GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool loo
 				condition = mesh.V.at(v_front_fvid).N_Fids.size() > Simplifier::minValence && mesh.V.at(v_back_fvid).N_Fids.size() > Simplifier::minValence;
 			}
 			if (condition && can_collapse_with_feature_preserved(link, linkEids, v_front_fvid, v_back_fvid)) {
-				SimplificationOperation Op;
+				SimplificationOperationStruct Op;
 				Op.type = looseSimplify ? "Loose_Separatrix_Collapse" : "Strict_Separatrix_Collapse";
 				for (size_t i = 0; i < linkEids.size(); ++i) {
 					auto vid = link[i];
@@ -1991,7 +1991,7 @@ void Simplifier::GetSeparatrixCollapseOps(BaseComplexQuad& baseComplex, bool loo
 	}
 }
 
-void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
 	size_t id = -1;
 	for (auto link : baseComplex.separatedVertexIdsLink) {
         const auto& linkEids = baseComplex.separatedEdgeIdsLink.at(++id);
@@ -2017,7 +2017,7 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
             }
             if (v_front_fv.N_Fids.size() >= Simplifier::minValence + 1) {
                 if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid)) {
-    				SimplificationOperation Op;
+    				SimplificationOperationStruct Op;
 					Op.type = "Half_Separatrix_Collapse";
 					for (size_t i = 0; i < linkEids.size(); ++i) {
 						auto vid = link[i];
@@ -2060,7 +2060,7 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
             }
             if (mesh.V.at(v_front_fvid).N_Fids.size() >= Simplifier::minValence + 1) {
                 if (can_collapse_with_feature_preserved(link, linkEids, v_front_fvid)) {
-    				SimplificationOperation Op;
+    				SimplificationOperationStruct Op;
 					Op.type = "Half_Separatrix_Collapse";
 					for (size_t i = 0; i < linkEids.size(); ++i) {
 						auto vid = link[i];
@@ -2086,7 +2086,7 @@ void Simplifier::GetHalfSeparatrixOps(BaseComplexQuad& baseComplex, std::multise
     }
 }
 
-void Simplifier::CollapseVertexToTarget(size_t source_vid, size_t target_vid, SimplificationOperation& Op) {
+void Simplifier::CollapseVertexToTarget(size_t source_vid, size_t target_vid, SimplificationOperationStruct& Op) {
 	auto& source = mesh.V.at(source_vid);
 	auto& target = mesh.V.at(target_vid);
 	Op.profitability += glm::distance(source.xyz(), target.xyz());
@@ -2122,7 +2122,7 @@ void Simplifier::CollapseVertexToTarget(size_t source_vid, size_t target_vid, Si
 	}
 }
 
-void Simplifier::CollapseVerticesToTargetWithFeaturePreserved(std::vector<size_t>& source_vids, size_t target_vid, SimplificationOperation& Op) {
+void Simplifier::CollapseVerticesToTargetWithFeaturePreserved(std::vector<size_t>& source_vids, size_t target_vid, SimplificationOperationStruct& Op) {
 	auto& v0 = mesh.V.at(source_vids[0]);
 	auto& v1 = mesh.V.at(source_vids[1]);
 	

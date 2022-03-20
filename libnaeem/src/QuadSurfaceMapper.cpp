@@ -22,6 +22,7 @@ SurfaceMapper::SurfaceMapper(Mesh& source_, Mesh& target_) : source(source_), ta
 
 SurfaceMapper::SurfaceMapper(Mesh& target_) : target(target_) {
     target_polyData = GetPolyDataFromMesh(target);
+    // point_finder->SetInput(target_polyData);
     SetCellLocator();
 }
 
@@ -35,6 +36,7 @@ void SurfaceMapper::SetSource(Mesh& mesh) {
 void SurfaceMapper::SetTarget(Mesh& mesh) {
     target = mesh;
     target_polyData = GetPolyDataFromMesh(mesh);
+    // point_finder->SetInput(target_polyData);
     SetCellLocator();
 }
 
@@ -49,7 +51,7 @@ void SurfaceMapper::SetCellLocator() {
     target_cellPolyData->BuildLinks();
 
 
-    int N = target_cellPolyData->GetNumberOfCells() * 0.1;
+    int N = target_cellPolyData->GetNumberOfCells() > 100000 ? target_cellPolyData->GetNumberOfCells() * 0.001 : 100;
 
     cell_locator->SetDataSet(target_cellPolyData);
     cell_locator->SetTolerance(1e-12);
@@ -63,6 +65,13 @@ void SurfaceMapper::SetCellLocator() {
 vtkSmartPointer<vtkPolyData> SurfaceMapper::GetPolyDataFromMesh(Mesh& mesh) {
     mu.SetMesh(mesh);
     return mu.GetPolyData();
+}
+
+void SurfaceMapper::ExecutePolyDistanceFilter(Mesh& mesh) {
+    vtkSmartPointer<vtkPolyData> src = GetPolyDataFromMesh(mesh);
+    polyDistanceFilter->SetInputData(0, src);
+    polyDistanceFilter->SetInputData(1, target_polyData);
+    polyDistanceFilter->Update();
 }
 
 glm::dvec3 SurfaceMapper::GetClosestPoint(glm::dvec3 p) {

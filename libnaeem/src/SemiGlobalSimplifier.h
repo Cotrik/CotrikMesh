@@ -12,13 +12,28 @@
 
 #include "Mesh.h"
 #include "BaseComplexQuad.h"
+#include "BaseComplexSheetQuad.h"
+#include "SheetSimplifier.h"
+#include "SingleSheetSimplifier.h"
+#include "ChordExtractor.h"
+#include "ChordCollapse.h"
 // #include "SimplificationOperation.h"
 #include "DiagonalCollapse.h"
 #include "DirectSeparatrixCollapse.h"
+#include "SeparatrixCollapse.h"
+#include "EdgeRotation.h"
+#include "VertexRotation.h"
+#include "EdgeCollapse.h"
+#include "VertexSplit.h"
 #include "MeshUtil.h"
 #include "Smooth.h"
 #include "PQueue.h"
 #include "PQueue.cpp"
+
+struct SingularityLink {
+    std::vector<size_t> linkVids;
+    std::vector<size_t> linkEids;
+};
 
 class SemiGlobalSimplifier {
     public:
@@ -29,16 +44,26 @@ class SemiGlobalSimplifier {
 
         // MeshUtil setters and getters
         void SetMesh(Mesh& mesh_);
+        void SetIters(int iters_);
 
         // Simplification Operations
+        void FixBoundary();
         void SetSimplificationOperations();
         void SetDiagonalCollapseOperations();
         void SetDirectSeparatrixOperations();
         void SetSeparatrixOperations();
-        void TraceSingularityLinks(Vertex& v, BaseComplexQuad& bc);
+        void SetHalfSeparatrixOperations();
+        void SetChordCollapseOperations();
+        void SetEdgeRotationOperations();
+        void SetVertexRotationOperations();
+        void SetEdgeCollapseOperations();
+        void SetVertexSplitOperations();
+        std::vector<SingularityLink> TraceSingularityLinks(Vertex& v, BaseComplexQuad& bc);
         void PerformGlobalOperations();
+        void Smooth();
 
         MeshUtil& mu = MeshUtil();
+        int iters = 0;
         
     private:
         Mesh& mesh = Mesh();

@@ -30,9 +30,9 @@ public:
     void ExtractAndCollapse(std::set<size_t>& canceledFids);
     void GetSheetsProvisions(std::vector<std::set<size_t>>& canceledEdgesIds, std::vector<std::map<size_t, size_t>>& canceledFacesIds);
     void CollapseSelectedSheets(std::set<size_t>& canceledFids, std::vector<std::set<size_t>>& canceledEdgesIds, std::vector<std::map<size_t, size_t>>& canceledFacesIds);
-    void GetChordCollapseOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
+    void GetChordCollapseOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
     void CollapseChordWithFeaturePreserved(std::unordered_map<size_t, size_t>& key_edgeId, std::unordered_map<std::string, size_t>& key_faceId,
-    std::map<size_t, size_t>& canceledFaceIds, std::set<size_t>& canceledEdgeIds, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps);
+    std::map<size_t, size_t>& canceledFaceIds, std::set<size_t>& canceledEdgeIds, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
 };
 
 #endif /* LIBCOTRIK_SRC_SHEETSIMPLIFIER_H_ */

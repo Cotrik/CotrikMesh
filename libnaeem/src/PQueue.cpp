@@ -110,14 +110,14 @@ T PQueue<T>::pop() {
     q.at(0) = q.back();
     key_ref.at(q.front().key) = 0;
     q.pop_back();
-    key_ref.erase(res.key);
+    // key_ref.erase(res.key);
     if (size() > 1) moveDown(0);
     return res.data;
 }
 
 template <class T>
 T PQueue<T>::getByKey(int key) {
-    if (key_ref.find(key) == key_ref.end()) return NULL;
+    if (key_ref.find(key) == key_ref.end() || empty()) return NULL;
     return q.at(key_ref.at(key)).data;
 }
 
@@ -137,7 +137,8 @@ void PQueue<T>::update(double priority, int key) {
 template <class T>
 void PQueue<T>::print() {
     for (auto el: q) {
-        std::cout << el.key << " ";
+        // std::cout << el.key << " ";
+        std::cout << el.priority << " ";
     }
     std::cout << "*********************" << std::endl;
 }

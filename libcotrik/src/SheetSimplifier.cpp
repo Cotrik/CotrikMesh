@@ -69,7 +69,7 @@ void SheetSimplifier::Run(std::set<size_t>& canceledFids) {
     }
 }
 
-void SheetSimplifier::GetChordCollapseOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+void SheetSimplifier::GetChordCollapseOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
 
     BaseComplexSheetQuad baseComplexSheets(baseComplex);
     baseComplexSheets.Extract();
@@ -115,9 +115,9 @@ void SheetSimplifier::GetChordCollapseOps(BaseComplexQuad& baseComplex, std::mul
 } 
 
 void SheetSimplifier::CollapseChordWithFeaturePreserved(std::unordered_map<size_t, size_t>& key_edgeId, std::unordered_map<std::string, size_t>& key_faceId,
-    std::map<size_t, size_t>& canceledFaceIds, std::set<size_t>& canceledEdgeIds, std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+    std::map<size_t, size_t>& canceledFaceIds, std::set<size_t>& canceledEdgeIds, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
     
-    SimplificationOperation Op;
+    SimplificationOperationStruct Op;
     Op.type = "Chord_Collapse";
     
     for (auto edgeId : canceledEdgeIds) {
@@ -277,6 +277,8 @@ void SheetSimplifier::GetSheetsProvisions(std::vector<std::set<size_t>>& cancele
     BaseComplexSheetQuad baseComplexSheets(baseComplex);
     baseComplexSheets.Extract();
 
+    std::vector<std::set<size_t>> canceledChords;
+
     //auto dualMesh = Refine(mesh, 0);
     auto key_edgeId = get_key_edgeId(mesh);
     auto key_faceId = get_key_faceId(mesh);
@@ -302,7 +304,6 @@ void SheetSimplifier::GetSheetsProvisions(std::vector<std::set<size_t>>& cancele
                 }
             }
         }
-
         if (multiple_edges && !has_interior_singularities) continue;
 
         std::map<size_t, size_t> canceledFaceIds;
@@ -314,6 +315,34 @@ void SheetSimplifier::GetSheetsProvisions(std::vector<std::set<size_t>>& cancele
             canceledEdgesIds.push_back(canceledEdgeIds);
             canceledFacesIds.push_back(canceledFaceIds);
         }
+    }
+    std::cout << "writng " << canceledEdgesIds.size() << " chords" << std::endl;
+    std::cout << "Writing output file" << std::endl;
+    std::string outputf = "chord_collapse.vtk";
+    std::ofstream ofs2(outputf.c_str());
+    ofs2 << "# vtk DataFile Version 3.0\n"
+        << outputf.c_str() << "\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs2 << "POINTS " << mesh.V.size() << " double\n";
+    std::vector<std::vector<size_t>> c_indices;
+    for (auto c: canceledEdgesIds) {
+        for (auto id: c) {
+            c_indices.push_back(mesh.E.at(id).Vids);
+        }
+    }
+    // std::vector<size_t> c_indices = {12, 296};
+    // std::cout << c_indices.size() << std::endl;
+    for (size_t i = 0; i < mesh.V.size(); i++) {
+        ofs2 << std::fixed << std::setprecision(7) <<  mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+    }
+    ofs2 << "CELLS " << c_indices.size() << " " << 3 * c_indices.size() << std::endl;
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        ofs2 << "2 " << c_indices.at(i)[0] << " " << c_indices.at(i)[1] << std::endl;
+    }
+    ofs2 << "CELL_TYPES " << c_indices.size() << "\n";
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        ofs2 << "3" << std::endl;
     }
 }
 

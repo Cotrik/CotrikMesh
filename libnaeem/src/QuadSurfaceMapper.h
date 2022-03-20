@@ -10,6 +10,8 @@
 
 #include <vtkPolyData.h>
 #include <vtkCellLocator.h>
+#include <vtkImplicitPolyDataDistance.h>
+#include <vtkDistancePolyDataFilter.h>
 #include <glm/glm.hpp>
 
 #include "Mesh.h"
@@ -25,6 +27,7 @@ class SurfaceMapper {
         void SetSource(Mesh& mesh);
         void SetTarget(Mesh& mesh);
         glm::dvec3 GetClosestPoint(glm::dvec3 p);
+        void ExecutePolyDistanceFilter(Mesh& mesh);
         
     private:
         Mesh& source = Mesh();
@@ -34,6 +37,8 @@ class SurfaceMapper {
         vtkSmartPointer<vtkPolyData> target_polyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> target_cellPolyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkCellLocator> cell_locator = vtkSmartPointer<vtkCellLocator>::New();
+        vtkSmartPointer<vtkImplicitPolyDataDistance> point_finder = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
+        vtkSmartPointer<vtkDistancePolyDataFilter> polyDistanceFilter = vtkSmartPointer<vtkDistancePolyDataFilter>::New();
         
         vtkSmartPointer<vtkPolyData> GetPolyDataFromMesh(Mesh& mesh);
         void SetCellLocator();

@@ -10,6 +10,7 @@
 
 #include "Mesh.h"
 #include "QuadSurfaceMapper.h"
+// #include "ParallelFor.h"
 
 class Smoother {
     public:
@@ -26,6 +27,8 @@ class Smoother {
         SurfaceMapper sm;
 
         void CheckValidity();
+        void GetVerticesToSmooth(int iter, std::vector<size_t>& V);
+        void GetOptimizedPositions(int iter, std::vector<size_t>& V, std::vector<glm::dvec3>& centers);
 };
 
 #endif

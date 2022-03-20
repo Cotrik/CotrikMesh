@@ -19,11 +19,11 @@ PatchSimplifier::~PatchSimplifier() {
 
 }
 
-bool OpSortAscending(SimplificationOperation op1, SimplificationOperation op2) {
+bool OpSortAscending(SimplificationOperationStruct op1, SimplificationOperationStruct op2) {
     return op1.profitability < op2.profitability;
 }
 
-bool OpSortDescending(SimplificationOperation op1, SimplificationOperation op2) {
+bool OpSortDescending(SimplificationOperationStruct op1, SimplificationOperationStruct op2) {
     return op1.profitability > op2.profitability;
 }
 
@@ -120,9 +120,9 @@ bool PatchSimplifier::SimplifyMesh(int& iter) {
     //     SmoothMesh(true);
     // }
 
-    bool(*fn_pt1)(SimplificationOperation, SimplificationOperation) = OpSortDescending;
-    bool(*fn_pt2)(SimplificationOperation, SimplificationOperation) = OpSortAscending;
-    std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)> SimplificationOps(fn_pt2);
+    bool(*fn_pt1)(SimplificationOperationStruct, SimplificationOperationStruct) = OpSortDescending;
+    bool(*fn_pt2)(SimplificationOperationStruct, SimplificationOperationStruct) = OpSortAscending;
+    std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)> SimplificationOps(fn_pt2);
 
 
     ///////////////// Cleaning Operations (Local Operations) ////////////////////
@@ -256,7 +256,7 @@ bool PatchSimplifier::SimplifyMesh(int& iter) {
 
 }
 
-void PatchSimplifier::GetOperations(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps, std::string OpType) {
+void PatchSimplifier::GetOperations(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps, std::string OpType) {
     BaseComplexQuad baseComplex(mesh);
 
     if (OpType == "Edge_Rotate") {
@@ -307,7 +307,7 @@ void PatchSimplifier::GetOperations(std::multiset<SimplificationOperation, bool(
     
 }
 
-void PatchSimplifier::PerformOperations(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps, std::set<size_t>& canceledFids) {
+void PatchSimplifier::PerformOperations(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps, std::set<size_t>& canceledFids) {
     std::set<size_t> processedFids;
     for(auto op: SimplificationOps) {
         bool negativeFacePresent = false;
@@ -403,7 +403,6 @@ bool PatchSimplifier::Simplify(int& iter) {
         // sm.Map();
         // smooth_project();
     }
-    
     /*if (mesh.F.size() <= 0.25 * origMesh.F.size()) {
     //     std::cout << "current Faces: " << mesh.F.size() << " original Faces: " << origMesh.F.size() << std::endl;
         
@@ -468,7 +467,7 @@ bool PatchSimplifier::Simplify(int& iter) {
     }
 
     // Step 8 -- diagonal collapsing
-    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
+    /*if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
         DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
         // diagnalCollapseSimplifier.Run(canceledFids);
         diagnalCollapseSimplifier.RunCollective(canceledFids);
@@ -500,7 +499,7 @@ bool PatchSimplifier::Simplify(int& iter) {
 //                if (!canceledFids.empty()) std::cout << "half_simplify\n";
 //            }
         } else std::cout << "strict_simplify\n";
-    }
+    }*/
 
    if (canceledFids.empty() && Simplifier::GLOBAL) {
        SheetSimplifier sheetSimplifier(mesh);
@@ -510,13 +509,13 @@ bool PatchSimplifier::Simplify(int& iter) {
 
    }
 
-//    if (canceledFids.empty() && Simplifier::GLOBAL) {
-//        SingleSheetSimplifier sheetSimplifier(mesh);
-//     //    sheetSimplifier.Run(canceledFids);
-//        sheetSimplifier.ExtractAndCollapse(canceledFids);
-//    }
+   /*if (canceledFids.empty() && Simplifier::GLOBAL) {
+       SingleSheetSimplifier sheetSimplifier(mesh);
+    //    sheetSimplifier.Run(canceledFids);
+       sheetSimplifier.ExtractAndCollapse(canceledFids);
+   }
 
-   /*if (canceledFids.empty() && Simplifier::HALF) {
+   if (canceledFids.empty() && Simplifier::HALF) {
        BaseComplexQuad baseComplex(mesh);
        baseComplex.ExtractSingularVandE();
        baseComplex.BuildE();
@@ -1276,6 +1275,7 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
     }*/
 
     // SurfaceMapper sm(mesh, origMesh);
+    // sm.SetTarget(origMesh);
 	while (iters--) {
         std::vector<glm::dvec3> centers(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
         for (auto vid: smoothVids) {
@@ -1323,9 +1323,9 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
             auto& v = mesh.V.at(vid);
             if (v.type < FEATURE) {
                 // temp.at(v.id) = v.xyz();
-                // v = centers.at(v.id);
+                v = centers.at(v.id);
                 // v = sm.MapPoint(centers.at(v.id));
-                v = sm.GetClosestPoint(centers.at(v.id));
+                // v = sm.GetClosestPoint(centers.at(v.id));
                 // bool negativeFacePresent = false;
                 // for (auto nfid: v.N_Fids) {
                 //     if (GetScaledJacobianQuad(mesh, mesh.F.at(nfid)) < 0) {
@@ -1438,11 +1438,11 @@ void PatchSimplifier::SmoothMesh(bool smoothGlobal_) {
     smoothVids.clear();
 }
 
-void PatchSimplifier::VertexRotate(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+void PatchSimplifier::VertexRotate(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
     for (auto& v: mesh.V) {
         if (v.isBoundary) continue;
         
-        SimplificationOperation op;
+        SimplificationOperationStruct op;
         op.type = "Vertex_Rotate";
         double sumEdges = 0;
         double sumDiagonals = 0;
@@ -1491,7 +1491,7 @@ void PatchSimplifier::VertexRotate(std::multiset<SimplificationOperation, bool(*
     }
 }
 
-void PatchSimplifier::EdgeRotate(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+void PatchSimplifier::EdgeRotate(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
     for (auto& e: mesh.E) {
         bool isBoundary = false;
         if (e.isBoundary || mesh.V.at(e.Vids.at(0)).isBoundary || mesh.V.at(e.Vids.at(1)).isBoundary) isBoundary = true;
@@ -1508,7 +1508,7 @@ void PatchSimplifier::EdgeRotate(std::multiset<SimplificationOperation, bool(*)(
             }
         }
         if (isBoundary) continue;
-        SimplificationOperation op;
+        SimplificationOperationStruct op;
         op.type = "Edge_Rotate";
 
         Vertex& v1 = mesh.V.at(e.Vids.at(0));
@@ -1640,7 +1640,7 @@ void PatchSimplifier::EdgeRotate(std::multiset<SimplificationOperation, bool(*)(
     }
 }
 
-void PatchSimplifier::EdgeCollapse(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+void PatchSimplifier::EdgeCollapse(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
     for (auto& e: mesh.E) {
         bool isBoundary = false;
         if (e.isBoundary || mesh.V.at(e.Vids.at(0)).isBoundary || mesh.V.at(e.Vids.at(1)).isBoundary) isBoundary = true;
@@ -1651,7 +1651,7 @@ void PatchSimplifier::EdgeCollapse(std::multiset<SimplificationOperation, bool(*
             }
         }
         if (isBoundary) continue;
-        SimplificationOperation op;
+        SimplificationOperationStruct op;
         op.type = "Edge_Collapse";
         op.profitability = mesh.prescribed_length - glm::length(mesh.V.at(e.Vids[0]).xyz() - mesh.V.at(e.Vids[1]).xyz());
         size_t source = e.Vids.at(0);
@@ -1702,7 +1702,7 @@ void PatchSimplifier::EdgeCollapse(std::multiset<SimplificationOperation, bool(*
     }
 }
 
-void PatchSimplifier::DiagonalCollapse(std::multiset<SimplificationOperation, bool(*)(SimplificationOperation, SimplificationOperation)>& SimplificationOps) {
+void PatchSimplifier::DiagonalCollapse(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps) {
     for (auto& f: mesh.F) {
         bool isBoundary = false;
         for (auto vid: f.Vids) {
@@ -1712,7 +1712,7 @@ void PatchSimplifier::DiagonalCollapse(std::multiset<SimplificationOperation, bo
             }
         }
         if (isBoundary) continue;
-        SimplificationOperation op;
+        SimplificationOperationStruct op;
         op.type = "Diagonal_Collapse";
         double l1 = glm::length(mesh.V.at(f.Vids[0]).xyz() - mesh.V.at(f.Vids[2]).xyz());
         double l2 = glm::length(mesh.V.at(f.Vids[1]).xyz() - mesh.V.at(f.Vids[3]).xyz());
