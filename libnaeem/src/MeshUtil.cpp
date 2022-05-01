@@ -5,6 +5,7 @@
 #include <vtkPoints.h>
 #include <vtkCellArray.h>
 
+#include "ParallelFor.h"
 #include "MeshUtil.h"
 
 #define PI 3.14159265
@@ -156,6 +157,13 @@ std::vector<size_t> MeshUtil::GetIntersection(std::vector<size_t>& a, std::vecto
     return itn;
 }
 
+std::vector<size_t> MeshUtil::GetIntersectionParallel(std::vector<size_t>& a, std::vector<size_t>& b) {
+    std::vector<size_t> itn;
+    for (auto el: a) {
+        if (std::find(b.begin(), b.end(), el) != b.end()) itn.push_back(el);
+    }
+    return itn;
+}
 
 void MeshUtil::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
     std::vector<size_t> temp = GetUnion(a, b);

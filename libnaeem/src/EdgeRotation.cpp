@@ -28,7 +28,7 @@ void EdgeRotation::PerformOperation() {
     CheckValidity();
     if (!IsOperationValid()) return;
 
-    std::cout << "Performing Edge Rotation for " << eid << std::endl;
+    // std::cout << "Performing Edge Rotation for " << eid << std::endl;
 
     Edge& e = mesh.E.at(eid);
     size_t v1 = e.Vids.at(0);
@@ -105,6 +105,7 @@ void EdgeRotation::PerformOperation() {
     AddContents(mesh.V.at(newV_2).N_Eids, std::vector<size_t>{e.id});
     e.Vids.at(0) = newV_1;
     e.Vids.at(1) = newV_2;
+    // std::cout << "Setting Singularities" << std::endl;
     for (auto fid: e.N_Fids) {
         auto& f = mesh.F.at(fid);
         for (auto fvid: f.Vids) {
@@ -117,6 +118,7 @@ void EdgeRotation::PerformOperation() {
             FixDoublet(fvid);
         }
     }
+    // std::cout << "Finished Edge Rotation" << std::endl;
 }
 
 std::vector<size_t> EdgeRotation::GetVertices(Edge& e, size_t v1, size_t v2) {

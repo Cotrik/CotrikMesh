@@ -28,6 +28,8 @@ class PQueue {
         int size();
         void setMinQueueOn();
         void setMaxQueueOn();
+        void setSpecialComparisonOn();
+        void setSpecialComparisonOff();
         
         void clear();
         void insert(double priority, int key, T data);
@@ -50,6 +52,7 @@ class PQueue {
         std::vector<qElement<T>> q;
         std::unordered_map<int, int> key_ref;
         bool min_queue = true;
+        bool specialCmp = false;
 };
 
 #endif

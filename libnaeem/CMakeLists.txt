@@ -51,6 +51,8 @@ add_library(naeem SHARED STATIC
     src/ParallelFor.h
     src/PQueue.h
     src/PQueue.cpp
+    src/QuadSplit.h
+    src/QuadSplit.cpp
     src/QuadSurfaceMapper.h
     src/QuadSurfaceMapper.cpp
     src/SemiGlobalSimplifier.h
@@ -61,6 +63,8 @@ add_library(naeem SHARED STATIC
     src/SimplificationOperation.cpp
     src/Smooth.h
     src/Smooth.cpp
+    src/ThreeFivePair.h
+    src/ThreeFivePair.cpp
     src/VertexRotation.h
     src/VertexRotation.cpp
     src/VertexSplit.h

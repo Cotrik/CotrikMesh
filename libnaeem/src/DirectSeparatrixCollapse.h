@@ -17,7 +17,7 @@ class DirectSeparatrixCollapse : public SimplificationOperation {
     public:
         // Constructors and Destructor
         DirectSeparatrixCollapse();
-        DirectSeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, size_t cid_, std::vector<size_t> s1_, std::vector<size_t> s2_);
+        DirectSeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, size_t cid_, std::vector<size_t> s1_, std::vector<size_t> s2_, bool looseCollapse_);
         ~DirectSeparatrixCollapse();
 
         void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));
@@ -31,6 +31,7 @@ class DirectSeparatrixCollapse : public SimplificationOperation {
 
         size_t cid;
         std::vector<size_t> s1, s2;
+        bool looseCollapse = false;
 };
 
 #endif

@@ -1,10 +1,11 @@
 #include "DirectSeparatrixCollapse.h"
 
 DirectSeparatrixCollapse::DirectSeparatrixCollapse() : SimplificationOperation() {}
-DirectSeparatrixCollapse::DirectSeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, size_t cid_, std::vector<size_t> s1_, std::vector<size_t> s2_) : SimplificationOperation(mesh_, mu_) {
+DirectSeparatrixCollapse::DirectSeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, size_t cid_, std::vector<size_t> s1_, std::vector<size_t> s2_, bool looseCollapse_) : SimplificationOperation(mesh_, mu_) {
     cid = cid_;
     s1 = s1_;
     s2 = s2_;
+    looseCollapse = looseCollapse_;
 }
 
 DirectSeparatrixCollapse::~DirectSeparatrixCollapse() {}
@@ -73,7 +74,13 @@ bool DirectSeparatrixCollapse::IsOperationValid() {
     auto& v = mesh.V.at(cid);
     if (v.N_Fids.size() == 0) isValid = false;
     if (mesh.V.at(s1.at(0)).N_Fids.size() != 3 || mesh.V.at(s1.at(1)).N_Fids.size() != 3) isValid = false;
-    if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 || mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+    if (looseCollapse) {
+        if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 && mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+        if ((mesh.V.at(s2.at(0)).type == FEATURE || mesh.V.at(s2.at(0)).isBoundary) && mesh.V.at(s2.at(0)).N_Fids.size() == 4) isValid = false;
+        if ((mesh.V.at(s2.at(1)).type == FEATURE || mesh.V.at(s2.at(1)).isBoundary) && mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+    } else {
+        if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 || mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+    }
     // for (auto id: s2) {
     //     auto& s = mesh.V.at(id);
     //     if (s.type != FEATURE) continue;
@@ -103,7 +110,7 @@ void DirectSeparatrixCollapse::PerformOperation() {
 
     if (!IsOperationValid()) return;
 
-    std::cout << "Performing Direct Separatrix Collapse: " << ranking << std::endl;
+    // std::cout << "Performing Direct Separatrix Collapse: " << ranking << std::endl;
 
     // collect vertices to update connected operations
     for (auto id: s1) {

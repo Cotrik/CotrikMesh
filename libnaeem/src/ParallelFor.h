@@ -2,12 +2,14 @@
 #include <thread>
 #include <functional>
 #include <vector>
+#include <mutex>
+#include <math.h>
 
-#define NUM_THREADS std::thread::hardware_concurrency() == 0 ? 8 : std::thread::hardware_concurrency()
+#define NUM_THREADS std::thread::hardware_concurrency() == 0 ? 8 : std::thread::hardware_concurrency() * 4
 
 static void parallelFor(int n, std::function<void (int start, int end)> func) {
     int nThreads = NUM_THREADS;
-    int batchSize = n / nThreads;
+    int batchSize = ceil((float) n / (float) nThreads);
     std::vector<std::thread> threads(nThreads);
     for (int i = 0; i < nThreads; i++) {
         int start = i * batchSize;

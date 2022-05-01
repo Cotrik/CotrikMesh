@@ -37,7 +37,7 @@ bool DiagonalCollapse::IsOperationValid() {
     CheckValidity();
     auto& f = mesh.F.at(fId);
     if (f.N_Fids.size() == 0 || f.Vids.empty()) return false;
-    if (mesh.V.at(f.Vids.at(d_idx1)).N_Fids.size() != 3 || mesh.V.at(f.Vids.at(d_idx2)).N_Fids.size() != 3) return false;
+    // if (mesh.V.at(f.Vids.at(d_idx1)).N_Fids.size() != 3 || mesh.V.at(f.Vids.at(d_idx2)).N_Fids.size() != 3) return false;
     return true;
 }
 
@@ -86,6 +86,28 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
     std::vector<size_t> diffTargetEdges = GetDifference(target.N_Eids, edgesToKeep);
     std::vector<size_t> diffTargetFaces = GetDifference(target.N_Fids, facesToRemove);
 
+    // std::cout << "target: " << target.id << std::endl;
+    // std::cout << "source: " << source.id << std::endl;
+
+    // for (auto fvid: face.Vids) {
+    //     std::cout << "face v: " << fvid << std::endl;
+    // }
+
+    // for (auto eid: face.Eids) {
+    //     Edge& e = mesh.E.at(eid);
+    //     std::cout << "face e: " << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;
+    // }
+
+    // std::cout << "verticesToRemove: " << verticesToRemove.size() << std::endl;
+    // std::cout << "edgesToRemove: " << edgesToRemove.size() << std::endl;
+    // std::cout << "edgesToKeep: " << edgesToKeep.size() << std::endl;
+    // std::cout << "diffSourceVertices: " << diffSourceVertices.size() << std::endl;
+    // std::cout << "diffSourceEdges: " << diffSourceEdges.size() << std::endl;
+    // std::cout << "diffSourceFaces: " << diffSourceFaces.size() << std::endl;
+    // std::cout << "diffTargetVertices: " << diffTargetVertices.size() << std::endl;
+    // std::cout << "diffTargetEdges: " << diffTargetEdges.size() << std::endl;
+    // std::cout << "diffTargetFaces: " << diffTargetFaces.size() << std::endl;
+    
     for (auto vid: source.N_Vids) {
         Vertex& v = mesh.V.at(vid);
         AddContents(v.N_Vids, std::vector<size_t>{target.id});
@@ -93,7 +115,6 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
         UpdateContents(v.N_Eids, edgesToRemove);
         UpdateContents(v.N_Fids, facesToRemove);
     }
-
 
     for (auto eid: diffSourceEdges) {
         Edge& e = mesh.E.at(eid);
@@ -166,6 +187,9 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
     source.N_Vids.clear();
     source.N_Eids.clear();
     source.N_Fids.clear();
+    for (auto id: face.Vids) {
+        FixDoublet(id);
+    }
     for (auto id: face.Vids) {
         SetSingularity(id);
     }

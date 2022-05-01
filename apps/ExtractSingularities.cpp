@@ -36,6 +36,8 @@ int main(int argc, char* argv[]) {
     mesh.BuildAllConnectivities();
     mesh.ExtractBoundary();
     mesh.ExtractSingularities();
+    std::cout << mesh.V.size() << std::endl;
+    std::cout << mesh.F.size() << std::endl;
     //"Info: cos10 = 0.984807753; cos15 = 0.965925826; cos20 = 0.939692621; cos25 = 0.906307787; cos30 = 0.866025404\n\n";
     //const double cosangle = 0.866025404;
     //mesh.SetCosAngleThreshold(cosangle);

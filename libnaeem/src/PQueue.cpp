@@ -56,10 +56,14 @@ template <class T>
 void PQueue<T>::moveDown(int index) {
     int left_index = left(index);
     int right_index = right(index);
-    // int final_index = left_index <= size() - 1 && comp(q.at(left_index).priority, q.at(index).priority) ? left_index : index;
-    int final_index = left_index <= size() - 1 && compSp(q.at(left_index).priority, q.at(index).priority, q.at(left_index).data->GetCenterId(), q.at(index).data->GetCenterId()) ? left_index : index;
-    // final_index = right_index <= size() - 1 && comp(q.at(right_index).priority, q.at(left_index).priority) && comp(q.at(right_index).priority, q.at(index).priority) ? right_index: final_index;
-    final_index = right_index <= size() - 1 && compSp(q.at(right_index).priority, q.at(left_index).priority, q.at(right_index).data->GetCenterId(), q.at(left_index).data->GetCenterId()) && compSp(q.at(right_index).priority, q.at(index).priority, q.at(right_index).data->GetCenterId(), q.at(index).data->GetCenterId()) ? right_index: final_index;
+    int final_index;
+    if (specialCmp) {
+        final_index = left_index <= size() - 1 && compSp(q.at(left_index).priority, q.at(index).priority, q.at(left_index).data->GetCenterId(), q.at(index).data->GetCenterId()) ? left_index : index;
+        final_index = right_index <= size() - 1 && compSp(q.at(right_index).priority, q.at(left_index).priority, q.at(right_index).data->GetCenterId(), q.at(left_index).data->GetCenterId()) && compSp(q.at(right_index).priority, q.at(index).priority, q.at(right_index).data->GetCenterId(), q.at(index).data->GetCenterId()) ? right_index: final_index;
+    } else {
+        final_index = left_index <= size() - 1 && comp(q.at(left_index).priority, q.at(index).priority) ? left_index : index;
+        final_index = right_index <= size() - 1 && comp(q.at(right_index).priority, q.at(left_index).priority) && comp(q.at(right_index).priority, q.at(index).priority) ? right_index: final_index;
+    }
     if (final_index == index) return;
     swap(final_index, index);
     moveDown(final_index);
@@ -69,8 +73,11 @@ template <class T>
 void PQueue<T>::moveUp(int index) {
     while (true) {
         int parent_index = parent(index);
-        // if (parent_index < 0 || !comp(q.at(index).priority, q.at(parent_index).priority)) break;
-        if (parent_index < 0 || !compSp(q.at(index).priority, q.at(parent_index).priority, q.at(index).data->GetCenterId(), q.at(parent_index).data->GetCenterId())) break;
+        if (specialCmp) {
+            if (parent_index < 0 || !compSp(q.at(index).priority, q.at(parent_index).priority, q.at(index).data->GetCenterId(), q.at(parent_index).data->GetCenterId())) break;
+        } else {
+            if (parent_index < 0 || !comp(q.at(index).priority, q.at(parent_index).priority)) break;
+        }
         swap(index, parent_index);
         index = parent_index;
     }
@@ -84,6 +91,16 @@ void PQueue<T>::setMinQueueOn() {
 template <class T>
 void PQueue<T>::setMaxQueueOn() {
     min_queue = false;
+}
+
+template <class T>
+void PQueue<T>::setSpecialComparisonOn() {
+    specialCmp = true;
+}
+
+template <class T>
+void PQueue<T>::setSpecialComparisonOff() {
+    specialCmp = false;
 }
 
 template <class T>

@@ -52,25 +52,42 @@ int main(int argc, char* argv[]) {
     SemiGlobalSimplifier sg(source, mu, sm);
     sg.SetIters(iters);
     // sg.SetVertexSplitOperations();
+    // sg.SetQuadSplitOperations();
     // sg.FixBoundary();
-    sg.SetDirectSeparatrixOperations();
+    sg.SetBoundaryDirectSeparatrixOperations(false);
+    sg.SetBoundaryDirectSeparatrixOperations(true);
     sg.FixBoundary();
-    // for (auto& v: source.V) {
-    //     if (v.N_Vids.size() != v.N_Eids.size() || v.N_Vids.size() != v.N_Fids.size()) {
-    //         std::cout << v.id << ": " << v.N_Vids.size() << " " << v.N_Eids.size() << " " << v.N_Fids.size() << std::endl;
-    //     }
-    // }
+    sg.SetDirectSeparatrixOperations(false);
+    sg.SetDirectSeparatrixOperations(true);
+    sg.FixBoundary();
+    sg.GetSingularityPairs();
+    // sg.SetQuadSplitOperations();
+    // sg.SetDirectSeparatrixOperations();
+    // sg.SetBoundarySeparatrixOperations();
+    // sg.FixBoundary();
+    // sg.SetBoundarySeparatrixOperations();
+    // sg.FixBoundary();
+    // sg.ResolveSingularityPairs();
+    // sg.FixBoundary();
+    for (auto& v: source.V) {
+        if (v.N_Vids.size() == 4 && v.isSingularity) {
+            std::cout << "Not a singularity: " << v.id << std::endl;
+        }
+        // if (v.N_Vids.size() != v.N_Eids.size() || v.N_Vids.size() != v.N_Fids.size() || v.N_Eids.size() != v.N_Fids.size()) {
+        //     std::cout << v.id << ": " << v.N_Vids.size() << " " << v.N_Eids.size() << " " << v.N_Fids.size() << std::endl;
+        // }
+    }
     // sg.PerformGlobalOperations(); 
     // std::cout << "Done with Direct Separatrix Operations" << std::endl; 
     // sg.SetSeparatrixOperations(); 
     // sg.FixBoundary();
     // sg.SetHalfSeparatrixOperations();
     // sg.SetChordCollapseOperations();
+    sg.Smooth();
     // sg.SetEdgeRotationOperations();
     // sg.SetVertexRotationOperations();
     // sg.SetDiagonalCollapseOperations();
     // sg.SetEdgeCollapseOperations();
-    sg.Smooth();
     // sg.SetSimplificationOperations();
     // sg.SetDiagonalCollapseOperations();
     // for (auto& v: source.V) {
@@ -78,7 +95,7 @@ int main(int argc, char* argv[]) {
     //     std::cout << mu.GetVertexEnergy(v.id) << std::endl;
     // }
 
-    /*for (auto& f: source.F) {
+    for (auto& f: source.F) {
         if (f.Vids.empty()) continue;
         for (auto eid: f.Eids) {
             auto& e = source.E.at(eid);
@@ -107,6 +124,7 @@ int main(int argc, char* argv[]) {
     for (auto& v: source.V) {
         for (auto eid: v.N_Eids) {
             auto& e = source.E.at(eid);
+            if (e.N_Fids.size() != 2) std::cout << "edge faces are not 2" << std::endl;
             for (auto fid: e.N_Fids) {
                 auto& f = source.F.at(fid);
                 for (auto feid: f.Eids) {
@@ -118,7 +136,7 @@ int main(int argc, char* argv[]) {
                 }
             }    
         }
-    }*/
+    }
     // MeshFileReader target_reader(target_f.c_str());
     // Mesh& target = (Mesh&) target_reader.GetMesh();
     // target.RemoveUselessVertices();
@@ -147,9 +165,9 @@ int main(int argc, char* argv[]) {
     std::cout <<  "# F in output mesh: " << source.C.size() << std::endl;
 
     // std::cout << "Writing output file" << std::endl;
-    // std::ofstream ofs(output_f.c_str());
+    // std::ofstream ofs("FeaturePoints.vtk");
     // ofs << "# vtk DataFile Version 3.0\n"
-    //     << output_f.c_str() << ".vtk\n"
+    //     << "FeaturePoints.vtk.vtk\n"
     //     << "ASCII\n\n"
     //     << "DATASET UNSTRUCTURED_GRID\n";
     // ofs << "POINTS " << source.V.size() << " double\n";
@@ -241,3 +259,7 @@ if (breakLoop) break;*/
 
 // Vertex Rotation:
 // Edge Collapse:
+
+// Proper metric
+// Comparison
+// Ranking based on configuration
