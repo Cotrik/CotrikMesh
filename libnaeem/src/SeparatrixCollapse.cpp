@@ -1,7 +1,7 @@
 #include "SeparatrixCollapse.h"
 
 SeparatrixCollapse::SeparatrixCollapse() : SimplificationOperation() {}
-SeparatrixCollapse::SeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, std::vector<size_t> linkV, std::vector<size_t> linkE, bool half_) : SimplificationOperation(mesh_, mu_) {
+SeparatrixCollapse::SeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_,  Smoother& smoother_, std::vector<size_t> linkV, std::vector<size_t> linkE, bool half_) : SimplificationOperation(mesh_, mu_, smoother_) {
     half = half_;
     BuildSeparatrix(linkV, linkE);
 }

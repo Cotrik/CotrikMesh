@@ -1,7 +1,7 @@
 #include "EdgeCollapse.h"
 
 EdgeCollapse::EdgeCollapse() {}
-EdgeCollapse::EdgeCollapse(Mesh& mesh_, MeshUtil& mu_, std::shared_ptr<SimplificationOperation> vr_, std::shared_ptr<SimplificationOperation> dc_) : SimplificationOperation(mesh_, mu_) {
+EdgeCollapse::EdgeCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, std::shared_ptr<SimplificationOperation> vr_, std::shared_ptr<SimplificationOperation> dc_) : SimplificationOperation(mesh_, mu_, smoother_) {
     vr = std::move(vr_);
     dc = std::move(dc_);
 }

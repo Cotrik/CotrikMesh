@@ -16,7 +16,7 @@
 class EdgeRotation : public SimplificationOperation {
     public:
         EdgeRotation();
-        EdgeRotation(Mesh& mesh_, MeshUtil& mu_, size_t eid_, bool clockwise_);
+        EdgeRotation(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t eid_, bool clockwise_);
         ~EdgeRotation();
         
         void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));

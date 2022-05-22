@@ -1,8 +1,9 @@
 #include "VertexSplit.h"
 
 VertexSplit::VertexSplit() {}
-VertexSplit::VertexSplit(Mesh& mesh_, MeshUtil& mu_, size_t vid_) : SimplificationOperation(mesh_, mu_) {
+VertexSplit::VertexSplit(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t vid_, std::vector<size_t> edgesToSplit_) : SimplificationOperation(mesh_, mu_, smoother_) {
     vid = vid_;
+    splitEdges = edgesToSplit_;
 }
 VertexSplit::~VertexSplit() {}
 
@@ -29,7 +30,10 @@ void VertexSplit::PerformOperation() {
     CheckValidity();
     if (!IsOperationValid()) return;
 
-    std::vector<size_t> splitEdges = SelectEdgesToSplit();
+
+    if (splitEdges.empty()) {
+       splitEdges = SelectEdgesToSplit();
+    }
     // std::cout << "Chose edges: " << splitEdges.size() << std::endl;
 
     Edge& e1 = mesh.E.at(splitEdges.at(0));

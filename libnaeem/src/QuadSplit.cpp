@@ -1,7 +1,7 @@
 #include "QuadSplit.h"
 
 QuadSplit::QuadSplit() {}
-QuadSplit::QuadSplit(Mesh& mesh_, MeshUtil& mu_, size_t vid_, std::vector<size_t> verticesToSplit_, std::vector<size_t> verticesToChange_) : SimplificationOperation(mesh_, mu_) {
+QuadSplit::QuadSplit(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t vid_, std::vector<size_t> verticesToSplit_, std::vector<size_t> verticesToChange_) : SimplificationOperation(mesh_, mu_, smoother_) {
     vid = vid_;
     verticesToSplit = verticesToSplit_;
     verticesToChange = verticesToChange_;
@@ -22,20 +22,22 @@ void QuadSplit::PerformOperation() {
     CheckValidity();
 
 
-    glm::dvec3 newCoords = mesh.V.at(vid).xyz();
-    for (auto id: verticesToSplit) {
-        newCoords += mesh.V.at(id).xyz();
-    }
+    // glm::dvec3 newCoords = mesh.V.at(vid).xyz();
+    glm::dvec3 newCoords(0.0, 0.0, 0.0);
+    // for (auto id: verticesToSplit) {
+    //     newCoords += mesh.V.at(id).xyz();
+    // }
     for (auto id: verticesToChange) {
         newCoords += mesh.V.at(id).xyz();
     }
-    newCoords /= (verticesToSplit.size()+verticesToChange.size()+1);
+    // newCoords /= (verticesToSplit.size()+verticesToChange.size()+1);
+    newCoords /= (verticesToChange.size());
 
     Vertex newV_(newCoords);
     newV_.id = mesh.V.size();
     mesh.V.push_back(newV_);
 
-    auto& newV = mesh.V.at(newV_.id);
+    auto& newV = mesh.V.at(mesh.V.size()-1);
     auto& v = mesh.V.at(vid);
 
     // std::cout << "splitting at vertex: " << v.id << std::endl;
@@ -155,17 +157,18 @@ void QuadSplit::PerformOperation() {
     //     std::cout << fvid << " ";
     // }
     // std::cout  << std::endl;
-    AddContents(mesh.F.at(newF_.id).Eids, edgesToSplit);
-    AddContents(mesh.F.at(newF_.id).Eids, newEdges);
-    for (auto id: newF_.Vids) {
-        AddContents(mesh.F.at(newF_.id).N_Fids, mesh.V.at(id).N_Fids);
+    auto& newF = mesh.F.at(mesh.F.size()-1);
+    AddContents(mesh.F.at(newF.id).Eids, edgesToSplit);
+    AddContents(mesh.F.at(newF.id).Eids, newEdges);
+    for (auto id: newF.Vids) {
+        AddContents(mesh.F.at(newF.id).N_Fids, mesh.V.at(id).N_Fids);
     }
     AddContents(newV.N_Vids, verticesToSplit);
     AddContents(newV.N_Vids, verticesToChange);
     AddContents(newV.N_Eids, newEdges);
     AddContents(newV.N_Eids, edgesToChange);
     AddContents(newV.N_Fids, facesToChange);
-    AddContents(newV.N_Fids, std::vector<size_t>{newF_.id});
+    AddContents(newV.N_Fids, std::vector<size_t>{newF.id});
 
     for (auto id: facesToChange) {
         auto& f = mesh.F.at(id);
@@ -181,7 +184,7 @@ void QuadSplit::PerformOperation() {
     
     for (auto eid: edgesToSplit) {
         auto& e = mesh.E.at(eid);
-        AddContents(e.N_Fids, std::vector<size_t>{newF_.id});
+        AddContents(e.N_Fids, std::vector<size_t>{newF.id});
         for (auto fid: facesToChange) {
             auto& f = mesh.F.at(fid);
             if (std::find(f.Eids.begin(), f.Eids.end(), e.id) != f.Eids.end()) {
@@ -193,7 +196,7 @@ void QuadSplit::PerformOperation() {
     }
     for (auto eid: newEdges) {
         auto& e = mesh.E.at(eid);
-        AddContents(e.N_Fids, std::vector<size_t>{newF_.id});
+        AddContents(e.N_Fids, std::vector<size_t>{newF.id});
         size_t nvid = e.Vids.at(0) == v.id ? e.Vids.at(1) : e.Vids.at(0);
         for (auto fid: facesToChange) {
             auto& f = mesh.F.at(fid);
@@ -207,12 +210,15 @@ void QuadSplit::PerformOperation() {
     UpdateContents(v.N_Vids, verticesToChange);
     UpdateContents(v.N_Eids, edgesToChange);
     UpdateContents(v.N_Fids, facesToChange);
-    for (auto id: newF_.Vids) {
-        AddContents(mesh.V.at(id).N_Fids, std::vector<size_t>{newF_.id});
+    for (auto id: newF.Vids) {
+        AddContents(mesh.V.at(id).N_Fids, std::vector<size_t>{newF.id});
     }
-    AddContents(v.N_Fids, std::vector<size_t>{newF_.id});
-    for (auto id: newF_.Vids) {
+    AddContents(v.N_Fids, std::vector<size_t>{newF.id});
+    for (auto id: newF.Vids) {
         SetSingularity(id);
+        auto& fv = mesh.V.at(id);
+        ToSmooth.push_back(id);
+        ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
     }
     // std::cout << "new face vertices neighbors" << std::endl;
     // for (auto id: mesh.F.at(newF_.id).Vids) {
@@ -227,5 +233,5 @@ void QuadSplit::PerformOperation() {
     //     std::cout << mesh.E.at(id).N_Fids.size() << " " << mesh.E.at(id).N_Fids.at(0) << " " << mesh.E.at(id).N_Fids.at(1) << std::endl;
     // } 
     // std::cout << "new face neighbor faces " << mesh.F.at(newF_.id).N_Fids.size() << std::endl;
-
+    Smooth();
 }

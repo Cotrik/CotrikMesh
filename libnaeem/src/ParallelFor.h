@@ -5,11 +5,15 @@
 #include <mutex>
 #include <math.h>
 
-#define NUM_THREADS std::thread::hardware_concurrency() == 0 ? 8 : std::thread::hardware_concurrency() * 4
+#define NUM_THREADS std::thread::hardware_concurrency() == 0 ? 8 : std::thread::hardware_concurrency() * 2
 
 static void parallelFor(int n, std::function<void (int start, int end)> func) {
     int nThreads = NUM_THREADS;
     int batchSize = ceil((float) n / (float) nThreads);
+    if (n <= nThreads) {
+        nThreads = 1;
+        batchSize = n;
+    }
     std::vector<std::thread> threads(nThreads);
     for (int i = 0; i < nThreads; i++) {
         int start = i * batchSize;

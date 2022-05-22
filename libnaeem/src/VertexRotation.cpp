@@ -2,7 +2,7 @@
 #include <queue>
 
 VertexRotation::VertexRotation() {}
-VertexRotation::VertexRotation(Mesh& mesh_, MeshUtil& mu_, size_t vid_) : SimplificationOperation(mesh_, mu_) {
+VertexRotation::VertexRotation(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t vid_) : SimplificationOperation(mesh_, mu_, smoother_) {
     vid = vid_;
 }
 VertexRotation::~VertexRotation() {}

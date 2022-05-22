@@ -10,11 +10,12 @@
 
 #include "Mesh.h"
 #include "MeshUtil.h"
+#include "Smooth.h"
 
 class ThreeFivePair {
     public:
         ThreeFivePair();
-        ThreeFivePair(Mesh& mesh_, MeshUtil& mu_, size_t threeId_, size_t fiveId_);
+        ThreeFivePair(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t threeId_, size_t fiveId_);
         ~ThreeFivePair();
 
         void MoveUpperLeft();
@@ -24,7 +25,10 @@ class ThreeFivePair {
         void MoveLowerLeft();
         void MoveLowerRight();
         void SplitSixSingularity();
-        void Move(size_t dest);
+        int Move(size_t dest, bool skipCheck = false);
+        void SetResolvedSingularity(size_t dest, int ref);
+        int GetResolvedSingularity();
+        std::vector<size_t> GetPairIds();
         
     private:
         void CheckValidity();
@@ -39,6 +43,9 @@ class ThreeFivePair {
         MeshUtil& mu = MeshUtil();
         size_t threeId, fiveId, edgeId;
         std::vector<size_t> pairEdges;
+        int resolvedSingularity = -1;
+        std::map<std::string, int> refMap = {{"Upper3", 1}, {"Upper5", 2}, {"Middle3", 3}, {"Middle5", 4}, {"Lower3", 5}, {"Lower5", 6}};
+        Smoother& smoother = Smoother();
 };
 
 #endif

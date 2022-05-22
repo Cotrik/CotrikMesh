@@ -12,12 +12,13 @@
 
 #include "Mesh.h"
 #include "MeshUtil.h"
+#include "Smooth.h"
 
 class SimplificationOperation {
     public:
         // Constructors and Destructor
         SimplificationOperation();
-        SimplificationOperation(Mesh& mesh_, MeshUtil& mu_);
+        SimplificationOperation(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_);
         ~SimplificationOperation();
 
         // setters and getters
@@ -44,10 +45,17 @@ class SimplificationOperation {
         bool IsCollapsable(size_t vid1, size_t vid2);
 
         void FixDoublet(size_t vid);
+        void UpdateNeighborInfo(Vertex& target, Vertex& source, int fId);
         void SetSingularity(size_t vid);
+
+        void Smooth();
+
+        std::vector<size_t> ToSmooth = {};
 
         Mesh& mesh = Mesh();
         MeshUtil& mu = MeshUtil();
+    private:
+        Smoother& smoother = Smoother();
 };
 
 #endif

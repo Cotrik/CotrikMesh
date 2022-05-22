@@ -24,70 +24,77 @@ void Smoother::SetMesh(Mesh& mesh_) {
     sm.SetTarget(mesh);
 }
 
-void Smoother::Smooth(std::vector<size_t>& V) {
+void Smoother::Smooth(Mesh& mesh_, std::vector<size_t>& V) {
     CheckValidity();
-
+    bool performMapping = V.empty() ? true : false;
     if (V.empty()) {
-        V.resize(mesh.V.size());
-        PARALLEL_FOR_BEGIN(mesh.V.size()) {
-            GetVerticesToSmooth(i, V);
-        } PARALLEL_FOR_END();
-        // std::cout << "Setting Vertices to smooth" << std::endl;
-        // for (int i = 0; i < mesh.V.size(); i++) {
-        //     GetVerticesToSmooth(i, V);
-        // }
+        V.resize(mesh_.V.size());
+        if (V.size() >= 2000) {
+            PARALLEL_FOR_BEGIN(mesh_.V.size()) {
+                GetVerticesToSmooth(i, mesh_, V);
+            } PARALLEL_FOR_END();    
+        } else {
+            for (int i = 0; i < mesh_.V.size(); i++) {
+                GetVerticesToSmooth(i, mesh_, V);
+            }
+        }
     }
     // smooth and project
 	int iters = 10;
+    // std::cout << "Smoothing " << V.size() << " vertices" << std::endl;
 
-    // SurfaceMapper sm(mesh, origMesh);
+    // SurfaceMapper sm(mesh_, origMesh);
     std::vector<glm::dvec3> centers(V.size());
 	while (iters--) {
         centers.clear();
         centers.resize(V.size());
-        PARALLEL_FOR_BEGIN(V.size()) {
-            GetOptimizedPositions(i, V, centers);
-        } PARALLEL_FOR_END();
-        // std::cout << "Getting optimized positions" << std::endl;
-        // for (int i = 0; i < mesh.V.size(); i++) {
-        //     GetOptimizedPositions(i, V, centers);
-        // }
-        PARALLEL_FOR_BEGIN(V.size()) {
-            mesh.V.at(V.at(i)) = centers.at(i);
-        } PARALLEL_FOR_END();
-        // std::cout << "Setting centers" << std::endl;
-        // for (int i = 0; i < mesh.V.size(); i++) {
-        //     mesh.V.at(V.at(i)) = centers.at(i);
-        // }
+        if (V.size() >= 2000) {
+            PARALLEL_FOR_BEGIN(V.size()) {
+                GetOptimizedPositions(i, mesh_, V, centers);
+            } PARALLEL_FOR_END();
+        
+            PARALLEL_FOR_BEGIN(V.size()) {
+                mesh_.V.at(V.at(i)) = centers.at(i);
+            } PARALLEL_FOR_END();
+        
+        } else {
+            for (int i = 0; i < V.size(); i++) {
+                GetOptimizedPositions(i, mesh_, V, centers);
+            }
+            for (int i = 0; i < V.size(); i++) {
+                mesh_.V.at(V.at(i)) = centers.at(i);
+            }
+        }
     }
-    for (auto& v: mesh.V) {
-        v = sm.GetClosestPoint(v.xyz());
+    if (!performMapping) return;
+    for (int i = 0; i < V.size(); i++) {
+        mesh_.V.at(V.at(i)) = sm.GetClosestPoint(mesh_.V.at(V.at(i)).xyz());
     }
 }
 
-void Smoother::GetVerticesToSmooth(int iter, std::vector<size_t>& V) {
-    V.at(iter) = mesh.V.at(iter).id;
+void Smoother::GetVerticesToSmooth(int iter, Mesh& mesh_, std::vector<size_t>& V) {
+    V.at(iter) = mesh_.V.at(iter).id;
 }
 
-void Smoother::GetOptimizedPositions(int iter, std::vector<size_t>& V, std::vector<glm::dvec3>& centers) {    
+void Smoother::GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>& V, std::vector<glm::dvec3>& centers) {    
     // std::cout << "iter: " << iter << " " << V.at(iter) << std::endl;
-    auto& v = mesh.V.at(V.at(iter));
+    auto& v = mesh_.V.at(V.at(iter));
     // std::cout << "v: " << v.id << std::endl;
     centers.at(iter) = v.xyz();
     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty()) return;
-    if (v.type < FEATURE) {
+    if (v.type != FEATURE) {
         double n = 0.0;
         glm::dvec3 center(0.0, 0.0, 0.0);
         // std::cout << "vertices neighbor edges access " << v.id << std::endl;
         for (int i = 0; i < v.N_Eids.size(); i++) {
             // std::cout << "getting vertex neighbor number: " << v.N_Eids.size() << std::endl;
-            auto& e = mesh.E.at(v.N_Eids.at(i));
+            auto& e = mesh_.E.at(v.N_Eids.at(i));
             size_t nvid = e.Vids[0] != v.id ? e.Vids[0] : e.Vids[1];
             // std::cout << "e: " << e.Vids[0] << " " << e.Vids[1] << std::endl;
             // std::cout << "nvid: " << nvid << std::endl;
             std::vector<size_t> nvids;
             for (auto fid: e.N_Fids) {
-                auto& f = mesh.F.at(fid);
+                auto& f = mesh_.F.at(fid);
                 // std::cout << "f: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
                 for (auto fvid: f.Vids) {
                     if (fvid != v.id && fvid != nvid && std::find(v.N_Vids.begin(), v.N_Vids.end(), fvid) != v.N_Vids.end()) {
@@ -97,9 +104,9 @@ void Smoother::GetOptimizedPositions(int iter, std::vector<size_t>& V, std::vect
                 }
             }
             // std::cout << "neighbor vertices: " << nvids.size() << std::endl;
-            auto& v_a = mesh.V.at(nvid);
-            auto& v_b = mesh.V.at(nvids.at(0));
-            auto& v_c = mesh.V.at(nvids.at(1));
+            auto& v_a = mesh_.V.at(nvid);
+            auto& v_b = mesh_.V.at(nvids.at(0));
+            auto& v_c = mesh_.V.at(nvids.at(1));
             // std::cout << "got neighbor vertices to smooth" << std::endl;
             glm::dvec3 V_j = v.xyz() - v_a.xyz();
             glm::dvec3 V_j_minus_1 = v_b.xyz() - v_a.xyz(); 

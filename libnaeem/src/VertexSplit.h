@@ -13,7 +13,7 @@
 class VertexSplit : public SimplificationOperation {
     public:
         VertexSplit();
-        VertexSplit(Mesh& mesh_, MeshUtil& mu_, size_t vid_);
+        VertexSplit(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t vid_, std::vector<size_t> edgesToSplit_ = {});
         ~VertexSplit();
 
         
@@ -25,7 +25,7 @@ class VertexSplit : public SimplificationOperation {
         
     private:
         size_t vid;
-
+        std::vector<size_t> splitEdges;
         std::vector<size_t> SelectEdgesToSplit();
 
 };

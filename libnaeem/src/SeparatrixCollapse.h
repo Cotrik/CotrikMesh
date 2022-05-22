@@ -17,7 +17,7 @@ class SeparatrixCollapse : public SimplificationOperation {
     public:
         // Constructors and Destructor
         SeparatrixCollapse();
-        SeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, std::vector<size_t> linkV, std::vector<size_t> linkE, bool half_ = false);
+        SeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, std::vector<size_t> linkV, std::vector<size_t> linkE, bool half_ = false);
         ~SeparatrixCollapse();
 
         void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));

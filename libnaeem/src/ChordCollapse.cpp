@@ -1,7 +1,7 @@
 #include "ChordCollapse.h"
 
 ChordCollapse::ChordCollapse() {}
-ChordCollapse::ChordCollapse(Mesh& mesh_, MeshUtil& mu_, ChordExtractor& ce_, size_t chordId_) : SimplificationOperation(mesh_, mu_), ce(ce_) {
+ChordCollapse::ChordCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, ChordExtractor& ce_, size_t chordId_) : SimplificationOperation(mesh_, mu_, smoother_), ce(ce_) {
     chord = ce.Chords.at(chordId_);
 }
 ChordCollapse::~ChordCollapse() {}

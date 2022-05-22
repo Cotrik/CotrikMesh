@@ -2,7 +2,7 @@
 
 SimplificationOperation::SimplificationOperation() {}
 
-SimplificationOperation::SimplificationOperation(Mesh& mesh_, MeshUtil& mu_) : mesh(mesh_), mu(mu_) {}
+SimplificationOperation::SimplificationOperation(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_) : mesh(mesh_), mu(mu_), smoother(smoother_) {}
 
 SimplificationOperation::~SimplificationOperation() {}
 
@@ -87,6 +87,148 @@ bool SimplificationOperation::IsCollapsable(size_t vid1, size_t vid2) {
     return res;
 }
 
+void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source, int fId) {
+    CheckValidity();
+
+    Face& face = mesh.F.at(fId);
+    std::vector<size_t> verticesToRemove{source.id};
+    std::vector<size_t> edgesToRemove;
+    std::vector<size_t> edgesToKeep;
+    std::vector<size_t> facesToRemove{(size_t) fId};
+    for (auto eid: face.Eids) {
+        Edge& e = mesh.E.at(eid);
+        if (std::find(e.Vids.begin(), e.Vids.end(), source.id) != e.Vids.end()) {
+            edgesToRemove.push_back(eid);
+        } else {
+            edgesToKeep.push_back(eid);
+        }
+    }
+    
+    std::vector<size_t> diffSourceVertices = GetDifference(source.N_Vids, target.N_Vids);
+    std::vector<size_t> diffSourceEdges = GetDifference(source.N_Eids, edgesToRemove);
+    std::vector<size_t> diffSourceFaces = GetDifference(source.N_Fids, facesToRemove);
+
+    std::vector<size_t> diffTargetVertices = GetDifference(target.N_Vids, source.N_Vids);
+    std::vector<size_t> diffTargetEdges = GetDifference(target.N_Eids, edgesToKeep);
+    std::vector<size_t> diffTargetFaces = GetDifference(target.N_Fids, facesToRemove);
+
+    // std::cout << "target: " << target.id << std::endl;
+    // std::cout << "source: " << source.id << std::endl;
+
+    // for (auto fvid: face.Vids) {
+    //     std::cout << "face v: " << fvid << std::endl;
+    // }
+
+    // for (auto eid: face.Eids) {
+    //     Edge& e = mesh.E.at(eid);
+    //     std::cout << "face e: " << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;
+    // }
+
+    // std::cout << "verticesToRemove: " << verticesToRemove.size() << std::endl;
+    // std::cout << "edgesToRemove: " << edgesToRemove.size() << std::endl;
+    // std::cout << "edgesToKeep: " << edgesToKeep.size() << std::endl;
+    // std::cout << "diffSourceVertices: " << diffSourceVertices.size() << std::endl;
+    // std::cout << "diffSourceEdges: " << diffSourceEdges.size() << std::endl;
+    // std::cout << "diffSourceFaces: " << diffSourceFaces.size() << std::endl;
+    // std::cout << "diffTargetVertices: " << diffTargetVertices.size() << std::endl;
+    // std::cout << "diffTargetEdges: " << diffTargetEdges.size() << std::endl;
+    // std::cout << "diffTargetFaces: " << diffTargetFaces.size() << std::endl;
+    
+    for (auto vid: source.N_Vids) {
+        Vertex& v = mesh.V.at(vid);
+        AddContents(v.N_Vids, std::vector<size_t>{target.id});
+        UpdateContents(v.N_Vids, verticesToRemove);
+        UpdateContents(v.N_Eids, edgesToRemove);
+        UpdateContents(v.N_Fids, facesToRemove);
+    }
+
+    for (auto eid: diffSourceEdges) {
+        Edge& e = mesh.E.at(eid);
+        if (e.Vids.at(0) == source.id) e.Vids.at(0) = target.id;
+        if (e.Vids.at(1) == source.id) e.Vids.at(1) = target.id;
+    }
+
+    for (auto fid: diffSourceFaces) {
+        Face& f = mesh.F.at(fid);
+        for (size_t i = 0; i < f.Vids.size(); i++) {
+            if (f.Vids.at(i) == source.id) {
+                f.Vids.at(i) = target.id;
+                break;
+            }
+        }
+        AddContents(f.N_Fids, diffTargetFaces);
+        UpdateContents(f.N_Fids, facesToRemove);
+    }
+
+    AddContents(target.N_Vids, diffSourceVertices);
+    AddContents(target.N_Eids, diffSourceEdges);
+    AddContents(target.N_Fids, diffSourceFaces);
+    UpdateContents(target.N_Fids, facesToRemove);
+    
+    for (auto fid: diffTargetFaces) { 
+        Face& f = mesh.F.at(fid);
+        AddContents(f.N_Fids, diffSourceFaces);
+        UpdateContents(f.N_Fids, facesToRemove);
+    }
+
+    for (auto vid: face.Vids) {
+        if (vid == target.id || vid == source.id) continue;
+        Vertex& v = mesh.V.at(vid);
+        size_t e1, e2;
+        for (auto eid: face.Eids) {
+            Edge& e = mesh.E.at(eid);
+
+            if (std::find(e.Vids.begin(), e.Vids.end(), target.id) != e.Vids.end() &&
+                std::find(e.Vids.begin(), e.Vids.end(), v.id) != e.Vids.end()) {
+                    e1 = e.id;
+            } else if (std::find(e.Vids.begin(), e.Vids.end(), source.id) != e.Vids.end() && 
+                std::find(e.Vids.begin(), e.Vids.end(), v.id) != e.Vids.end()) {
+                    e2 = e.id;
+            }
+        }
+        Edge& edgeToKeep = mesh.E.at(e1);
+        Edge& edgeToRemove = mesh.E.at(e2);
+        Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh.F.at(edgeToKeep.N_Fids.at(1)) : mesh.F.at(edgeToKeep.N_Fids.at(0));
+        Face& faceToChange = edgeToRemove.N_Fids.at(0) == face.id ? mesh.F.at(edgeToRemove.N_Fids.at(1)) : mesh.F.at(edgeToRemove.N_Fids.at(0));
+        for (int i = 0; i < faceToChange.Eids.size(); i++) {
+            if (faceToChange.Eids.at(i) == edgeToRemove.id) {
+                faceToChange.Eids.at(i) = edgeToKeep.id;
+                break;
+            }
+        }
+        for (int i = 0; i < edgeToKeep.N_Fids.size(); i++) {
+            if (edgeToKeep.N_Fids.at(i) == face.id) {
+                edgeToKeep.N_Fids.at(i) = faceToChange.id;
+            }
+        }
+
+        UpdateContents(v.N_Vids, verticesToRemove);
+        UpdateContents(v.N_Eids, edgesToRemove);
+        UpdateContents(v.N_Fids, facesToRemove);
+        for (auto nfid: v.N_Fids) {
+            Face& f = mesh.F.at(nfid);
+            UpdateContents(f.N_Fids, facesToRemove);
+        }
+    }
+    source.N_Vids.clear();
+    source.N_Eids.clear();
+    source.N_Fids.clear();
+    for (auto id: face.Vids) {
+        FixDoublet(id);
+    }
+    for (auto id: face.Vids) {
+        SetSingularity(id);
+        auto& fv = mesh.V.at(id);
+        ToSmooth.push_back(id);
+        ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
+    }
+    
+    face.N_Fids.clear();
+    // face.Vids.clear();
+    // face.Eids.clear();
+    // Smooth();
+}
+
 
 void SimplificationOperation::FixDoublet(size_t vid) {
     CheckValidity();
@@ -97,9 +239,19 @@ void SimplificationOperation::FixDoublet(size_t vid) {
         if (mesh.F.at(fid).Vids.empty()) return;
     }
 
-    std::cout << "Removing doublet at: " << v.id << std::endl;
+    // std::cout << "Removing doublet at: " << v.id << std::endl;
 
-    Face& faceToKeep = mesh.F.at(v.N_Fids.at(0));
+    Face& faceToRemove = mesh.F.at(v.N_Fids.at(0));
+    size_t targetId = faceToRemove.Vids.at((std::distance(faceToRemove.Vids.begin(), std::find(faceToRemove.Vids.begin(), faceToRemove.Vids.end(), vid)) + 2) % faceToRemove.Vids.size());
+    Vertex& target = mesh.V.at(targetId);
+    Vertex& source = mesh.V.at(vid);
+    UpdateNeighborInfo(target, source, faceToRemove.id);
+    
+    // for (auto fvid: faceToRemove.Vids) {
+    //     FixDoublet(fvid);
+    // }
+
+    /*Face& faceToKeep = mesh.F.at(v.N_Fids.at(0));
     Face& faceToRemove = mesh.F.at(v.N_Fids.at(1));
 
     size_t vertexToAdd = faceToRemove.Vids.at((std::distance(faceToRemove.Vids.begin(), std::find(faceToRemove.Vids.begin(), faceToRemove.Vids.end(), vid)) + 2) % faceToRemove.Vids.size());
@@ -129,13 +281,14 @@ void SimplificationOperation::FixDoublet(size_t vid) {
     v.N_Eids.clear();
     v.N_Fids.clear();
     faceToRemove.Vids.clear();
+    faceToRemove.Eids.clear();
     faceToRemove.N_Fids.clear();
     for (auto fvid: faceToKeep.Vids) {
         SetSingularity(fvid);
     }
     for (auto fvid: faceToKeep.Vids) {
         FixDoublet(fvid);
-    }
+    }*/
 }
 
 void SimplificationOperation::SetSingularity(size_t vid) {
@@ -143,5 +296,44 @@ void SimplificationOperation::SetSingularity(size_t vid) {
 
     auto& v = mesh.V.at(vid);
     v.isSingularity = v.N_Vids.size() == 4 ? false : true;
+}
+
+void SimplificationOperation::Smooth() {
+    // return;
+    int n = ToSmooth.size();
+    for (int i = 0; i < n; i++) {
+        auto& v = mesh.V.at(ToSmooth.at(i));
+        ToSmooth.insert(ToSmooth.end(), v.N_Vids.begin(), v.N_Vids.end());
+    }
+    smoother.Smooth(mesh, ToSmooth);
+    return;
+    int it = 0;
+    while (it < 10) {
+        std::vector<glm::dvec3> delta(ToSmooth.size());        
+        for (int i = 0; i < ToSmooth.size(); i++) {
+            auto& v = mesh.V.at(ToSmooth.at(i));
+            if (v.N_Vids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+            double n = 0.0;
+            glm::dvec3 center(0.0, 0.0, 0.0);
+            double w_agg = 0.0;
+            for (auto nvid: v.N_Vids) {
+                auto& nv = mesh.V.at(nvid);
+                w_agg += glm::length(nv.xyz() - v.xyz());
+            }
+            for (auto nvid: v.N_Vids) {
+                auto& nv = mesh.V.at(nvid);
+                double w = 1.0 - (glm::length(nv.xyz() - v.xyz()) / w_agg);
+                center += (w * nv.xyz());
+                n += w;
+            }
+            delta.at(i) = center / n;
+        }
+        for (int i = 0; i < ToSmooth.size(); i++) {
+            auto& v = mesh.V.at(ToSmooth.at(i));
+            if (v.N_Vids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+            v.xyz(delta.at(i));
+        }
+        it++;
+    }
 }
 

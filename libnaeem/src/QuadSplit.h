@@ -9,7 +9,7 @@
 class QuadSplit : public SimplificationOperation {
     public:
         QuadSplit();
-        QuadSplit(Mesh& mesh_, MeshUtil& mu_, size_t vid_, std::vector<size_t> verticesToSplit_, std::vector<size_t> verticesToChange_);
+        QuadSplit(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t vid_, std::vector<size_t> verticesToSplit_, std::vector<size_t> verticesToChange_);
         ~QuadSplit();
 
         void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));

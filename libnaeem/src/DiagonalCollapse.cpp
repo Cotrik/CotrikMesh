@@ -1,7 +1,7 @@
 #include "DiagonalCollapse.h"
 
 DiagonalCollapse::DiagonalCollapse() : SimplificationOperation() {}
-DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, int f, size_t d_idx1_, size_t d_idx2_) : SimplificationOperation(mesh_, mu_) {
+DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, int f, size_t d_idx1_, size_t d_idx2_) : SimplificationOperation(mesh_, mu_, smoother_) {
     fId = f;
     d_idx1 = d_idx1_;
     d_idx2 = d_idx2_;
@@ -59,11 +59,14 @@ void DiagonalCollapse::PerformOperation() {
     target = 0.5 * (target.xyz() + source.xyz());
 
     // step 2: add source's neighboring vertices, edges and faces to target's neighbors
-    UpdateNeighborInfo(target, source);
-
+    // UpdateNeighborInfo(target, source);
+    UpdateNeighborInfo(target, source, fId);
+    ToSmooth.push_back(target.id);
+    AddContents(ToSmooth, target.N_Vids);
+    Smooth();
 }
 
-void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
+/*void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
     Face& face = mesh.F.at(fId);
     std::vector<size_t> verticesToRemove{source.id};
     std::vector<size_t> edgesToRemove;
@@ -194,7 +197,9 @@ void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
         SetSingularity(id);
     }
     face.N_Fids.clear();
-}
+    // face.Vids.clear();
+    // face.Eids.clear();
+}*/
 // std::cout << "";
 // for (auto id: ) {
 //     std::cout << id << " ";

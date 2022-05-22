@@ -21,14 +21,14 @@ class Smoother {
 
         void SetMesh(Mesh& mesh_);
 
-        void Smooth(std::vector<size_t>& V);
+        void Smooth(Mesh& mesh_, std::vector<size_t>& V);
     private:
         Mesh& mesh = Mesh();
         SurfaceMapper sm;
 
         void CheckValidity();
-        void GetVerticesToSmooth(int iter, std::vector<size_t>& V);
-        void GetOptimizedPositions(int iter, std::vector<size_t>& V, std::vector<glm::dvec3>& centers);
+        void GetVerticesToSmooth(int iter, Mesh& mesh_, std::vector<size_t>& V);
+        void GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>& V, std::vector<glm::dvec3>& centers);
 };
 
 #endif

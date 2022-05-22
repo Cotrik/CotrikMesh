@@ -13,7 +13,7 @@
 class VertexRotation : public SimplificationOperation {
     public:
         VertexRotation();
-        VertexRotation(Mesh& mesh_, MeshUtil& mu_, size_t vid_);
+        VertexRotation(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t vid_);
         ~VertexRotation();
 
         

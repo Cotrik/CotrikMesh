@@ -1,7 +1,7 @@
 #include "DirectSeparatrixCollapse.h"
 
 DirectSeparatrixCollapse::DirectSeparatrixCollapse() : SimplificationOperation() {}
-DirectSeparatrixCollapse::DirectSeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, size_t cid_, std::vector<size_t> s1_, std::vector<size_t> s2_, bool looseCollapse_) : SimplificationOperation(mesh_, mu_) {
+DirectSeparatrixCollapse::DirectSeparatrixCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t cid_, std::vector<size_t> s1_, std::vector<size_t> s2_, bool looseCollapse_) : SimplificationOperation(mesh_, mu_, smoother_) {
     cid = cid_;
     s1 = s1_;
     s2 = s2_;
@@ -267,11 +267,12 @@ void DirectSeparatrixCollapse::PerformOperation() {
     SetSingularity(s2_2.id);
     
     // collect vertices to smooth
-    smoothV.push_back(centerV.id);
-    smoothV.push_back(s2_1.id);
-    smoothV.push_back(s2_2.id);
-    smoothV.insert(smoothV.end(), s2_1.N_Vids.begin(), s2_1.N_Vids.end());
-    smoothV.insert(smoothV.end(), s2_2.N_Vids.begin(), s2_2.N_Vids.end());
+    ToSmooth.push_back(centerV.id);
+    ToSmooth.push_back(s2_1.id);
+    ToSmooth.push_back(s2_2.id);
+    ToSmooth.insert(ToSmooth.end(), s2_1.N_Vids.begin(), s2_1.N_Vids.end());
+    ToSmooth.insert(ToSmooth.end(), s2_2.N_Vids.begin(), s2_2.N_Vids.end());
+    Smooth();
 }
 
 void DirectSeparatrixCollapse::SetUpdateElements(size_t vid) {

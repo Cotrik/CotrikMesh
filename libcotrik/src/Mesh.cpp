@@ -3736,6 +3736,7 @@ double Mesh::GetQuadFaceArea(std::vector<size_t>& Vids) {
 
 double Mesh::GetQuadMeshArea() {
     for (auto& f: F) totalArea += GetQuadFaceArea(f.Vids);
+    return totalArea;
 }
 
 const unsigned int HexEdges[12][2] =

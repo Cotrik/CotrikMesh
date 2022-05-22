@@ -1,7 +1,7 @@
 #include "EdgeRotation.h"
 
 EdgeRotation::EdgeRotation() {}
-EdgeRotation::EdgeRotation(Mesh& mesh_, MeshUtil& mu_, size_t eid_, bool clockwise_) : SimplificationOperation(mesh_, mu_) {
+EdgeRotation::EdgeRotation(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t eid_, bool clockwise_) : SimplificationOperation(mesh_, mu_, smoother_) {
     eid = eid_;
     clockwise = clockwise_;
 }
@@ -110,6 +110,9 @@ void EdgeRotation::PerformOperation() {
         auto& f = mesh.F.at(fid);
         for (auto fvid: f.Vids) {
             SetSingularity(fvid);
+            auto& fv = mesh.V.at(fvid);
+            ToSmooth.push_back(fvid);
+            ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
         }
     }
     for (auto fid: e.N_Fids) {
@@ -119,6 +122,7 @@ void EdgeRotation::PerformOperation() {
         }
     }
     // std::cout << "Finished Edge Rotation" << std::endl;
+    Smooth();
 }
 
 std::vector<size_t> EdgeRotation::GetVertices(Edge& e, size_t v1, size_t v2) {

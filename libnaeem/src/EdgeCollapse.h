@@ -13,7 +13,7 @@
 class EdgeCollapse : public SimplificationOperation {
     public:
         EdgeCollapse();
-        EdgeCollapse(Mesh& mesh_, MeshUtil& mu_, std::shared_ptr<SimplificationOperation> vr_, std::shared_ptr<SimplificationOperation> dc_);
+        EdgeCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, std::shared_ptr<SimplificationOperation> vr_, std::shared_ptr<SimplificationOperation> dc_);
         ~EdgeCollapse();
 
         void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));

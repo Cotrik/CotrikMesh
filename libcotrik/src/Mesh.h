@@ -202,6 +202,11 @@ public:
 	glm::dvec3 xyz() const {
 		return glm::dvec3(x, y, z);
 	}
+    void xyz(glm::dvec3 r) {
+		x = r.x;
+        y = r.y;
+        z = r.z;
+	}
     glm::dvec3 normal;
 
     // for edge cone triangle surface

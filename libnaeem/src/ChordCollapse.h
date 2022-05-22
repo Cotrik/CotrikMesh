@@ -17,7 +17,7 @@
 class ChordCollapse : public SimplificationOperation {
     public:
         ChordCollapse();
-        ChordCollapse(Mesh& mesh_, MeshUtil& mu_, ChordExtractor& ce_, size_t chordId_);
+        ChordCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, ChordExtractor& ce_, size_t chordId_);
         ~ChordCollapse();
 
         void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0));

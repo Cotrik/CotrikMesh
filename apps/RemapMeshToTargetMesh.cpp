@@ -60,14 +60,29 @@ int main(int argc, char* argv[]) {
     sg.SetDirectSeparatrixOperations(false);
     sg.SetDirectSeparatrixOperations(true);
     sg.FixBoundary();
-    sg.GetSingularityPairs();
+    bool res = true;
+    while (res) {
+        res = sg.ResolveHighValences();
+    }
+    // sg.ResolveSingularities();
+    
+    // sg.GetSingularityPairs();
+    for (int i = 0; i < 10; i++) {
+        sg.ResolveSingularities();
+        res = true;
+        while (res) {
+            res = sg.ResolveHighValences();
+        }
+        // sg.Smooth();
+    }
+    
+    std::cout << "After GetSingularityPairs" << std::endl;
     // sg.SetQuadSplitOperations();
     // sg.SetDirectSeparatrixOperations();
     // sg.SetBoundarySeparatrixOperations();
     // sg.FixBoundary();
     // sg.SetBoundarySeparatrixOperations();
     // sg.FixBoundary();
-    // sg.ResolveSingularityPairs();
     // sg.FixBoundary();
     for (auto& v: source.V) {
         if (v.N_Vids.size() == 4 && v.isSingularity) {
@@ -83,7 +98,7 @@ int main(int argc, char* argv[]) {
     // sg.FixBoundary();
     // sg.SetHalfSeparatrixOperations();
     // sg.SetChordCollapseOperations();
-    sg.Smooth();
+    // std::cout << "Before Smoothing" << std::endl;
     // sg.SetEdgeRotationOperations();
     // sg.SetVertexRotationOperations();
     // sg.SetDiagonalCollapseOperations();
@@ -263,3 +278,10 @@ if (breakLoop) break;*/
 // Proper metric
 // Comparison
 // Ranking based on configuration
+
+// Feedback Annual Review Nguen
+// Include slides at the start about the Phd program
+// Add date on slides
+// Include visual examples in the first slides
+// Too much content on csn
+// what is a visualization task
