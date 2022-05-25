@@ -43,6 +43,9 @@ int main(int argc, char* argv[]) {
     //     std:cout << el.N_Fids.size() << std::endl;
     // }
     // return 0;
+    // for (auto& v: source.V) {
+    //     std::cout << v.id << ": " << " nvids: " << v.N_Vids.size() << " neids: " << v.N_Eids.size() << " nfids: " << v.N_Fids.size() << std::endl;
+    // }
     FeatureExtractor fe(source, 20.0);
     fe.Extract();
 
@@ -55,6 +58,9 @@ int main(int argc, char* argv[]) {
     // sg.SetQuadSplitOperations();
     // sg.FixBoundary();
     sg.SetBoundaryDirectSeparatrixOperations(false);
+    // std::cout << "Input mesh V: " << source.V.size() << std::endl; 
+    // std::cout << "Input mesh F: " << source.F.size() << std::endl;
+    // return 0;
     sg.SetBoundaryDirectSeparatrixOperations(true);
     sg.FixBoundary();
     sg.SetDirectSeparatrixOperations(false);

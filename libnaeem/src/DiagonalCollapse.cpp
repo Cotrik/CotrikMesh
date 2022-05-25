@@ -56,12 +56,14 @@ void DiagonalCollapse::PerformOperation() {
     Vertex& v4 = mesh.V.at(f.Vids.at((d_idx2 + 1) % f.Vids.size()));
 
     // step 1: Set target location halfway between source and target
-    target = 0.5 * (target.xyz() + source.xyz());
+    // target = 0.5 * (target.xyz() + source.xyz());
+    SetCoords(target.id, 0.5 * (target.xyz() + source.xyz()));
 
     // step 2: add source's neighboring vertices, edges and faces to target's neighbors
     // UpdateNeighborInfo(target, source);
     UpdateNeighborInfo(target, source, fId);
-    ToSmooth.push_back(target.id);
+    // ToSmooth.push_back(target.id);
+    AddContents(ToSmooth, std::vector<size_t>{target.id});
     AddContents(ToSmooth, target.N_Vids);
     Smooth();
 }

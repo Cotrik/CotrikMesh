@@ -111,8 +111,10 @@ void EdgeRotation::PerformOperation() {
         for (auto fvid: f.Vids) {
             SetSingularity(fvid);
             auto& fv = mesh.V.at(fvid);
-            ToSmooth.push_back(fvid);
-            ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
+            // ToSmooth.push_back(fvid);
+            AddContents(ToSmooth, std::vector<size_t>{fvid});
+            AddContents(ToSmooth, fv.N_Vids);
+            // ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
         }
     }
     for (auto fid: e.N_Fids) {

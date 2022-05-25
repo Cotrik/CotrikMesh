@@ -267,11 +267,14 @@ void DirectSeparatrixCollapse::PerformOperation() {
     SetSingularity(s2_2.id);
     
     // collect vertices to smooth
-    ToSmooth.push_back(centerV.id);
-    ToSmooth.push_back(s2_1.id);
-    ToSmooth.push_back(s2_2.id);
-    ToSmooth.insert(ToSmooth.end(), s2_1.N_Vids.begin(), s2_1.N_Vids.end());
-    ToSmooth.insert(ToSmooth.end(), s2_2.N_Vids.begin(), s2_2.N_Vids.end());
+    // ToSmooth.push_back(centerV.id);
+    // ToSmooth.push_back(s2_1.id);
+    // ToSmooth.push_back(s2_2.id);
+    AddContents(ToSmooth, std::vector<size_t>{centerV.id, s2_1.id, s2_2.id});
+    AddContents(ToSmooth, s2_1.N_Vids);
+    AddContents(ToSmooth, s2_2.N_Vids);
+    // ToSmooth.insert(ToSmooth.end(), s2_1.N_Vids.begin(), s2_1.N_Vids.end());
+    // ToSmooth.insert(ToSmooth.end(), s2_2.N_Vids.begin(), s2_2.N_Vids.end());
     Smooth();
 }
 

@@ -29,6 +29,7 @@ class Smoother {
         void CheckValidity();
         void GetVerticesToSmooth(int iter, Mesh& mesh_, std::vector<size_t>& V);
         void GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>& V, std::vector<glm::dvec3>& centers);
+        void SetCoords(Mesh& mesh_, size_t vid, glm::dvec3& c);
 };
 
 #endif

@@ -44,17 +44,18 @@ void Smoother::Smooth(Mesh& mesh_, std::vector<size_t>& V) {
     // std::cout << "Smoothing " << V.size() << " vertices" << std::endl;
 
     // SurfaceMapper sm(mesh_, origMesh);
-    std::vector<glm::dvec3> centers(V.size());
 	while (iters--) {
-        centers.clear();
-        centers.resize(V.size());
+        // centers.clear();
+        // centers.resize(V.size());
+        std::vector<glm::dvec3> centers(V.size());
         if (V.size() >= 2000) {
             PARALLEL_FOR_BEGIN(V.size()) {
                 GetOptimizedPositions(i, mesh_, V, centers);
             } PARALLEL_FOR_END();
         
             PARALLEL_FOR_BEGIN(V.size()) {
-                mesh_.V.at(V.at(i)) = centers.at(i);
+                // mesh_.V.at(V.at(i)) = centers.at(i);
+                SetCoords(mesh_, V.at(i), centers.at(i));
             } PARALLEL_FOR_END();
         
         } else {
@@ -62,13 +63,15 @@ void Smoother::Smooth(Mesh& mesh_, std::vector<size_t>& V) {
                 GetOptimizedPositions(i, mesh_, V, centers);
             }
             for (int i = 0; i < V.size(); i++) {
-                mesh_.V.at(V.at(i)) = centers.at(i);
+                // mesh_.V.at(V.at(i)) = centers.at(i);
+                SetCoords(mesh_, V.at(i), centers.at(i));
             }
         }
     }
     if (!performMapping) return;
     for (int i = 0; i < V.size(); i++) {
-        mesh_.V.at(V.at(i)) = sm.GetClosestPoint(mesh_.V.at(V.at(i)).xyz());
+        // mesh_.V.at(V.at(i)) = sm.GetClosestPoint(mesh_.V.at(V.at(i)).xyz());
+        SetCoords(mesh_, V.at(i), sm.GetClosestPoint(mesh_.V.at(V.at(i)).xyz()));
     }
 }
 
@@ -96,6 +99,8 @@ void Smoother::GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>&
             for (auto fid: e.N_Fids) {
                 auto& f = mesh_.F.at(fid);
                 // std::cout << "f: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
+                // int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                // nvids.push_back(f.Vids.at((idx+2)%f.Vids.size()));
                 for (auto fvid: f.Vids) {
                     if (fvid != v.id && fvid != nvid && std::find(v.N_Vids.begin(), v.N_Vids.end(), fvid) != v.N_Vids.end()) {
                         nvids.push_back(fvid);
@@ -115,21 +120,31 @@ void Smoother::GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>&
             double r = glm::length(V_j);
             glm::dvec3 p1 = v_a.xyz() + (r * glm::normalize(V_j_minus_1));
             glm::dvec3 p2 = v_a.xyz() + (r * glm::normalize(V_j_plus_1));
-            
-            double l = glm::length((0.5 * (p1 + p2)) - v_a.xyz());
+            glm::dvec3 p = (0.5 * (p1 + p2)) - v_a.xyz();
+
+            double l = glm::length(p);
             if (l == 0) continue;
-            glm::dvec3 direction = glm::normalize((0.5 * (p1 + p2)) - v_a.xyz());
+            glm::dvec3 direction = glm::normalize(p);
             glm::dvec3 newPoint_p = v_a.xyz() + (r * direction);
             glm::dvec3 newPoint_n = v_a.xyz() + (r * (-direction));
             
             center += glm::distance(v.xyz(), newPoint_p) < glm::distance(v.xyz(), newPoint_n) ? newPoint_p : newPoint_n;
-            n += 1;
+            n += 1.0;
             // std::cout << "n: " << n << std::endl;
         }
         // std::cout << "centers size: " << centers.size() << std::endl;
         // std::cout << "centers: " << centers.at(iter).x << " " << centers.at(iter).y << " " << centers.at(iter).z << std::endl; 
-        // std::cout << "center: " << center.x << " " << center.y << " " << center.z << std::endl; 
-        centers.at(iter) = (center / n);
+        // std::cout << "center: " << center.x << " " << center.y << " " << center.z << std::endl;
+        if (n > 0) {
+            centers.at(iter) = (center / n);
+        }
     }
 }
+
+void Smoother::SetCoords(Mesh& mesh_, size_t vid, glm::dvec3& c) {
+    mesh_.V.at(vid).x = c.x;
+    mesh_.V.at(vid).y = c.y;
+    mesh_.V.at(vid).z = c.z;
+}
+
 

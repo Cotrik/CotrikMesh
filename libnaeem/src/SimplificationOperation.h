@@ -49,6 +49,7 @@ class SimplificationOperation {
         void SetSingularity(size_t vid);
 
         void Smooth();
+        void SetCoords(size_t vid, glm::dvec3& c);
 
         std::vector<size_t> ToSmooth = {};
 

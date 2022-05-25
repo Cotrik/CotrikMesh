@@ -58,7 +58,8 @@ int ThreeFivePair::Move(size_t dest, bool skipCheck) {
     auto& three = mesh.V.at(threeId);
     auto& five = mesh.V.at(fiveId);
     
-    if ((dest == three.id || dest == five.id) && five.N_Vids.size() == 6 && skipCheck) {
+    // if ((dest == three.id || dest == five.id) && five.N_Vids.size() == 6 && skipCheck) {
+    if ((dest == three.id || dest == five.id) && five.N_Vids.size() == 6) {
         SplitSixSingularity();
         resolvedSingularity = fiveId;
         return -1;

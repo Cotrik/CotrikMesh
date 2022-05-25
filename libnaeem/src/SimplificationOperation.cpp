@@ -219,8 +219,11 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
     for (auto id: face.Vids) {
         SetSingularity(id);
         auto& fv = mesh.V.at(id);
-        ToSmooth.push_back(id);
-        ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
+        AddContents(ToSmooth, std::vector<size_t>{id});
+        AddContents(ToSmooth, fv.N_Vids);
+        // ToSmooth.push_back(id);
+        // ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
+        // ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
     }
     
     face.N_Fids.clear();
@@ -303,7 +306,8 @@ void SimplificationOperation::Smooth() {
     int n = ToSmooth.size();
     for (int i = 0; i < n; i++) {
         auto& v = mesh.V.at(ToSmooth.at(i));
-        ToSmooth.insert(ToSmooth.end(), v.N_Vids.begin(), v.N_Vids.end());
+        AddContents(ToSmooth, v.N_Vids);
+        // ToSmooth.insert(ToSmooth.end(), v.N_Vids.begin(), v.N_Vids.end());
     }
     smoother.Smooth(mesh, ToSmooth);
     return;
@@ -335,5 +339,13 @@ void SimplificationOperation::Smooth() {
         }
         it++;
     }
+}
+
+void SimplificationOperation::SetCoords(size_t vid, glm::dvec3& c) {
+    CheckValidity();
+
+    mesh.V.at(vid).x = c.x;
+    mesh.V.at(vid).y = c.y;
+    mesh.V.at(vid).z = c.z;
 }
 

@@ -244,6 +244,7 @@ void VertexSplit::PerformOperation() {
     for (auto id: verticesToCheck) {
         SetSingularity(id);
     }
+    AddContents(ToSmooth, verticesToCheck);
     /*std::cout << "checking validity of nvids and faces" << std::endl;
     std::cout << "v nvids #: " << v.N_Vids.size() << std::endl;
     std::cout << "v neids #: " << v.N_Eids.size() << std::endl;
@@ -418,7 +419,7 @@ void VertexSplit::PerformOperation() {
     for (auto fid: facesToAvoid) {
         mesh.F.at(fid).N_Fids.clear();
     }
-    
+    Smooth();   
 }
 
 std::vector<size_t> VertexSplit::SelectEdgesToSplit() {

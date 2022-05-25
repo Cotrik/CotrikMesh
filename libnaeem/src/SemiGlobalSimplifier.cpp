@@ -1014,11 +1014,11 @@ std::vector<SingularityLink> SemiGlobalSimplifier::SelectLinks(std::vector<Singu
     for (auto l: links) {
         int valenceToCheck = mesh.V.at(l.frontId).N_Vids.size() == 3 ? 5 : 3;
         auto& back = mesh.V.at(l.backId);
-        if (l.frontId == l.backId || back.N_Vids.size() != valenceToCheck || back.type == FEATURE || back.isBoundary || !ValidateLink(l)) continue;
-        // if (l.frontId == l.backId || back.type == FEATURE || back.isBoundary) continue;
-        // if (doesCrossBoundary(l.linkVids, true) || !ValidateLink(l)) continue;
+        // if (l.frontId == l.backId || back.N_Vids.size() != valenceToCheck || back.type == FEATURE || back.isBoundary || !ValidateLink(l)) continue;
+        if (l.frontId == l.backId || back.type == FEATURE || back.isBoundary) continue;
+        if (doesCrossBoundary(l.linkVids, true) || !ValidateLink(l)) continue;
         // if (!ValidateLink(l)) continue;
-        // if (back.N_Vids.size() != valenceToCheck) continue;
+        if (back.N_Vids.size() != valenceToCheck) continue;
         res.push_back(l);
     }
     return res;
@@ -1026,7 +1026,7 @@ std::vector<SingularityLink> SemiGlobalSimplifier::SelectLinks(std::vector<Singu
 
 void SemiGlobalSimplifier::GetSingularityGroups(std::vector<size_t> Singularities, BaseComplexQuad& bc) {
     auto cmp = [](SingularityLink left, SingularityLink right) {return left.a + left.b > right.a + right.b;};
-    std::priority_queue<SingularityLink, std::vector<SingularityLink>, decltype(cmp)> q1(cmp);
+    std::priority_queue<SingularityLink, std::vector<SingularityLink>, decltype(cmp)> q(cmp);
     std::mutex mtx;
     
     std::vector<SingularityLink> tempLinks;
@@ -1047,7 +1047,7 @@ void SemiGlobalSimplifier::GetSingularityGroups(std::vector<size_t> Singularitie
         for (auto& l: links) {
             {
                 std::lock_guard<std::mutex> lock(mtx);    
-                q1.push(l);
+                q.push(l);
             }
         }
     // }
@@ -1058,23 +1058,23 @@ void SemiGlobalSimplifier::GetSingularityGroups(std::vector<size_t> Singularitie
     //     for (auto newL: newLinks) q.push(newL);    
     // }
     
-    std::priority_queue<SingularityLink, std::vector<SingularityLink>, decltype(cmp)> q(cmp);
-    std::vector<bool> selected(mesh.V.size(), false);
-    while (!q1.empty()) {
-        auto l = q1.top();
-        if (!selected.at(l.frontId) && !selected.at(l.backId)) {
-            q.push(l);
-            selected.at(l.frontId) = true;
-            selected.at(l.backId) = true;
-        }
-        q1.pop();
-    }
+    // std::priority_queue<SingularityLink, std::vector<SingularityLink>, decltype(cmp)> q(cmp);
+    // std::vector<bool> selected(mesh.V.size(), false);
+    // while (!q1.empty()) {
+    //     auto l = q1.top();
+    //     if (!selected.at(l.frontId) && !selected.at(l.backId)) {
+    //         q.push(l);
+    //         selected.at(l.frontId) = true;
+    //         selected.at(l.backId) = true;
+    //     }
+    //     q1.pop();
+    // }
 
     std::cout << q.size() << std::endl;
 
     int it = 0;
     while (!q.empty()) {
-        std::cout << q.size() << std::endl; 
+        // std::cout << q.size() << std::endl; 
         auto& l = q.top();
         // std::cout << l.a << " " << l.b << std::endl;
         auto& front = mesh.V.at(l.frontId);
@@ -1085,29 +1085,30 @@ void SemiGlobalSimplifier::GetSingularityGroups(std::vector<size_t> Singularitie
             continue;
         }
         int id = mainPath.at(0);
-        std::cout << "NEW MOVING ITERATION" << std::endl;
+        // std::cout << "NEW MOVING ITERATION" << std::endl;
         while (id != -1) {
             // std::cout << "to move: " << id << std::endl;
             int offset = std::distance(mainPath.begin(), std::find(mainPath.begin(), mainPath.end(), id));
-            std::cout << "Offset: " << offset << " " << " id:" << id << std::endl;
+            // std::cout << "Offset: " << offset << " " << " id:" << id << std::endl;
             std::vector<size_t> secPath = GetSecondaryPath(offset, mainPath, bc);
-            std::cout << "mainPath: " << mainPath.size() << std::endl;
-            for (auto id: mainPath) {
-                std::cout << id << " ";
-            }
-            std::cout << std::endl;
-            std::cout << "secPath: " << secPath.size() << std::endl;
-            for (auto id: secPath) {
-                std::cout << id << " ";
-            }
-            std::cout << std::endl;
+            // std::cout << "mainPath: " << mainPath.size() << std::endl;
+            // for (auto id: mainPath) {
+            //     std::cout << id << " ";
+            // }
+            // std::cout << std::endl;
+            // std::cout << "secPath: " << secPath.size() << std::endl;
+            // for (auto id: secPath) {
+            //     std::cout << id << " ";
+            // }
+            // std::cout << std::endl;
             if (!ValidatePath(mainPath) || !ValidatePath(secPath) || mainPath.empty() || secPath.empty()) break;
             if (mainPath.size() > 2 && secPath.size() == 2) {
+            // if (mainPath.size() > secPath.size()) {
                 std::swap(mainPath, secPath);
             }
             id = MoveSingularity(offset, mainPath, secPath);
         }
-        std::cout << "****************************" << std::endl;
+        // std::cout << "****************************" << std::endl;
 
         q.pop();
         // it += 1;
@@ -1420,11 +1421,11 @@ int SemiGlobalSimplifier::MoveSingularity(int offset, std::vector<size_t>& mainP
     size_t sourceDir = mainPath.at(1);
     size_t secondaryDir = secondaryPath.at(1);
 
-    std::cout << "toMove: " << toMove.id << " " << toMove.N_Vids.size() << std::endl;
-    std::cout <<  " source: " << source.id << " " << source.N_Vids.size() << std::endl;
-    std::cout << " secondary: " << secondary.id << " " << secondary.N_Vids.size() << std::endl;
-    std::cout << "sourceDir: " << sourceDir << " " << mesh.V.at(sourceDir).N_Vids.size() << std::endl;
-    std::cout << " secondaryDir: " << secondaryDir << " " << mesh.V.at(secondaryDir).N_Vids.size() << std::endl;
+    // std::cout << "toMove: " << toMove.id << " " << toMove.N_Vids.size() << std::endl;
+    // std::cout <<  " source: " << source.id << " " << source.N_Vids.size() << std::endl;
+    // std::cout << " secondary: " << secondary.id << " " << secondary.N_Vids.size() << std::endl;
+    // std::cout << "sourceDir: " << sourceDir << " " << mesh.V.at(sourceDir).N_Vids.size() << std::endl;
+    // std::cout << " secondaryDir: " << secondaryDir << " " << mesh.V.at(secondaryDir).N_Vids.size() << std::endl;
 
     int res = -1;
 
@@ -1439,10 +1440,12 @@ int SemiGlobalSimplifier::MoveSingularity(int offset, std::vector<size_t>& mainP
         fiveId = threeFiveIds.at(1);
         res = sourceDir;
     }
-    std::cout << "threeID: " << threeId << ": " << mesh.V.at(threeId).N_Vids.size() << " fiveID: " << fiveId << ": " << mesh.V.at(fiveId).N_Vids.size() << std::endl;
+    // std::cout << "threeID: " << threeId << ": " << mesh.V.at(threeId).N_Vids.size() << " fiveID: " << fiveId << ": " << mesh.V.at(fiveId).N_Vids.size() << std::endl;
     std::shared_ptr<ThreeFivePair> tfp = std::make_shared<ThreeFivePair>(mesh, mu, smoother, threeId, fiveId);
+    bool skipCheck = false;
     for (int i = 1; i < secondaryPath.size(); i++) {
-        bool skipCheck = tfp->GetPairIds().at(1) == secondaryPath.at(secondaryPath.size()-1) && mesh.V.at(tfp->GetPairIds().at(1)).N_Vids.size() == 6 ? true : false;
+        // bool skipCheck = tfp->GetPairIds().at(1) == secondaryPath.at(secondaryPath.size()-1) && mesh.V.at(tfp->GetPairIds().at(1)).N_Vids.size() == 6 ? true : false;
+        if (mesh.V.at(tfp->GetPairIds().at(1)).N_Vids.size() == 6) skipCheck = true;
         tfp->Move(secondaryPath.at(i), skipCheck);
     }
     return res;
@@ -2711,7 +2714,7 @@ std::vector<size_t> SemiGlobalSimplifier::GetThreeFivePairIds(size_t vid, size_t
     auto& v = mesh.V.at(vid);
     auto& main = mesh.V.at(mainId);
     auto& secondary = mesh.V.at(secondaryId);
-    std::cout << "Inside GetThreeFivePairIds, v: " << v.id << " main: " << main.id << " secondary: " << secondary.id << std::endl; 
+    // std::cout << "Inside GetThreeFivePairIds, v: " << v.id << " main: " << main.id << " secondary: " << secondary.id << std::endl; 
     if (v.N_Vids.size() == 3) {
         for (auto fid: v.N_Fids) {
             auto& f = mesh.F.at(fid);
@@ -2741,22 +2744,22 @@ std::vector<size_t> SemiGlobalSimplifier::GetThreeFivePairIds(size_t vid, size_t
         std::vector<size_t> verticesToSplit;
         std::vector<size_t> verticesToChange;
         size_t startE;
-        std::cout << "v nvids: ";
-        for (auto id: v.N_Vids) {
-            std::cout << id << " ";
-        }
-        std::cout << std::endl;
-        std::cout << "v neids: " << std::endl;
+        // std::cout << "v nvids: ";
+        // for (auto id: v.N_Vids) {
+        //     std::cout << id << " ";
+        // }
+        // std::cout << std::endl;
+        // std::cout << "v neids: " << std::endl;
         for (auto eid: v.N_Eids) {
             auto& e = mesh.E.at(eid);
-            std::cout << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;
+            // std::cout << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;
             if (e.Vids.at(0) == main.id || e.Vids.at(1) == main.id) {
                 startE = e.id;
             }
         }
         
         int d = (v.N_Vids.size() / 2) + 1;
-        std::cout << "d: " << d << std::endl;
+        // std::cout << "d: " << d << std::endl;
         bool addSplit = false;
         for (int j = 0; j < d; j++) {
             auto& e = mesh.E.at(startE);
@@ -2764,7 +2767,7 @@ std::vector<size_t> SemiGlobalSimplifier::GetThreeFivePairIds(size_t vid, size_t
             for (auto fid: e.N_Fids) {
                 auto& f = mesh.F.at(fid);
                 int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
-                std::cout << "idx: " << idx << std::endl;
+                // std::cout << "idx: " << idx << std::endl;
                 if (f.Vids.at((idx+1)%f.Vids.size()) == ev) {
                     if (ev == secondary.id && j <= d-1) {
                         addSplit = true;
@@ -2781,28 +2784,28 @@ std::vector<size_t> SemiGlobalSimplifier::GetThreeFivePairIds(size_t vid, size_t
         auto& e = mesh.E.at(startE);
         size_t ev = e.Vids.at(0) == v.id ? e.Vids.at(1) : e.Vids.at(0);
         if (verticesToSplit.size() < 2) verticesToSplit.push_back(ev);
-        std::cout << "Before quad split" << std::endl;
-        std::cout << verticesToSplit.size() << " " << verticesToChange.size() << std::endl;
+        // std::cout << "Before quad split" << std::endl;
+        // std::cout << verticesToSplit.size() << " " << verticesToChange.size() << std::endl;
         if (mesh.V.at(verticesToSplit.at(0)).isBoundary || mesh.V.at(verticesToSplit.at(0)).type == FEATURE
         || mesh.V.at(verticesToSplit.at(1)).isBoundary || mesh.V.at(verticesToSplit.at(1)).type == FEATURE) return res;
         
-        std::cout << "Mesh vertices: " << mesh.V.size() << std::endl;
+        // std::cout << "Mesh vertices: " << mesh.V.size() << std::endl;
         
         std::shared_ptr<SimplificationOperation> qs = std::make_shared<QuadSplit>(mesh, mu, smoother, v.id, verticesToSplit, verticesToChange);
         qs->PerformOperation();
 
         auto& updatedV = mesh.V.at(vid);
-        std::cout << "Mesh vertices: " << mesh.V.size() << std::endl;
+        // std::cout << "Mesh vertices: " << mesh.V.size() << std::endl;
 
-        std::cout << "After quad split" << std::endl;
-        std::cout << "v: " << updatedV.N_Vids.size() << std::endl;
-        std::cout << "Last v: " << mesh.V.at(mesh.V.size()-1).N_Vids.size() << std::endl;
+        // std::cout << "After quad split" << std::endl;
+        // std::cout << "v: " << updatedV.N_Vids.size() << std::endl;
+        // std::cout << "Last v: " << mesh.V.at(mesh.V.size()-1).N_Vids.size() << std::endl;
         if (updatedV.N_Vids.size() == 3) {
             res.insert(res.begin(), updatedV.id);
         } else if (mesh.V.at(mesh.V.size()-1).N_Vids.size() == 3) {
             res.insert(res.begin(), mesh.V.at(mesh.V.size()-1).id);
         }
-        std::cout << "verticesToSplit at 1: " << mesh.V.at(verticesToSplit.at(1)).N_Vids.size() << std::endl;
+        // std::cout << "verticesToSplit at 1: " << mesh.V.at(verticesToSplit.at(1)).N_Vids.size() << std::endl;
         res.push_back(verticesToSplit.at(1));
         // for (auto nvid: mesh.V.at(res.at(0)).N_Vids) {
         //     if (nvid == main.id) continue;

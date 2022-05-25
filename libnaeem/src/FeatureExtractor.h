@@ -24,8 +24,6 @@
 #include "MeshUtil.h"
 // #include "ParallelFor.h"
 
-#define NUM_THREADS std::thread::hardware_concurrency() == 0 ? 8 : std::thread::hardware_concurrency()
-
 class FeatureExtractor {
     public:
         FeatureExtractor();
@@ -42,7 +40,7 @@ class FeatureExtractor {
         MeshUtil mu;
         vtkSmartPointer<vtkPolyData> mesh_polyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> GetPolyDataFromMesh();
-        double angle_threshold = 30.0;
+        double angle_threshold = 15.0;
 };
 
 #endif

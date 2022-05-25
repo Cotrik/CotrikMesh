@@ -217,8 +217,10 @@ void QuadSplit::PerformOperation() {
     for (auto id: newF.Vids) {
         SetSingularity(id);
         auto& fv = mesh.V.at(id);
-        ToSmooth.push_back(id);
-        ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
+        // ToSmooth.push_back(id);
+        AddContents(ToSmooth, std::vector<size_t>{id});
+        AddContents(ToSmooth, fv.N_Vids);
+        // ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
     }
     // std::cout << "new face vertices neighbors" << std::endl;
     // for (auto id: mesh.F.at(newF_.id).Vids) {
