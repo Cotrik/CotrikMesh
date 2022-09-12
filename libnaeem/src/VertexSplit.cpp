@@ -18,6 +18,12 @@ bool VertexSplit::IsOperationValid() {
         }
         if (count < 2 || count > 2) return false;
     }
+    if (v.isBoundary) {
+        for (auto nvid: v.N_Vids) {
+            if (mesh.V.at(nvid).isBoundary) count += 1;
+        }
+        if (count < 2 || count > 2) return false;
+    }
     return true;
 }
 
@@ -34,7 +40,6 @@ void VertexSplit::PerformOperation() {
     if (splitEdges.empty()) {
        splitEdges = SelectEdgesToSplit();
     }
-    // std::cout << "Chose edges: " << splitEdges.size() << std::endl;
 
     Edge& e1 = mesh.E.at(splitEdges.at(0));
     Edge& e2 = mesh.E.at(splitEdges.at(1));
@@ -51,13 +56,13 @@ void VertexSplit::PerformOperation() {
     auto& newV2 = mesh.V.at(new_V2.id);
     newV1.type = v.type;
     newV2.type = v.type;
+    newV1.isBoundary = v.isBoundary;
+    newV2.isBoundary = v.isBoundary;
+    newV1.idealValence = v.idealValence;
+    newV2.idealValence = v.idealValence;
 
     std::vector<size_t> facesToInspect;
     AddContents(facesToInspect, v.N_Fids);
-    
-    // std::cout << v.id << std::endl;
-
-    // std::cout << "Added 2 new vertices" << std::endl;
 
     std::vector<size_t> edgesToChange = {};
     std::vector<size_t> facesToRemove = GetDifference(v.N_Fids, e1.N_Fids);
@@ -75,14 +80,6 @@ void VertexSplit::PerformOperation() {
     }
 
     std::vector<size_t> edgesToAvoid = GetDifference(v.N_Eids, edgesToChange);
-    // std::cout << "edges to avoid: " << edgesToChange.size() << std::endl;
-    // for (auto eid: edgesToChange) {
-    //     std::cout << eid << std::endl;
-    // }
-    // std::cout << "edges to avoid: " << edgesToAvoid.size() << std::endl;
-    // for (auto eid: edgesToAvoid) {
-    //     std::cout << eid << std::endl;
-    // }
     std::vector<size_t> facesToAvoid = {};
     for (auto eid: edgesToChange) {
         auto& e = mesh.E.at(eid);
@@ -161,7 +158,6 @@ void VertexSplit::PerformOperation() {
             UpdateContents(e.N_Fids, std::vector<size_t>{fid});
         }
     }
-
     std::vector<Edge> newEdges;
     newEdges.emplace_back(std::vector<size_t>{vid, newV1.id});
     newEdges.emplace_back(std::vector<size_t>{vid, newV2.id});
@@ -177,14 +173,12 @@ void VertexSplit::PerformOperation() {
     v.N_Vids.clear();
     v.N_Eids.clear();
     v.N_Fids.clear();
-
     std::vector<size_t> edgesToUpdate;
     for (auto& e: newEdges) {
         e.id = mesh.E.size();
         mesh.E.push_back(e);
         edgesToUpdate.push_back(e.id);
     }
-
     std::vector<size_t> facesToUpdate;
     for (auto& f: newFaces) {
         f.id = mesh.F.size();
@@ -200,7 +194,6 @@ void VertexSplit::PerformOperation() {
         AddContents(mesh.V.at(e.Vids.at(1)).N_Eids, std::vector<size_t>{e.id});
         AddContents(v.N_Eids, std::vector<size_t>{e.id});
     }
-
     for (auto fid: facesToUpdate) {
         auto& f = mesh.F.at(fid);
         for (auto fid: facesToAvoid) {
@@ -230,10 +223,9 @@ void VertexSplit::PerformOperation() {
         }
         AddContents(v.N_Fids, std::vector<size_t>{f.id});
         for (auto fvid: f.Vids) {
-            AddContents(f.N_Fids, GetDifference(mesh.F.at(fvid).N_Fids, std::vector<size_t>{f.id}));
+            AddContents(f.N_Fids, GetDifference(mesh.V.at(fvid).N_Fids, std::vector<size_t>{f.id}));
         }
     }
-
     AddContents(facesToInspect, facesToUpdate);
     UpdateContents(facesToInspect, facesToRemove);
     std::vector<size_t> verticesToCheck;
@@ -431,6 +423,13 @@ std::vector<size_t> VertexSplit::SelectEdgesToSplit() {
         for (auto eid: v.N_Eids) {
             auto& e = mesh.E.at(eid);
             if (mesh.V.at(e.Vids.at(0)).type == FEATURE && mesh.V.at(e.Vids.at(1)).type == FEATURE) AddContents(splitEdges, std::vector<size_t>{e.id});
+        }
+        return splitEdges;
+    }
+    if (v.isBoundary) {
+        for (auto eid: v.N_Eids) {
+            auto& e = mesh.E.at(eid);
+            if (mesh.V.at(e.Vids.at(0)).isBoundary && mesh.V.at(e.Vids.at(1)).isBoundary) AddContents(splitEdges, std::vector<size_t>{e.id});
         }
         return splitEdges;
     }

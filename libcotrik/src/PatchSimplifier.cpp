@@ -375,6 +375,7 @@ bool PatchSimplifier::Simplify(int& iter) {
     
     if (iter == 0 && featurePreserved) {
         get_feature();
+        std::cout << "After get_feature" << std::endl;
         // refinedV.insert(refinedV.begin(), origMesh.V.begin(), origMesh.V.end());
         // refineVertexInFaces(origMesh, refinedV, 1);
 	    // refineVertexInEdges(origMesh, refinedV, 1);
@@ -391,11 +392,13 @@ bool PatchSimplifier::Simplify(int& iter) {
         writer.WriteEdgesVtk(eids);
         smoothGlobal = true;
         std::cout << "Begin simplification" << std::endl;
-        SmoothMesh(true);
+        SmoothMesh();
     }
     else {
-        // smoothGlobal = true;
-        SmoothMesh(false);
+        smoothGlobal = false;
+        // std::cout << "Before smoothing local" << std::endl;
+        SmoothMesh();
+        // std::cout << "After smoothing local" << std::endl;
         // for (auto& v: mesh.V) {
         //     std::cout << v.x << " " << v.y << " " << v.z << std::endl; 
         // }
@@ -424,8 +427,8 @@ bool PatchSimplifier::Simplify(int& iter) {
 	    }
         init();
         std::cout << "Refined Mesh" << std::endl;
-    //     smoothGlobal = true;
-    //     SmoothMesh();
+        smoothGlobal = true;
+        SmoothMesh();
     }*/
     
    
@@ -438,16 +441,16 @@ bool PatchSimplifier::Simplify(int& iter) {
         if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
     }
     // Step 2 -- doublet splitting
-    if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
-        SheetSplitSimplifier sheetSplitSimplifier(mesh);
-        sheetSplitSimplifier.Run(canceledFids);
-        if (!canceledFids.empty()) std::cout << "remove_doublet from sheetSplitSimplifier" << std::endl;
-    }
+    // if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
+    //     SheetSplitSimplifier sheetSplitSimplifier(mesh);
+    //     sheetSplitSimplifier.Run(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "remove_doublet from sheetSplitSimplifier" << std::endl;
+    // }
     // Step 4 -- singlet collapsing
     if (canceledFids.empty()) {
         DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
-        // diagnalCollapseSimplifier.Run3(canceledFids);
-        diagnalCollapseSimplifier.CollapseSinglets(canceledFids);
+        diagnalCollapseSimplifier.Run3(canceledFids);
+        // diagnalCollapseSimplifier.CollapseSinglets(canceledFids);
         if (!canceledFids.empty()) std::cout << "singlet collapsing" << std::endl;
     }
 
@@ -465,14 +468,6 @@ bool PatchSimplifier::Simplify(int& iter) {
         edgeRotateSimplifier.RunCollective(canceledFids);
         if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
     }
-
-    // Step 8 -- diagonal collapsing
-    /*if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
-        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
-        // diagnalCollapseSimplifier.Run(canceledFids);
-        diagnalCollapseSimplifier.RunCollective(canceledFids);
-        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
-    }
     
     // static bool aligned = false;
     // if (canceledFids.empty() && !aligned) {
@@ -480,8 +475,17 @@ bool PatchSimplifier::Simplify(int& iter) {
     //     std::cout << "writing rotate.vtk " << std::endl;
     //     MeshFileWriter writer(mesh, "rotate.vtk");
     //     writer.WriteFile();
-    // }
+    // }    
     
+         // Step 8 -- diagonal collapsing
+    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
+        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
+        // diagnalCollapseSimplifier.Run(canceledFids);
+        diagnalCollapseSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
+    }
+
+
     // Step 5 -- <separatrix splitting> and <separatrix splitting (optional)>
     if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
         BaseComplexQuad baseComplex(mesh);
@@ -499,23 +503,18 @@ bool PatchSimplifier::Simplify(int& iter) {
 //                if (!canceledFids.empty()) std::cout << "half_simplify\n";
 //            }
         } else std::cout << "strict_simplify\n";
-    }*/
+    }
 
-   if (canceledFids.empty() && Simplifier::GLOBAL) {
-       SheetSimplifier sheetSimplifier(mesh);
-    //    sheetSimplifier.Run(canceledFids);
-       sheetSimplifier.ExtractAndCollapse(canceledFids);
-        if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
+    // if (canceledFids.empty() && Simplifier::GLOBAL) {
+    //     // global_simplify(canceledFids);
+    //    SheetSimplifier sheetSimplifier(mesh);
+    // //    sheetSimplifier.Run(canceledFids);
+    //    sheetSimplifier.ExtractAndCollapse(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
 
-   }
-
-   /*if (canceledFids.empty() && Simplifier::GLOBAL) {
-       SingleSheetSimplifier sheetSimplifier(mesh);
-    //    sheetSimplifier.Run(canceledFids);
-       sheetSimplifier.ExtractAndCollapse(canceledFids);
-   }
-
-   if (canceledFids.empty() && Simplifier::HALF) {
+    // }
+    
+    if (canceledFids.empty() && Simplifier::HALF) {
        BaseComplexQuad baseComplex(mesh);
        baseComplex.ExtractSingularVandE();
        baseComplex.BuildE();
@@ -523,7 +522,15 @@ bool PatchSimplifier::Simplify(int& iter) {
         half_separatrix_collapse(baseComplex, canceledFids);
 
         if (!canceledFids.empty()) std::cout << "half_simplify\n";
-   }*/
+    }
+
+    if (canceledFids.empty() && Simplifier::GLOBAL) {
+        SingleSheetSimplifier sheetSimplifier(mesh);
+    //    sheetSimplifier.Run(canceledFids);
+        sheetSimplifier.ExtractAndCollapse(canceledFids);
+    }
+
+   
 
     if (canceledFids.empty()) {
         update(canceledFids);
@@ -568,6 +575,180 @@ bool PatchSimplifier::CheckCorners() {
         if (v.isCorner && v.N_Fids.size() < v.idealValence)
             return false;
     return true;
+}
+
+/*void PatchSimplifier::SmoothMesh(bool SmoothGlobal_) {
+    int n = 100;
+    for (auto& v: mesh.V) {
+        // if (n < 0) break;
+        if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty()) continue;
+        if (SmoothGlobal_) {
+            smoothVids.push_back(v.id);
+        } else {
+            if (v.smoothLocal) smoothVids.push_back(v.id);
+        }
+        n -= 1;
+    }
+    int iters = 1;
+    while (iters--) {
+        for (auto vid: smoothVids) {
+            auto& v = mesh.V.at(vid);
+            if (v.type == FEATURE || v.isBoundary) {
+                SetPositionBoundary(v);
+            } else {
+                SetPosition(v);
+            }
+        }
+    }    
+    for (auto& v: mesh.V) v.smoothLocal = false;
+    smoothVids.clear();
+}*/
+
+void PatchSimplifier::SetPosition(Vertex& v) {
+    double polyArea = 0.0;
+    glm::dvec3 centroid(0.0, 0.0, 0.0);
+    size_t startE = v.N_Eids.at(0);
+    
+    std::cout << "Setting Postion for vertex: " << v.id << " nvids: " << v.N_Vids.size() << " neids: " << v.N_Eids.size() << " nfids: " << v.N_Fids.size() << std::endl;
+    for (int i = 0; i < v.N_Eids.size(); i++) {
+        auto& edge = mesh.E.at(startE);
+        size_t ev = edge.Vids.at(0) == v.id ? edge.Vids.at(1) : edge.Vids.at(0);
+        size_t ev_plus1;
+        size_t ev_minus1;
+        std::cout << "edge nfids: " << edge.N_Fids.size() << std::endl;
+        for (auto fid: edge.N_Fids) {
+            auto& f = mesh.F.at(fid);
+            std::cout << "face vids: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            if (f.Vids.at((idx+1)%f.Vids.size()) == ev) {
+                ev_plus1 = f.Vids.at((idx+3)%f.Vids.size());
+                startE = mu.GetDifference(mu.GetIntersection(f.Eids, v.N_Eids), std::vector<size_t>{edge.id}).at(0);
+            }
+            if (f.Vids.at((idx+3)%f.Vids.size()) == ev) {
+                ev_minus1 = f.Vids.at((idx+1)%f.Vids.size());
+            }
+        }
+
+        std::cout << "vid: " << v.id << " ev: " << ev << " ev_plus1: " << ev_plus1 << " ev_minus1: " << ev_minus1 << std::endl;
+        auto& v2 = mesh.V.at(ev);
+        auto& v3 = mesh.V.at(ev_plus1);
+        auto& v4 = mesh.V.at(ev_minus1);
+
+ 
+        std::cout << "v: " << v.x << " " << v.y << " " << v.z << std::endl;
+        std::cout << "v2: " << v2.x << " " << v2.y << " " << v2.z << std::endl;
+        std::cout << "v3: " << v3.x << " " << v3.y << " " << v3.z << std::endl;
+        std::cout << "v4: " << v4.x << " " << v4.y << " " << v4.z << std::endl;
+        glm::dvec3 AB = v3.xyz() - v2.xyz();
+        glm::dvec3 BC = v4.xyz() - v3.xyz();
+        glm::dvec3 CA = v2.xyz() - v4.xyz();
+        glm::dvec3 AC = v4.xyz() - v2.xyz();
+
+        double a = glm::length(BC);
+        double b = glm::length(CA);
+        double c = glm::length(AB);
+        glm::dvec3 incenter = ((a * v2.xyz()) + (b * v3.xyz()) + (c * v4.xyz())) / (a + b + c);
+        
+        double area = 0.5 * glm::length(glm::cross(AB, AC));
+        centroid += (area * incenter); 
+        polyArea += area;
+    }
+    std::cout << "centroid: " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
+    std::cout << "polyArea: " << polyArea << std::endl;
+    centroid /= polyArea;
+    std::cout << "centroid: " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
+    v.x = centroid.x;
+    v.y = centroid.y;
+    v.z = centroid.z;
+    // std::cout << "**************************" << std::endl;
+    /*for (auto fid: v.N_Fids) {
+        auto& f = mesh_.F.at(fid);
+        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+        if (idx == -1) continue;
+        auto& v2 = mesh_.V.at(f.Vids.at((idx+1)%f.Vids.size()));
+        auto& v3 = mesh_.V.at(f.Vids.at((idx+3)%f.Vids.size()));
+
+        glm::dvec3 AB = v2.xyz() - v.xyz();
+        glm::dvec3 AC = v3.xyz() - v.xyz();
+        glm::dvec3 BC = v3.xyz() - v2.xyz();
+        glm::dvec3 CA = v.xyz() - v3.xyz();
+
+        glm::dvec3 T_cross = glm::cross(AB, AC);
+
+        glm::dvec3 normal = glm::normalize(T_cross);
+        glm::dvec3 temp = centroid - v.xyz();
+        double dist = glm::dot(temp, normal);
+        glm::dvec3 projected_point = centroid - (dist * normal);
+        glm::dvec3 AP = projected_point - v.xyz();
+        glm::dvec3 BP = projected_point - v2.xyz();
+
+        double T_area = 0.5 * glm::length(T_cross);
+        if (0.5 * (glm::length(glm::cross(AB, AP)) + glm::length(glm::cross(AC, AP)), glm::length(glm::cross(BP, BC))) > T_area) continue;
+        v.x = projected_point.x;
+        v.y = projected_point.y;
+        v.z = projected_point.z;
+        break;
+    }*/
+}
+
+void PatchSimplifier::SetPositionBoundary(Vertex& v) {
+    if (v.isCorner || v.N_Fids.size() < 2 || v.N_Fids.size() > 2) return;
+    std::vector<size_t> boundaryVertices;
+    for (auto vid: v.N_Vids) {
+        if (mesh.V.at(vid).type == FEATURE || mesh.V.at(vid).isBoundary) boundaryVertices.push_back(vid);
+    }
+    auto& b1 = mesh.V.at(boundaryVertices.at(0));
+    auto& b2 = mesh.V.at(boundaryVertices.at(1));
+    std::cout << "b1: " << b1.x << " " << b1.y << " " << b1.z << std::endl;
+    std::cout << "b2: " << b2.x << " " << b2.y << " " << b2.z << std::endl;
+    glm::dvec3 vb1 = glm::normalize(b1.xyz() - v.xyz());
+    glm::dvec3 vb2 = glm::normalize(b2.xyz() - v.xyz());
+
+    double angle = acos(glm::dot(vb1, vb2)) * 180.0 / PI;
+    glm::dvec3 centroid(0.0, 0.0, 0.0);
+    int k = 0;
+    for (auto vid: v.N_Vids) {
+        auto& nv = mesh.V.at(vid);
+        if (vid == b1.id || vid == b2.id) continue;
+
+        k += 1;
+        glm::dvec3 A(v.xyz() - nv.xyz());
+        glm::dvec3 B(b1.xyz() - nv.xyz());
+        glm::dvec3 C(b2.xyz() - nv.xyz());
+
+        double a1 = glm::dot(A, B) / (glm::length(A) * glm::length(B));
+        double a2 = glm::dot(A, C) / (glm::length(A) * glm::length(C));
+        if (a1 < -1.0) a1 = -1.0;
+        if (a1 > 1.0) a1 = 1.0;
+        if (a2 < -1.0) a2 = -1.0;
+        if (a2 > 1.0) a2 = 1.0;
+
+        double alpha1 = acos(a1);
+        double alpha2 = acos(a2);
+
+        double beta = (alpha2 - alpha1) / 2;
+
+        glm::dvec3 r1 = v.xyz();
+        double l = 0;
+        if (beta > 0) {
+            r1 = b2.xyz() - v.xyz();
+            l = fabs(beta / alpha2) * glm::length(r1); 
+        } else if (beta < 0) {
+            r1 = b1.xyz() - v.xyz();
+            l = fabs(beta / alpha1) * glm::length(r1);
+        }
+        r1 = glm::normalize(r1);
+        centroid += (v.xyz() + (l*r1));
+    }
+    std::cout << "centroid: " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
+    std::cout << "k: " << k << std::endl;
+    if (k > 0) {
+        centroid /= (double) k;
+        std::cout << "centroid: " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
+        v.x = centroid.x;
+        v.y = centroid.y;
+        v.z = centroid.z;
+    }
 }
 
 void PatchSimplifier::SmoothMesh() {

@@ -3712,6 +3712,73 @@ void Mesh::ExtractOneRingNeighbors(Vertex& source) {
         // }
 }
 
+void Mesh::SetIdealValence(size_t vid) {
+    auto intersection = [](std::vector<size_t>& a, std::vector<size_t>& b) {
+        std::vector<size_t> itn;
+        std::sort(a.begin(), a.end());
+        std::sort(b.begin(), b.end());
+        std::set_intersection(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(itn));
+        return itn;
+    };
+    
+    auto difference = [](std::vector<size_t>& a, std::vector<size_t>& b) {
+        std::vector<size_t> diff;
+        std::sort(a.begin(), a.end());
+        std::sort(b.begin(), b.end());
+        std::set_difference(a.begin(), a.end(), b.begin(), b.end(), std::back_inserter(diff));
+        return diff;
+    };
+
+    auto& v = V.at(vid);
+    v.idealValence = 0;
+    std::vector<size_t> featureEnds;
+    for (auto nvid: v.N_Vids) {
+        if (V.at(nvid).type == FEATURE || V.at(nvid).isBoundary) {
+            featureEnds.push_back(nvid);
+        }
+    }
+    for (int i = 0; i < featureEnds.size(); i++) {
+        size_t start = 0;
+        for (auto eid: v.N_Eids) {
+            auto& e = E.at(eid);
+            if (e.Vids.at(0) == featureEnds.at(i) || e.Vids.at(1) == featureEnds.at(i)) {
+                start = eid;
+                break;
+            }
+        }
+        double total_angle = 0.0;
+        bool breakLoop = false;
+        for (auto eid: v.N_Eids) {
+            auto& e = E.at(start);
+            size_t nvid = e.Vids.at(0) == v.id ? e.Vids.at(1) : e.Vids.at(0);
+            for (auto fid: e.N_Fids) {
+                auto& f = F.at(fid);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                if (f.Vids.at((idx+1)%f.Vids.size()) == nvid) {
+                    start = difference(intersection(f.Eids, v.N_Eids), std::vector<size_t>{e.id}).at(0);
+                    total_angle += GetAngle(v.id, nvid, f.Vids.at((idx+3)%f.Vids.size()));
+                    nvid = E.at(start).Vids.at(0) == v.id ? E.at(start).Vids.at(1) : E.at(start).Vids.at(0);
+                    if (V.at(nvid).type == FEATURE || V.at(nvid).isBoundary) breakLoop = true;
+                }
+            }
+            if (breakLoop) break;
+        }
+        v.idealValence += (floor(total_angle / 90.0) + floor(std::fmod(total_angle, 90.0) / 45));
+    }
+}
+
+double Mesh::GetAngle(size_t vid, size_t vid1, size_t vid2) {
+    glm::dvec3 a = glm::normalize(V.at(vid1).xyz() - V.at(vid).xyz());
+    glm::dvec3 b = glm::normalize(V.at(vid2).xyz() - V.at(vid).xyz());
+
+    double dot = glm::dot(a, b);
+    if (dot < -1.0) dot = -1.0;
+    if (dot > 1.0) dot = 1.0;
+    double angle = acos(dot) * 180.0 / PI;
+
+    return angle;
+}
+
 void Mesh::Zoom(const glm::dvec3& ref, const double scale/* = 1*/) {
     if (scale == 1.0)  return;
 //    if (glm::length(m_center) == 0)

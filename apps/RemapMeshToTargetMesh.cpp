@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
     source.RemoveUselessVertices();
     source.BuildAllConnectivities();
     source.ExtractSingularities();
-    source.ExtractBoundary();
+    // source.ExtractBoundary();
 	source.BuildParallelE();	
     // for (auto& el: source.V) {
     //     std:cout << el.N_Fids.size() << std::endl;
@@ -46,43 +46,109 @@ int main(int argc, char* argv[]) {
     // for (auto& v: source.V) {
     //     std::cout << v.id << ": " << " nvids: " << v.N_Vids.size() << " neids: " << v.N_Eids.size() << " nfids: " << v.N_Fids.size() << std::endl;
     // }
-    FeatureExtractor fe(source, 20.0);
-    fe.Extract();
-
+    
 
     MeshUtil mu(source);
-    Smoother sm(source);
+    
+    FeatureExtractor fe(source, 20.0, mu);
+    fe.Extract();
+    // for (auto& v: source.V) {
+    //     if ((v.isBoundary || v.type == FEATURE) && v.idealValence != 2) std::cout << v.idealValence << " ";
+    // }
+    // return 0;
+    Smoother sm(source, mu);
     SemiGlobalSimplifier sg(source, mu, sm);
     sg.SetIters(iters);
     // sg.SetVertexSplitOperations();
     // sg.SetQuadSplitOperations();
     // sg.FixBoundary();
-    sg.SetBoundaryDirectSeparatrixOperations(false);
+    // if (!source.isPlanar) {
+        // sg.SetBoundaryDirectSeparatrixOperations(false);
+        // sg.SetBoundaryDirectSeparatrixOperations(false);
+    // }
     // std::cout << "Input mesh V: " << source.V.size() << std::endl; 
     // std::cout << "Input mesh F: " << source.F.size() << std::endl;
     // return 0;
+    bool res = true;
     sg.SetBoundaryDirectSeparatrixOperations(true);
-    sg.FixBoundary();
+    sg.SetBoundaryDirectSeparatrixOperations(true);
+    // res = true;
+    while (res) {
+        res = sg.FixBoundary();
+        // res = sg.FixValences();
+    }
+    sg.SetDirectSeparatrixOperations(false);
     sg.SetDirectSeparatrixOperations(false);
     sg.SetDirectSeparatrixOperations(true);
-    sg.FixBoundary();
-    bool res = true;
+    sg.SetDirectSeparatrixOperations(true);
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    res = true;
     while (res) {
-        res = sg.ResolveHighValences();
+        // res = sg.FixBoundary();
+        res = sg.FixValences();
     }
+    // res = true;
+    // while (res) {
+    // }
+
+    sg.Smooth();
+    sg.PrototypeE();
+    // sg.PrototypeD();
+    // sg.PrototypeB();
+    // sg.PrototypeB();
+    // sg.PrototypeB();
+    // sg.PrototypeB();
+    // sg.Smooth();
+
+    // sg.PrototypeBoundary();
+    // sg.AlignAndResolveSingularities();
+    // sg.PrototypeBoundary();
+    // sg.AlignAndResolveSingularities();
+    // sg.PrototypeBoundary();
+    // sg.AlignAndResolveSingularities();
+    // sg.PrototypeBoundary();
+    // sg.AlignAndResolveSingularities();
+    
+    // sg.PrototypeBoundary(false);
+    // sg.AlignAndResolveSingularities(false);
+    // sg.PrototypeBoundary(false);
+    // sg.AlignAndResolveSingularities(false);
+    // sg.PrototypeBoundary(false);
+    // sg.AlignAndResolveSingularities(false);
+    // sg.PrototypeBoundary(false);
+    // sg.AlignAndResolveSingularities(false);
+    
     // sg.ResolveSingularities();
     
     // sg.GetSingularityPairs();
-    for (int i = 0; i < 10; i++) {
-        sg.ResolveSingularities();
-        res = true;
-        while (res) {
-            res = sg.ResolveHighValences();
-        }
-        // sg.Smooth();
-    }
+    // sg.AlignSingularities();
+    // res = true;
+    // while (res) {
+    //     res = sg.FixBoundary();
+    //     res = sg.ResolveHighValences();
+    // }
+    // res = true;
+    // while (res) {
+    //     res = sg.ResolveHighValences();
+    //     sg.FixBoundary();
+    // }
+    // sg.Smooth();
+    // for (int i = 0; i < 1; i++) {
+    //     sg.ResolveSingularities();
+    //     res = true;
+    //     while (res) {
+    //         res = sg.ResolveHighValences();
+    //     }
+    //     // sg.Smooth();
+    // }
     
-    std::cout << "After GetSingularityPairs" << std::endl;
+    // std::cout << "After GetSingularityPairs" << std::endl;
     // sg.SetQuadSplitOperations();
     // sg.SetDirectSeparatrixOperations();
     // sg.SetBoundarySeparatrixOperations();
@@ -90,17 +156,25 @@ int main(int argc, char* argv[]) {
     // sg.SetBoundarySeparatrixOperations();
     // sg.FixBoundary();
     // sg.FixBoundary();
-    for (auto& v: source.V) {
-        if (v.N_Vids.size() == 4 && v.isSingularity) {
-            std::cout << "Not a singularity: " << v.id << std::endl;
-        }
-        // if (v.N_Vids.size() != v.N_Eids.size() || v.N_Vids.size() != v.N_Fids.size() || v.N_Eids.size() != v.N_Fids.size()) {
-        //     std::cout << v.id << ": " << v.N_Vids.size() << " " << v.N_Eids.size() << " " << v.N_Fids.size() << std::endl;
-        // }
-    }
+    // for (auto& v: source.V) {
+    //     if (v.N_Vids.size() == 4 && v.isSingularity) {
+    //         std::cout << "Not a singularity: " << v.id << std::endl;
+    //     }
+    //     // if (v.N_Vids.size() != v.N_Eids.size() || v.N_Vids.size() != v.N_Fids.size() || v.N_Eids.size() != v.N_Fids.size()) {
+    //     //     std::cout << v.id << ": " << v.N_Vids.size() << " " << v.N_Eids.size() << " " << v.N_Fids.size() << std::endl;
+    //     // }
+    // }
     // sg.PerformGlobalOperations(); 
     // std::cout << "Done with Direct Separatrix Operations" << std::endl; 
-    // sg.SetSeparatrixOperations(); 
+    // for (int i = 0; i < 10; i++) {
+    //     sg.SetHalfSeparatrixOperations(); 
+    // }
+    // for (int i = 0; i < 10; i++) {
+    //     sg.SetSeparatrixOperations(); 
+    // }
+    // for (int i = 0; i < 10; i++) {
+    //     sg.SetChordCollapseOperations(); 
+    // }
     // sg.FixBoundary();
     // sg.SetHalfSeparatrixOperations();
     // sg.SetChordCollapseOperations();
@@ -145,7 +219,7 @@ int main(int argc, char* argv[]) {
     for (auto& v: source.V) {
         for (auto eid: v.N_Eids) {
             auto& e = source.E.at(eid);
-            if (e.N_Fids.size() != 2) std::cout << "edge faces are not 2" << std::endl;
+            // if (e.N_Fids.size() != 2) std::cout << "edge faces are not 2" << std::endl;
             for (auto fid: e.N_Fids) {
                 auto& f = source.F.at(fid);
                 for (auto feid: f.Eids) {
@@ -158,6 +232,42 @@ int main(int argc, char* argv[]) {
             }    
         }
     }
+    
+    // for (auto& v: source.V) {
+    //     if ((v.type == FEATURE || v.isBoundary) && v.idealValence != 2) {
+    //         std::cout << v.idealValence << " ";
+    //     }
+    // }
+    // std::cout << std::endl;
+    // std::cout << "Writing output file" << std::endl;
+    // std::ofstream ofs("FeaturePoints.vtk");
+    // ofs << "# vtk DataFile Version 3.0\n"
+    //     << "FeaturePoints.vtk.vtk\n"
+    //     << "ASCII\n\n"
+    //     << "DATASET UNSTRUCTURED_GRID\n";
+    // ofs << "POINTS " << source.V.size() << " double\n";
+    // std::vector<size_t> c_indices;
+    // for (auto& v: source.V) {
+    //     // if (v.type == FEATURE || v.isBoundary) c_indices.push_back(v.id);
+    //     if ((v.isBoundary) && v.N_Fids.size() != v.idealValence) {
+    //         c_indices.push_back(v.id);
+    //         std::cout << "vertices: " << v.N_Vids.size() << " edges: " << v.N_Eids.size() << " faces: "  << v.N_Fids.size() << " ideal valence: " << v.idealValence << std::endl;
+    //     } 
+    // }
+    // // std::vector<size_t> c_indices = {12, 296};
+    // std::cout << c_indices.size() << std::endl;
+    // for (size_t i = 0; i < source.V.size(); i++) {
+    //     ofs << std::fixed << std::setprecision(7) <<  source.V.at(i).x << " " <<  source.V.at(i).y << " " <<  source.V.at(i).z << "\n";
+    // }
+    // ofs << "CELLS " << c_indices.size() << " " << 2 * c_indices.size() << std::endl;
+    // for (size_t i = 0; i < c_indices.size(); i++) {
+    //     ofs << "1 " << c_indices.at(i) << std::endl;
+    // }
+    // ofs << "CELL_TYPES " << c_indices.size() << "\n";
+    // for (size_t i = 0; i < c_indices.size(); i++) {
+    //     ofs << "1" << std::endl;
+    // }
+
     // MeshFileReader target_reader(target_f.c_str());
     // Mesh& target = (Mesh&) target_reader.GetMesh();
     // target.RemoveUselessVertices();
@@ -194,7 +304,8 @@ int main(int argc, char* argv[]) {
     // ofs << "POINTS " << source.V.size() << " double\n";
     // std::vector<size_t> c_indices;
     // for (auto& v: source.V) {
-    //     if (v.type == FEATURE) c_indices.push_back(v.id);
+    //     // if (v.type == FEATURE) c_indices.push_back(v.id);
+    //     if (v.isBoundary) c_indices.push_back(v.id);
     // }
     // // std::vector<size_t> c_indices = {12, 296};
     // // std::cout << c_indices.size() << std::endl;

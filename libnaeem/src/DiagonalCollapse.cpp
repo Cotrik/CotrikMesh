@@ -50,6 +50,29 @@ void DiagonalCollapse::PerformOperation() {
     }
     Face& f = mesh.F.at(fId);
 
+    glm::dvec3 coords = (mesh.V.at(f.Vids.at(d_idx1)).xyz() + mesh.V.at(f.Vids.at(d_idx2)).xyz()) * 0.5;
+    if (mesh.V.at(f.Vids.at(d_idx1)).isBoundary && mesh.V.at(f.Vids.at(d_idx2)).isBoundary) {
+        int minIdx = 0;
+        double minAngle = 0.0;
+        for (int i = 0; i < f.Vids.size(); i++) {
+            auto& fv = mesh.V.at(f.Vids.at(i));
+            if (!fv.isBoundary) continue;
+            std::vector<size_t> b;
+            for (auto nvid: fv.N_Vids) if (mesh.V.at(nvid).isBoundary) b.push_back(nvid);
+            double angle = mesh.GetAngle(fv.id, b.at(0), b.at(1));
+            if (fabs(180.0-angle) > minAngle) {
+                minIdx = i;
+                minAngle = fabs(180.0-angle);
+            }
+        }
+        coords = mesh.V.at(f.Vids.at(minIdx)).xyz();
+    } else if (!mesh.V.at(f.Vids.at(d_idx1)).isBoundary && mesh.V.at(f.Vids.at(d_idx2)).isBoundary) {
+        int tmp = d_idx2;
+        d_idx2 = d_idx1;
+        d_idx1 = tmp;
+        coords = mesh.V.at(f.Vids.at(d_idx1)).xyz();
+    }
+
     Vertex& target = mesh.V.at(f.Vids.at(d_idx1));
     Vertex& source = mesh.V.at(f.Vids.at(d_idx2));
     Vertex& v3 = mesh.V.at(f.Vids.at((d_idx1 + 1) % f.Vids.size()));
@@ -57,11 +80,17 @@ void DiagonalCollapse::PerformOperation() {
 
     // step 1: Set target location halfway between source and target
     // target = 0.5 * (target.xyz() + source.xyz());
-    SetCoords(target.id, 0.5 * (target.xyz() + source.xyz()));
+    SetCoords(target.id, coords);
 
     // step 2: add source's neighboring vertices, edges and faces to target's neighbors
     // UpdateNeighborInfo(target, source);
+    // std::cout << "Updating neighbors" << std::endl;
     UpdateNeighborInfo(target, source, fId);
+    if (target.isBoundary) mesh.SetIdealValence(target.id);
+    for (auto nvid: target.N_Vids) {
+        if (mesh.V.at(nvid).isBoundary) mesh.SetIdealValence(target.id);
+    }
+    // std::cout << "After updating neighbors" << std::endl;
     // ToSmooth.push_back(target.id);
     AddContents(ToSmooth, std::vector<size_t>{target.id});
     AddContents(ToSmooth, target.N_Vids);

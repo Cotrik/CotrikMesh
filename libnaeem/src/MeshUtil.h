@@ -28,6 +28,8 @@ class MeshUtil {
 
         // Mesh Utils
         vtkSmartPointer<vtkPolyData> GetPolyData();
+        vtkSmartPointer<vtkPolyData> GetPolyData(Mesh& mesh_, size_t vid);
+        vtkSmartPointer<vtkPolyData> GetPolyData(Mesh& mesh_, std::vector<size_t> V);
         void SetMeshArea();
         double GetMeshArea();
 

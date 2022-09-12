@@ -9,7 +9,7 @@
 #include <vtkPolyDataNormals.h>
 #include <vtkImplicitPolyDataDistance.h>
 #include <vtkDistancePolyDataFilter.h>
-#include <vtkTriangleFilter.h>
+
 
 #include "QuadSurfaceMapper.h"
 
@@ -85,3 +85,91 @@ glm::dvec3 SurfaceMapper::GetClosestPoint(glm::dvec3 p) {
     
     return glm::dvec3(closestPoint[0], closestPoint[1], closestPoint[2]);
 }
+
+void SurfaceMapper::RemapVertex(Mesh& mesh_, size_t vid, glm::dvec3 c) {
+    // vtkSmartPointer<vtkPolyData> poly = vtkSmartPointer<vtkPolyData>::New();
+    poly->Reset();
+    points->Reset();
+    cells->Reset();
+    vertices.clear();
+    faces = mesh_.V.at(vid).N_Fids;
+    double radius = -1.0;
+    for (auto fid: faces) {
+        auto& f = mesh_.F.at(fid);
+        if (f.N_Fids.empty() || f.Vids.empty()) continue;
+        mu.AddContents(vertices, std::vector<size_t>(f.Vids.begin(), f.Vids.end()));
+        p->GetPointIds()->SetNumberOfIds(f.Vids.size());
+        for (int i = 0; i < f.Vids.size(); i++) {
+            p->GetPointIds()->SetId(i, f.Vids.at(i));
+        }
+        cells->InsertNextCell(p);
+    }
+    for (auto vid: vertices) {
+        auto& v = mesh_.V.at(vid);
+        points->InsertPoint(vid, v.x, v.y, v.z);
+        double r = glm::distance(glm::dvec3(0.0, 0.0, 0.0), v.xyz());
+        if (radius < 0 || r < radius) {
+            radius = r;
+        }
+    }
+    if (points->GetNumberOfPoints() < 1 || cells->GetNumberOfCells() < 1) return;
+    poly->SetPoints(points);
+    poly->SetPolys(cells);
+    
+    // auto tf = vtkSmartPointer<vtkTriangleFilter>::New();
+    // tf->PassVertsOff();
+    // tf->PassLinesOff();
+    // tf->SetInputData(poly);
+    // tf->Update();
+
+    // tp = tf->GetOutput();
+    // return;
+    // tp->BuildLinks();
+    // if (poly->GetNumberOfVerts() < 1 || poly->GetNumberOfPolys() < 1) return;
+
+    // vtkSmartPointer<vtkCellLocator> cl = vtkSmartPointer<vtkCellLocator>::New();
+    cl->SetDataSet(poly);
+    // cl->SetDataSet(poly);
+    cl->SetTolerance(1e-12);
+    cl->CacheCellBoundsOn();
+    cl->AutomaticOn();
+    cl->BuildLocator();
+
+    double point[] = {c.x, c.y, c.z};
+    double closestPoint[3];
+
+    vtkIdType cellId;
+    int subId;
+    double dist2;
+    auto& v = mesh_.V.at(vid);
+    if (cl->FindClosestPointWithinRadius(point, radius, closestPoint, cellId, subId, dist2) == 1) {
+        v.x = closestPoint[0];
+        v.y = closestPoint[1];
+        v.z = closestPoint[2];
+    } else {
+        v.x = c.x;
+        v.y = c.y;
+        v.z = c.z;
+    }
+}
+
+void SurfaceMapper::SetLocator(Mesh& mesh_, std::vector<size_t> V) {
+    vtkSmartPointer<vtkPolyData> poly = mu.GetPolyData(mesh_, V);
+
+    auto tf = vtkSmartPointer<vtkTriangleFilter>::New();
+    tf->PassVertsOff();
+    tf->PassLinesOff();
+    tf->SetInputData(poly);
+    tf->Update();
+
+    target_cellPolyData = tf->GetOutput();
+    target_cellPolyData->BuildLinks();
+
+    cell_locator->SetDataSet(target_cellPolyData);
+    // cell_locator->SetDataSet(poly);
+    cell_locator->SetTolerance(1e-12);
+    cell_locator->CacheCellBoundsOn();
+    cell_locator->AutomaticOn();
+    cell_locator->BuildLocator();
+}
+

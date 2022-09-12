@@ -50,6 +50,8 @@ void FeatureLine::Extract(const size_t label)
         std::vector<size_t>::iterator iter = std::unique(Eids.begin(), Eids.end());
         Eids.resize(std::distance(Eids.begin(), iter));
     }
+    std::cout << "Vids: " << Vids.size() << std::endl;
+    std::cout << "Eids: " << Eids.size() << std::endl;
     Vertex* pCorner = NULL;
     for (size_t i = 0; i < Vids.size(); i++) {
         const Vertex& v = mesh.V.at(Vids.at(i));

@@ -27,6 +27,8 @@ public:
 	void RefineMesh();
 	void SetOriginalRefinedMesh();
 	void SmoothMesh(bool smoothGlobal_);
+	void SetPosition(Vertex& v);
+	void SetPositionBoundary(Vertex& v);
 
 	void VertexRotate(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
 	void EdgeRotate(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);

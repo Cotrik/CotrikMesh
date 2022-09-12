@@ -960,7 +960,7 @@ void SmoothAlgorithm::smoothMesh() {
                     }
                     // remapBoundaryVertices();
                     double newE = getMeshEnergy(true);
-                    // std::cout << "it2: " << it2 << " oldE: " << currentE << " newE: " << newE << std::endl;
+                    std::cout << "it2: " << it2 << " oldE: " << currentE << " newE: " << newE << std::endl;
                     if (currentE - newE < tau) {
                         // remapBoundaryVertices();
                         for (int i = 0; i < mesh.V.size(); i++) {

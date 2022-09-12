@@ -606,6 +606,8 @@ public:
     void ExtractOneRingNeighbors(Vertex& source);
     double GetQuadFaceArea(std::vector<size_t>& Vids);
     double GetQuadMeshArea();
+    void SetIdealValence(size_t vid);
+    double GetAngle(size_t vid, size_t vid1, size_t vid2);
 public:
     std::vector<Vertex> V;
     std::vector<Edge> E;
@@ -636,6 +638,7 @@ public:
     bool smoothGlobal = true;
     double totalArea = 0.0;
     double prescribed_length = 0.0;
+    bool isPlanar = false;
 };
 
 #endif /* MESH_H_ */

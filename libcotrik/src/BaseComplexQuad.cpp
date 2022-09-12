@@ -1215,7 +1215,7 @@ size_t BaseComplexQuad::TraceAlongEdge(const Vertex& start_vertex, const Edge& s
         is_edge_visited[currentEdge->id] = true;
         currentVertex = (Vertex*)&mesh.V.at(currentEdge->Vids[0] == currentVertex->id ? currentEdge->Vids[1] : currentEdge->Vids[0]);
         vids_link.push_back(currentVertex->id);
-        if (currentVertex->isBoundary || currentVertex->isSingularity || is_mesh_vertex_visited[currentVertex->id]) break;
+        if (currentVertex->type == FEATURE || currentVertex->isBoundary || currentVertex->isSingularity || is_mesh_vertex_visited[currentVertex->id]) break;
         is_mesh_vertex_visited[currentVertex->id] = true;
         currentEdge = GetNextContinuousEdge(*currentVertex, *currentEdge);
     }

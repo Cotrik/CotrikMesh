@@ -25,7 +25,10 @@ class ChordCollapse : public SimplificationOperation {
         void PerformOperation();
         glm::dvec3 GetLocation() {return glm::dvec3(0.0, 0.0, 0.0);}
         size_t GetCenterId() {return -1;}
-
+        double CalculateRanking();
+        glm::dvec4 CalculateQEM(size_t v1_id, size_t v2_id);
+        double CalculateAreaDistance(size_t v1_id, size_t v2_id);
+        double CalculateValenceTerm(size_t v1_id, size_t v2_id);
 
     private:
         void CollapseEdge(Edge& e, Edge& edgeToRemove);

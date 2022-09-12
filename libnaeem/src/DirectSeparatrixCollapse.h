@@ -25,6 +25,7 @@ class DirectSeparatrixCollapse : public SimplificationOperation {
         void PerformOperation();
         glm::dvec3 GetLocation();
         size_t GetCenterId() {return cid;}
+        double CalculateRanking() {return 0.0;}
     private:
         void SetUpdateElements(size_t vid);
         double GetDistance(glm::dvec3 a);

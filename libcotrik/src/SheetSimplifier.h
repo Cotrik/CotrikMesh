@@ -33,6 +33,10 @@ public:
     void GetChordCollapseOps(BaseComplexQuad& baseComplex, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
     void CollapseChordWithFeaturePreserved(std::unordered_map<size_t, size_t>& key_edgeId, std::unordered_map<std::string, size_t>& key_faceId,
     std::map<size_t, size_t>& canceledFaceIds, std::set<size_t>& canceledEdgeIds, std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
+    double CalculateRanking(std::set<size_t>& canceledEdgeIds);
+    glm::dvec4 CalculateQEM(size_t v1_id, size_t v2_id);
+    double CalculateAreaDistance(size_t v1_id, size_t v2_id);
+    double CalculateValenceTerm(size_t v1_id, size_t v2_id);
 };
 
 #endif /* LIBCOTRIK_SRC_SHEETSIMPLIFIER_H_ */

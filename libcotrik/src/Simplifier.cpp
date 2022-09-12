@@ -467,7 +467,8 @@ void Simplifier::global_simplify(std::set<size_t>& canceledFids) {
 			}
 		}
 
-		if (multiple_edges && !has_interior_singularities) continue;
+		// if (multiple_edges && !has_interior_singularities) continue;
+		if (multiple_edges) continue;
 
 		std::map<size_t, size_t> canceledFaceIds;
 		std::set<size_t> canceledEdgeIds = get_canceledEdgeIds(baseComplexSheets, canceledFaceIds, sheetId);
@@ -1755,7 +1756,7 @@ void Simplifier::three_connections_collapse(BaseComplexQuad& baseComplex, std::s
 			++id;
 		}
 	}
-	std::cout << threeLinks.size() << std::endl;
+	// std::cout << threeLinks.size() << std::endl;
 	std::vector<double> ranks;
 	for (auto l : threeLinks) {
 		double rank = 0;
@@ -4083,7 +4084,7 @@ void Simplifier::init() {
 	mesh.ExtractBoundary();
 	mesh.ExtractSingularities();
 	mesh.BuildParallelE();
-	mesh.unifyOrientation();
+	// mesh.unifyOrientation();
 	mesh.GetQuadMeshArea();
 	// mesh.SetOneRingNeighborhood();
 	mesh.V.resize(mesh.V.size());

@@ -67,7 +67,8 @@ void ChordExtractor::BuildChord(Edge& start) {
 std::vector<size_t> ChordExtractor::SelectChords() {
     std::vector<size_t> res;
     for (int i = 0; i < Chords.size(); i++) {
-        if (isChordValid(i)) res.push_back(i);
+        // if (isChordValid(i)) res.push_back(i);
+        res.push_back(i);
     }
     return res;
 }

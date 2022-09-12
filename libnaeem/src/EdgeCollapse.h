@@ -21,6 +21,7 @@ class EdgeCollapse : public SimplificationOperation {
         void PerformOperation();
         glm::dvec3 GetLocation() {return glm::dvec3(0.0, 0.0, 0.0);}
         size_t GetCenterId() {return -1;}
+        double CalculateRanking() {return 0.0;}
 
     private:
         std::shared_ptr<SimplificationOperation> vr;

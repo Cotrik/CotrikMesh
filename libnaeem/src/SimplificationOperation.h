@@ -29,10 +29,13 @@ class SimplificationOperation {
         virtual void PerformOperation() = 0;
         virtual glm::dvec3 GetLocation() = 0;
         virtual size_t GetCenterId() = 0;
+        virtual double CalculateRanking() = 0;
 
         double ranking = -1.0;
         std::vector<size_t> smoothV;
         std::vector<size_t> toUpdate;
+
+        void FixDoublet(size_t vid);
 
     protected:
         void CheckValidity();
@@ -44,7 +47,6 @@ class SimplificationOperation {
         
         bool IsCollapsable(size_t vid1, size_t vid2);
 
-        void FixDoublet(size_t vid);
         void UpdateNeighborInfo(Vertex& target, Vertex& source, int fId);
         void SetSingularity(size_t vid);
 

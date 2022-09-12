@@ -30,8 +30,18 @@ void DirectSeparatrixCollapse::SetRanking(glm::dvec3 d) {
 
         sepVertices.push_back(f.Vids.at((idx + 2) % f.Vids.size()));
         auto& v1 = mesh.V.at(f.Vids.at((idx + 2) % f.Vids.size()));
-        max += v1.N_Vids.size() == 4 ? v1.N_Vids.size() * 4 : v1.N_Vids.size();  
-
+        if (v1.isBoundary) {
+            if (v1.N_Vids.size() == 3) {
+                max += v1.N_Vids.size() * 4;
+            } else if (v1.N_Vids.size() == 2) {
+                max += v1.N_Vids.size() * 16;
+            } else {
+                max += v1.N_Vids.size();
+            }
+            // max += v1.N_Vids.size() == 3 ? v1.N_Vids.size() * 4 : v1.N_Vids.size();  
+        } else {
+            max += v1.N_Vids.size() == 4 ? v1.N_Vids.size() * 4 : v1.N_Vids.size();  
+        }
         std::vector<size_t> maxV = GetDifference(mesh.V.at(f.Vids.at((idx + 1) % f.Vids.size())).N_Vids, sepVertices);
         if (maxV.size() > 0) std::move(maxV.begin(), maxV.begin()+1, std::back_inserter(maxVertices));
         maxV.clear();
@@ -41,7 +51,17 @@ void DirectSeparatrixCollapse::SetRanking(glm::dvec3 d) {
 
     for (auto id: maxVertices) {
         auto& v = mesh.V.at(id);
-        max += v.N_Vids.size() == 4 ? v.N_Vids.size() * 2 : v.N_Vids.size();
+        if (v.isBoundary) {
+            if (v.N_Vids.size() == 3) {
+                max += v.N_Vids.size() * 2;
+            } else if (v.N_Vids.size() == 2) {
+                max += v.N_Vids.size() * 8;
+            } else {
+                max += v.N_Vids.size();
+            }
+        } else {
+            max += v.N_Vids.size() == 4 ? v.N_Vids.size() * 2 : v.N_Vids.size();
+        }
     }
 
     min += mesh.V.at(s2.at(0)).N_Vids.size() + mesh.V.at(s2.at(1)).N_Vids.size();
@@ -75,11 +95,19 @@ bool DirectSeparatrixCollapse::IsOperationValid() {
     if (v.N_Fids.size() == 0) isValid = false;
     if (mesh.V.at(s1.at(0)).N_Fids.size() != 3 || mesh.V.at(s1.at(1)).N_Fids.size() != 3) isValid = false;
     if (looseCollapse) {
-        if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 && mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
-        if ((mesh.V.at(s2.at(0)).type == FEATURE || mesh.V.at(s2.at(0)).isBoundary) && mesh.V.at(s2.at(0)).N_Fids.size() == 4) isValid = false;
-        if ((mesh.V.at(s2.at(1)).type == FEATURE || mesh.V.at(s2.at(1)).isBoundary) && mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+        // if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 && mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+        if (mesh.V.at(s2.at(0)).type != FEATURE && !mesh.V.at(s2.at(0)).isBoundary && mesh.V.at(s2.at(0)).N_Fids.size() == 4
+            && mesh.V.at(s2.at(1)).type != FEATURE && !mesh.V.at(s2.at(1)).isBoundary && mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+        if ((mesh.V.at(s2.at(0)).type == FEATURE || mesh.V.at(s2.at(0)).isBoundary) && mesh.V.at(s2.at(0)).N_Fids.size() < v.idealValence
+            && (mesh.V.at(s2.at(1)).type == FEATURE || mesh.V.at(s2.at(1)).isBoundary) && mesh.V.at(s2.at(1)).N_Fids.size() < v.idealValence) isValid = false;
     } else {
-        if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 || mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+        if (mesh.V.at(s2.at(0)).type != FEATURE && !mesh.V.at(s2.at(0)).isBoundary && mesh.V.at(s2.at(0)).N_Fids.size() == 4) isValid = false;
+        if (mesh.V.at(s2.at(1)).type != FEATURE && !mesh.V.at(s2.at(1)).isBoundary && mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+        if (mesh.V.at(s2.at(0)).type == FEATURE && mesh.V.at(s2.at(0)).N_Fids.size() < v.idealValence) isValid = false;
+        if (mesh.V.at(s2.at(1)).type == FEATURE && mesh.V.at(s2.at(1)).N_Fids.size() < v.idealValence) isValid = false;
+        // if (mesh.V.at(s2.at(0)).isBoundary && mesh.V.at(s2.at(0)).N_Fids.size() == 2) isValid = false;
+        // if (mesh.V.at(s2.at(1)).isBoundary && mesh.V.at(s2.at(1)).N_Fids.size() == 2) isValid = false;
+        // if (mesh.V.at(s2.at(0)).N_Fids.size() == 4 || mesh.V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
     }
     // for (auto id: s2) {
     //     auto& s = mesh.V.at(id);
@@ -281,14 +309,14 @@ void DirectSeparatrixCollapse::PerformOperation() {
 void DirectSeparatrixCollapse::SetUpdateElements(size_t vid) {
     auto& v = mesh.V.at(vid);
     for (auto nvid: v.N_Vids) {
-        if (mesh.V.at(nvid).N_Vids.size() == 4 && mesh.V.at(nvid).type != FEATURE) AddContents(toUpdate, std::vector<size_t>{nvid});
+        if (mesh.V.at(nvid).N_Vids.size() == 4 && mesh.V.at(nvid).type != FEATURE && !mesh.V.at(nvid).isBoundary) AddContents(toUpdate, std::vector<size_t>{nvid});
     }
     for (auto fid: v.N_Fids) {
         auto& f = mesh.F.at(fid);
         int index = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
         auto& diagV = mesh.V.at(f.Vids.at((index+2)%f.Vids.size()));
         for (auto nvid: diagV.N_Vids) {
-            if (mesh.V.at(nvid).N_Vids.size() == 4 && mesh.V.at(nvid).type != FEATURE) AddContents(toUpdate, std::vector<size_t>{nvid});
+            if (mesh.V.at(nvid).N_Vids.size() == 4 && mesh.V.at(nvid).type != FEATURE && !mesh.V.at(nvid).isBoundary) AddContents(toUpdate, std::vector<size_t>{nvid});
         }
     }
 }

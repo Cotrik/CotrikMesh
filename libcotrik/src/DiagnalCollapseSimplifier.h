@@ -26,6 +26,8 @@ public:
     void RunCollective(std::set<size_t>& canceledFids);
     void CollapseSinglets(std::set<size_t>& canceledFids);
 	void GetDiagonalCollapseOps(std::multiset<SimplificationOperationStruct, bool(*)(SimplificationOperationStruct, SimplificationOperationStruct)>& SimplificationOps);
+    double CalculateRanking(std::vector<size_t>& Vids);
+    glm::dvec4 CalculateQEM(size_t v1_id, size_t v2_id);
 private:
     void CollapseDiagnal(const Vertex& v0, const Vertex& v2);
     bool CanCollapseDiagnal(const Vertex& v0, const Vertex& v2);

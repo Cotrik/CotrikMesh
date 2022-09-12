@@ -141,12 +141,14 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
         UpdateContents(v.N_Eids, edgesToRemove);
         UpdateContents(v.N_Fids, facesToRemove);
     }
+    // std::cout << "After updating source nvids" << std::endl;
 
     for (auto eid: diffSourceEdges) {
         Edge& e = mesh.E.at(eid);
         if (e.Vids.at(0) == source.id) e.Vids.at(0) = target.id;
         if (e.Vids.at(1) == source.id) e.Vids.at(1) = target.id;
     }
+    // std::cout << "After updating source edges" << std::endl;
 
     for (auto fid: diffSourceFaces) {
         Face& f = mesh.F.at(fid);
@@ -159,17 +161,21 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
         AddContents(f.N_Fids, diffTargetFaces);
         UpdateContents(f.N_Fids, facesToRemove);
     }
-
+    // std::cout << "After updating source faces" << std::endl;
+    
     AddContents(target.N_Vids, diffSourceVertices);
     AddContents(target.N_Eids, diffSourceEdges);
     AddContents(target.N_Fids, diffSourceFaces);
     UpdateContents(target.N_Fids, facesToRemove);
-    
+    // std::cout << "After updating target info" << std::endl;
+
     for (auto fid: diffTargetFaces) { 
         Face& f = mesh.F.at(fid);
         AddContents(f.N_Fids, diffSourceFaces);
         UpdateContents(f.N_Fids, facesToRemove);
     }
+    // std::cout << "After updating target faces" << std::endl;
+
 
     for (auto vid: face.Vids) {
         if (vid == target.id || vid == source.id) continue;
@@ -188,7 +194,9 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
         }
         Edge& edgeToKeep = mesh.E.at(e1);
         Edge& edgeToRemove = mesh.E.at(e2);
-        Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh.F.at(edgeToKeep.N_Fids.at(1)) : mesh.F.at(edgeToKeep.N_Fids.at(0));
+        // std::cout << edgeToKeep.N_Fids.size() << " " << edgeToRemove.N_Fids.size() << std::endl;
+        if (edgeToRemove.N_Fids.size() < 2) continue;
+        // Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh.F.at(edgeToKeep.N_Fids.at(1)) : mesh.F.at(edgeToKeep.N_Fids.at(0));
         Face& faceToChange = edgeToRemove.N_Fids.at(0) == face.id ? mesh.F.at(edgeToRemove.N_Fids.at(1)) : mesh.F.at(edgeToRemove.N_Fids.at(0));
         for (int i = 0; i < faceToChange.Eids.size(); i++) {
             if (faceToChange.Eids.at(i) == edgeToRemove.id) {
@@ -213,6 +221,7 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
     source.N_Vids.clear();
     source.N_Eids.clear();
     source.N_Fids.clear();
+    // std::cout << "After updating face info" << std::endl;
     for (auto id: face.Vids) {
         FixDoublet(id);
     }
@@ -237,7 +246,14 @@ void SimplificationOperation::FixDoublet(size_t vid) {
     CheckValidity();
 
     Vertex& v = mesh.V.at(vid);
+    if (v.N_Vids.size() == 1) {
+        v.N_Fids.clear();
+        v.N_Vids.clear();
+        v.N_Eids.clear();
+        return;
+    }
     if (v.N_Vids.size() != 2) return;
+    if (v.type == FEATURE || v.isBoundary) return;
     for (auto fid: v.N_Fids) {
         if (mesh.F.at(fid).Vids.empty()) return;
     }

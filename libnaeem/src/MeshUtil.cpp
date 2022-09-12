@@ -58,6 +58,70 @@ vtkSmartPointer<vtkPolyData> MeshUtil::GetPolyData() {
     return polyData;
 }
 
+vtkSmartPointer<vtkPolyData> MeshUtil::GetPolyData(Mesh& mesh_, size_t vid) {
+    CheckValidity();
+
+    // vtkNew<vtkPoints> points;
+    // vtkNew<vtkCellArray> cells;
+    auto polyData = vtkSmartPointer<vtkPolyData>::New();
+    return polyData;
+    // std::vector<size_t> vertices;
+    // std::vector<size_t> faces = mesh_.V.at(vid).N_Fids;
+    // for (auto fid: faces) {
+    //     auto& f = mesh_.F.at(fid);
+    //     if (f.N_Fids.empty() || f.Vids.empty()) continue;
+    //     AddContents(vertices, f.Vids);
+    //     vtkNew<vtkPolygon> p;
+    //     p->GetPointIds()->SetNumberOfIds(f.Vids.size());
+    //     for (int i = 0; i < f.Vids.size(); i++) {
+    //         p->GetPointIds()->SetId(i, f.Vids.at(i));
+    //     }
+    //     cells->InsertNextCell(p);
+    // }
+    // for (auto vid: vertices) {
+    //     auto& v = mesh_.V.at(vid);
+    //     vtkIdType pId = v.id;
+    //     points->InsertPoint(pId, v.x, v.y, v.z);
+    // }
+
+    // polyData->SetPoints(points);
+    // polyData->SetPolys(cells);
+    // return polyData;
+}
+
+vtkSmartPointer<vtkPolyData> MeshUtil::GetPolyData(Mesh& mesh_, std::vector<size_t> V) {
+    CheckValidity();
+
+    vtkNew<vtkPoints> points;
+    vtkNew<vtkCellArray> cells;
+    auto polyData = vtkSmartPointer<vtkPolyData>::New();
+    
+    std::vector<size_t> vertices;
+    std::vector<size_t> faces;
+    for (auto vid: V) {
+        AddContents(faces, mesh_.V.at(vid).N_Fids);
+    }
+    for (auto fid: faces) {
+        auto& f = mesh_.F.at(fid);
+        if (f.N_Fids.empty() || f.Vids.empty()) continue;
+        AddContents(vertices, f.Vids);
+        vtkNew<vtkPolygon> p;
+        p->GetPointIds()->SetNumberOfIds(f.Vids.size());
+        for (int i = 0; i < f.Vids.size(); i++) {
+            p->GetPointIds()->SetId(i, f.Vids.at(i));
+        }
+        cells->InsertNextCell(p);
+    }
+    for (auto vid: vertices) {
+        auto& v = mesh_.V.at(vid);
+        vtkIdType pId = v.id;
+        points->InsertPoint(pId, v.x, v.y, v.z);
+    }
+
+    polyData->SetPoints(points);
+    polyData->SetPolys(cells);
+    return polyData;
+}
 
 void MeshUtil::SetMeshArea() {
     CheckValidity();

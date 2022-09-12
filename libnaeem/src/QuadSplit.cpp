@@ -24,22 +24,37 @@ void QuadSplit::PerformOperation() {
 
     // glm::dvec3 newCoords = mesh.V.at(vid).xyz();
     glm::dvec3 newCoords(0.0, 0.0, 0.0);
+    for (auto id: verticesToChange) {
+        auto& vc = mesh.V.at(id);
+        for (auto fid: vc.N_Fids) {
+            auto& f = mesh.F.at(fid);
+            if (std::find(f.Vids.begin(), f.Vids.end(), vid) != f.Vids.end() &&
+                std::find(f.Vids.begin(), f.Vids.end(), id) != f.Vids.end()) {
+                    for (auto fvid: f.Vids) newCoords += mesh.V.at(fvid).xyz();
+                    newCoords /= 4;
+                    break;
+            }
+        }
+        break;
+    }
     // for (auto id: verticesToSplit) {
     //     newCoords += mesh.V.at(id).xyz();
     // }
-    for (auto id: verticesToChange) {
-        newCoords += mesh.V.at(id).xyz();
-    }
+    // for (auto id: verticesToChange) {
+    //     newCoords += mesh.V.at(id).xyz();
+    // }
     // newCoords /= (verticesToSplit.size()+verticesToChange.size()+1);
-    newCoords /= (verticesToChange.size());
+    // newCoords /= (verticesToChange.size());
 
+    // std::vector<glm::dvec3> newCoords = GetNewCoords(vid);
     Vertex newV_(newCoords);
     newV_.id = mesh.V.size();
     mesh.V.push_back(newV_);
 
     auto& newV = mesh.V.at(mesh.V.size()-1);
     auto& v = mesh.V.at(vid);
-
+    // SetCoords(v, newCoords.at(0));
+    // SetCoords(newV, newCoords.at(1));
     // std::cout << "splitting at vertex: " << v.id << std::endl;
     // std::cout << "vertex neighbors: " << v.N_Vids.size() << " ";
     // for (auto id: v.N_Vids) std::cout << id << " ";
@@ -236,4 +251,108 @@ void QuadSplit::PerformOperation() {
     // } 
     // std::cout << "new face neighbor faces " << mesh.F.at(newF_.id).N_Fids.size() << std::endl;
     Smooth();
+}
+
+std::vector<glm::dvec3> QuadSplit::GetNewCoords(size_t vid) {
+    Vertex& v = mesh.V.at(vid);
+    int n = v.N_Eids.size() / 2;
+
+    double polyArea = 0.0;
+    glm::dvec3 centroid(0.0, 0.0, 0.0);
+    std::vector<glm::dvec3> centroids(2);
+    size_t startE = v.N_Eids.at(0);
+    for (auto eid: v.N_Eids) {
+        auto& e = mesh.E.at(eid);
+        if (std::find(verticesToSplit.begin(), verticesToSplit.end(), e.Vids.at(0)) != verticesToSplit.end()
+        || std::find(verticesToSplit.begin(), verticesToSplit.end(), e.Vids.at(1)) != verticesToSplit.end()) {
+            startE = eid;
+            break;
+        }
+    }
+
+    int n_idx = 0;
+    bool breakLoop = false;
+    for (int i = 0; i < n; i++) {
+        auto& edge = mesh.E.at(startE);
+        size_t ev = edge.Vids.at(0) == v.id ? edge.Vids.at(1) : edge.Vids.at(0);
+        size_t ev_plus1;
+        size_t ev_minus1;
+        for (auto fid: edge.N_Fids) {
+            auto& f = mesh.F.at(fid);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            if (f.Vids.at((idx+1)%f.Vids.size()) == ev) {
+                ev_plus1 = f.Vids.at((idx+3)%f.Vids.size());
+                if (v.N_Eids.size()%2 != 0 && i == n-1) continue;
+                startE = mu.GetDifference(mu.GetIntersection(f.Eids, v.N_Eids), std::vector<size_t>{edge.id}).at(0);
+            }
+            if (f.Vids.at((idx+3)%f.Vids.size()) == ev) {
+                ev_minus1 = f.Vids.at((idx+1)%f.Vids.size());
+            }
+        }
+
+        auto& v2 = mesh.V.at(ev);
+        auto& v3 = mesh.V.at(ev_plus1);
+        auto& v4 = mesh.V.at(ev_minus1);
+
+        if (std::find(verticesToChange.begin(), verticesToChange.end(), ev) != verticesToChange.end()) n_idx = 1;
+ 
+        glm::dvec3 AB = v3.xyz() - v2.xyz();
+        glm::dvec3 BC = v4.xyz() - v3.xyz();
+        glm::dvec3 CA = v2.xyz() - v4.xyz();
+        glm::dvec3 AC = v4.xyz() - v2.xyz();
+
+        double a = glm::length(BC);
+        double b = glm::length(CA);
+        double c = glm::length(AB);
+        glm::dvec3 incenter = ((a * v2.xyz()) + (b * v3.xyz()) + (c * v4.xyz())) / (a + b + c);
+        
+        double area = 0.5 * glm::length(glm::cross(AB, AC));
+        centroid += (area * incenter); 
+        polyArea += area;
+        if (i == n-1 && !breakLoop) {
+            centroids.at(n_idx) = centroid / polyArea;
+            n_idx = 0;
+            centroid = glm::dvec3(0.0, 0.0, 0.0);
+            polyArea = 0.0;
+            breakLoop = true;
+            i = 0;
+        }
+    }
+    for (auto& centeroid: centroids) {
+        for (auto fid: v.N_Fids) {
+            auto& f = mesh.F.at(fid);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            if (idx == -1) continue;
+            auto& v2 = mesh.V.at(f.Vids.at((idx+1)%f.Vids.size()));
+            auto& v3 = mesh.V.at(f.Vids.at((idx+3)%f.Vids.size()));
+
+            glm::dvec3 AB = v2.xyz() - v.xyz();
+            glm::dvec3 AC = v3.xyz() - v.xyz();
+            glm::dvec3 BC = v3.xyz() - v2.xyz();
+            glm::dvec3 CA = v.xyz() - v3.xyz();
+
+            glm::dvec3 T_cross = glm::cross(AB, AC);
+
+            glm::dvec3 normal = glm::normalize(T_cross);
+            glm::dvec3 temp = centroid - v.xyz();
+            double dist = glm::dot(temp, normal);
+            glm::dvec3 projected_point = centroid - (dist * normal);
+            glm::dvec3 AP = projected_point - v.xyz();
+            glm::dvec3 BP = projected_point - v2.xyz();
+
+            double T_area = 0.5 * glm::length(T_cross);
+            if (0.5 * (glm::length(glm::cross(AB, AP)) + glm::length(glm::cross(AC, AP)), glm::length(glm::cross(BP, BC))) > T_area) continue;
+            centroid.x = projected_point.x;
+            centroid.y = projected_point.y;
+            centroid.z = projected_point.z;
+            break;
+        }
+    }
+    return centroids;
+} 
+
+void QuadSplit::SetCoords(Vertex& v, glm::dvec3& coord) {
+    v.x = coord.x;
+    v.y = coord.y;
+    v.z = coord.z;
 }
