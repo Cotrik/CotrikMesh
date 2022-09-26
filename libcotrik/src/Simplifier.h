@@ -14,7 +14,7 @@
 #include "BaseComplexSheetQuad.h"
 #include "Patches.h"
 #include "PatchSimplifierOperations.h"
-#include "QuadSurfaceMapper.h"
+// #include "QuadSurfaceMapper.h"
 #include "MeshUtil.h"
 
 #include <unordered_map>
