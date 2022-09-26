@@ -86,6 +86,17 @@ glm::dvec3 SurfaceMapper::GetClosestPoint(glm::dvec3 p) {
     return glm::dvec3(closestPoint[0], closestPoint[1], closestPoint[2]);
 }
 
+// double SurfaceMapper::ExecuteHaursdorffDsitanceFilter(Mesh& m1, Mesh& m2) {
+//     vtkSmartPointer<vtkPolyData> p1 = GetPolyDataFromMesh(m1);
+//     vtkSmartPointer<vtkPolyData> p2 = GetPolyDataFromMesh(m2);
+
+//     haursdorffDistanceFilter->SetInput(0, p1);
+//     haursdorffDistanceFilter->SetInput(1, p2);
+//     haursdorffDistanceFilter->Update();
+
+//     return haursdorffDistanceFilter->GetHausdorffDistance();
+// }
+
 void SurfaceMapper::RemapVertex(Mesh& mesh_, size_t vid, glm::dvec3 c) {
     // vtkSmartPointer<vtkPolyData> poly = vtkSmartPointer<vtkPolyData>::New();
     poly->Reset();

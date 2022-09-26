@@ -1039,8 +1039,9 @@ SingularityLink SemiGlobalSimplifier::PrototypeGetLink(size_t vid, BaseComplexQu
     std::vector<SingularityLink> links = GetLinks(v.id, bc, checkValence);
     int valenceToCheck = mesh.V.at(vid).N_Vids.size() == 3 ? 5 : 3;
     for (auto& l: links) {
-        if (PrototypeCheckBoundarySingularity(l.frontId) || PrototypeCheckBoundarySingularity(l.backId)) continue;
-        if (!edgesToCheck.empty() && !IsExclusive(l.frontId, l.linkEids, edgesToCheck)) continue;
+        // if (PrototypeCheckBoundarySingularity(l.frontId)) continue;
+        // if (PrototypeCheckBoundarySingularity(l.frontId) || PrototypeCheckBoundarySingularity(l.backId)) continue;
+        if (!edgesToCheck.empty() && (l.backId == vertexToSkip || !IsExclusive(l.frontId, l.linkEids, edgesToCheck))) continue;
         if (!checkValence) {
             if (PrototypeCheckBoundarySingularity(l.backId)) continue;
             if (l.backId == vertexToSkip) continue;
@@ -1048,13 +1049,13 @@ SingularityLink SemiGlobalSimplifier::PrototypeGetLink(size_t vid, BaseComplexQu
         //     if (PrototypeCheckBoundarySingularity(l.frontId) || PrototypeCheckBoundarySingularity(l.backId)) continue;
             // if (mesh.V.at(l.backId).N_Vids.size() != valenceToCheck) l.rank += 100;
         // } else if (PrototypeCheckBoundarySingularity(l.frontId) || PrototypeCheckBoundarySingularity(l.backId)) {
-        } else if (PrototypeCheckBoundarySingularity(l.frontId) || PrototypeCheckBoundarySingularity(l.backId)) {
+        } else if (PrototypeCheckBoundarySingularity(l.backId)) {
             l.rank = 0.0;
         }
-        if (boundary && (PrototypeCheckBoundarySingularity(l.frontId) || PrototypeCheckBoundarySingularity(l.backId))) {
-            q.push(l);
-            continue;
-        }
+        // if (boundary && (PrototypeCheckBoundarySingularity(l.frontId) || PrototypeCheckBoundarySingularity(l.backId))) {
+        //     q.push(l);
+        //     continue;
+        // }
         q.push(l);
     }
     SingularityLink l;
@@ -1068,26 +1069,175 @@ void SemiGlobalSimplifier::PrototypeE() {
     BaseComplexQuad bc(mesh);
     std::priority_queue<SingularityGroup, std::vector<SingularityGroup>, GroupComparator> q;
     for (auto& v: mesh.V) {
-        SingularityLink l1 = PrototypeGetLink(v.id, bc);
+        if (v.type == FEATURE || v.isBoundary || PrototypeCheckBoundarySingularity(v.id) || (v.N_Vids.size() != 3 && v.N_Vids.size() != 5)) continue;
+        SingularityLink l1 = PrototypeGetLink(v.id, bc, 0, std::vector<size_t>{}, true, false);
         if (l1.linkVids.empty()) continue;
         SingularityLink l2 = PrototypeGetLink(v.id, bc, l1.backId, l1.linkEids, true, false);
         if (l2.linkVids.empty()) continue;
         SingularityGroup s;
         s.l1 = l1;
         s.l2 = l2;
-        s.rank = s.l1.rank + s.l2.rank;
+        s.rank = s.l1.rank + s.l2.rank + (s.l1.a + s.l1.b) + (s.l2.a + s.l2.b);
         q.push(s);
     }
     std::cout << q.size() << std::endl;
     int i = 0;
+    
     while (!q.empty()) {
         SingularityGroup s = q.top();
         SingularityLink l1 = s.l1;
         SingularityLink l2 = s.l2;
-
+        if (i >= iters && ((l1.a+l1.b > 2 && l1.b > 0) || (l2.a+l2.b > 2 && l2.b > 0))) {
+            std::cout << "l1: " << l1.a+l1.b << " l1 rots: " << l1.rot << std::endl;
+            std::cout << "l2: " << l2.a+l2.b << " l2 rots: " << l2.rot << std::endl;
+            std::cout << "link rotation from l2 to l1: " << PrototypeGetRotations(l1.frontId, l2.linkEids.front(), l1.linkEids.front()) << std::endl;
+            std::cout << "link rotation from l1 to l2: " << PrototypeGetRotations(l1.frontId, l1.linkEids.front(), l2.linkEids.front()) << std::endl;
+            PrototypeSaveMesh(l1, l2, "test");
+            break;
+        }
+        // if ((s.l2.a+s.l2.b) < (s.l1.a+s.l1.b)) {
+        //     l1 = s.l2;
+        //     l2 = s.l1;
+        // }
+        // PrototypeResolveGroup(l1, l2);
+        q.pop();
         i += 1;
-        if (i >= iters) break;
+        // if (i >= iters) {
+        //     break;
+        // }
     }
+    // while (FixValences());
+}
+
+int SemiGlobalSimplifier::PrototypeGetRotations(size_t vid, size_t start, size_t end) {
+    auto& v = mesh.V.at(vid);
+    int nRots = 0;
+    for (int i = 0; i < v.N_Eids.size(); i++) {
+        auto& e = mesh.E.at(start);
+        size_t evid = e.Vids.at(0) == v.id ? e.Vids.at(1) : e.Vids.at(0);
+        for (auto fid: e.N_Fids) {
+            auto& f = mesh.F.at(fid);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            if (f.Vids.at((idx+1)%f.Vids.size()) == evid) {
+                start = mu.GetDifference(mu.GetIntersection(v.N_Eids, f.Eids), std::vector<size_t>{e.id}).at(0);
+                break;
+            }
+        }
+        nRots += 1;
+        if (start == end) break;
+    }
+    return nRots;
+}
+
+void SemiGlobalSimplifier::PrototypeSaveMesh(SingularityLink& l1, SingularityLink& l2, std::string in) {
+    int colorValue = 0;
+    int ncolors = 15;
+    std::vector<size_t> c_indices;
+    std::vector<int> colors;
+    
+    c_indices.insert(c_indices.end(), l1.linkEids.begin(), l1.linkEids.end());
+    c_indices.insert(c_indices.end(), l2.linkEids.begin(), l2.linkEids.end());
+    std::vector<int> a(l1.linkEids.size(), (colorValue%ncolors));
+    colors.insert(colors.end(), a.begin(), a.end());
+    colorValue += 1;
+    a.clear();
+    a.resize(l2.linkEids.size(), (colorValue%ncolors));
+    colors.insert(colors.end(), a.begin(), a.end());    
+    
+    std::ofstream ofs(in+"_singularityLinks.vtk");
+    ofs << "# vtk DataFile Version 3.0\n"
+        << "singularityLinks" << ".vtk\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs << "POINTS " << mesh.V.size() << " double\n";
+    for (size_t i = 0; i < mesh.V.size(); i++) {
+        ofs << std::fixed << std::setprecision(7) <<  mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+    }
+    ofs << "CELLS " << c_indices.size() << " " << 3 * c_indices.size() << std::endl;
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        auto& e = mesh.E.at(c_indices.at(i));
+        if (e.Vids.empty()) continue;
+        ofs << "2 " << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;
+
+    }
+    ofs << "CELL_TYPES " << c_indices.size() << "\n";
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        ofs << "3" << std::endl;
+    }
+
+    ofs << "CELL_DATA " << c_indices.size() << "\n";
+    ofs << "SCALARS fixed int\n";
+    ofs << "LOOKUP_TABLE default\n";
+    for (auto c: colors) {
+        ofs << c << "\n";
+    }
+
+    ofs.close();
+    ofs.clear();
+    ofs.open(in+"_out.vtk");
+
+    c_indices.clear();
+    for (auto& f: mesh.F) {
+        if (f.Vids.empty() || f.N_Fids.empty()) continue;
+        c_indices.push_back(f.id);
+    }
+    ofs << "# vtk DataFile Version 3.0\n"
+        << "Mesh" << ".vtk\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs << "POINTS " << mesh.V.size() << " double\n";
+    for (size_t i = 0; i < mesh.V.size(); i++) {
+        ofs << std::fixed << std::setprecision(7) <<  mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
+    }
+    ofs << "CELLS " << c_indices.size() << " " << 5 * c_indices.size() << std::endl;
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        auto& f = mesh.F.at(c_indices.at(i));
+        ofs << "4 " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << " " << std::endl;
+    }
+    ofs << "CELL_TYPES " << c_indices.size() << "\n";
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        ofs << "9" << std::endl;
+    }
+}
+
+void SemiGlobalSimplifier::PrototypeResolveGroup(SingularityLink& l1, SingularityLink& l2) {
+    // std::cout << "l1: " << mesh.V.at(l1.frontId).N_Vids.size() << " " << mesh.V.at(l1.backId).N_Vids.size() << std::endl;
+    // std::cout << "l2: " << mesh.V.at(l2.frontId).N_Vids.size() << " " << mesh.V.at(l2.backId).N_Vids.size() << std::endl;
+    // std::cout << "Before l1: " << l1.a + l1.b << " l2: " << l2.a + l2.b << std::endl;
+    while (true) {
+        // std::cout << "l1.a " << l1.a << " l1.b " << l1.b << std::endl;
+        // std::cout << "l1 front: " << mesh.V.at(l1.frontId).N_Vids.size() << " l1 back: " << mesh.V.at(l1.backId).N_Vids.size() << std::endl;
+        // std::cout << "l2.a " << l2.a << " l2.b " << l2.b << std::endl;
+        // std::cout << "l2 front: " << mesh.V.at(l2.frontId).N_Vids.size() << " l2 back: " << mesh.V.at(l2.backId).N_Vids.size() << std::endl;
+        if (mesh.V.at(l1.frontId).N_Vids.size() != 3 && mesh.V.at(l1.frontId).N_Vids.size() != 5) break;
+        if (mesh.V.at(l1.backId).N_Vids.size() != 3 && mesh.V.at(l1.backId).N_Vids.size() != 5) break;
+        if (mesh.V.at(l2.backId).N_Vids.size() != 3 && mesh.V.at(l2.backId).N_Vids.size() != 5) break;
+        if (PrototypeCancelThreeFivePair(l1, l2) > 0) break;
+        if (PullSingularity(l1, l2) == -1) break;
+        if (PrototypeCancelThreeFivePair(l1, l2) > 0) break;
+        if (PullSingularity(l2, l1) == -1) break;
+        if (PrototypeCancelThreeFivePair(l1, l2) > 0) break;
+    }
+    PrototypeCancelThreeFivePair(l1, l2);
+    // std::cout << "After l1: " << l1.a + l1.b << " l2: " << l2.a + l2.b << std::endl;
+}
+
+int SemiGlobalSimplifier::PrototypeCancelThreeFivePair(SingularityLink& l1, SingularityLink& l2) {
+    if (l1.a + l1.b == 1) {
+        if (!ValidatePath(l1.linkVids) || !ValidatePath(l2.linkVids)) return 0;
+        std::vector<size_t> threeFiveIds;
+        if (mesh.V.at(l1.linkVids.at(0)).N_Vids.size() == 3 && mesh.V.at(l1.linkVids.at(1)).N_Vids.size() == 5) {
+            threeFiveIds.push_back(l1.linkVids.at(0));
+            threeFiveIds.push_back(l1.linkVids.at(1));
+        } else if (mesh.V.at(l1.linkVids.at(0)).N_Vids.size() == 5 && mesh.V.at(l1.linkVids.at(1)).N_Vids.size() == 3) {
+            threeFiveIds.push_back(l1.linkVids.at(1));
+            threeFiveIds.push_back(l1.linkVids.at(0));
+        }
+        if (threeFiveIds.size() < 2) return 0;
+        MovePair(threeFiveIds, l2.linkVids);
+        return 1;
+    }
+    return 0;
 }
 
 void SemiGlobalSimplifier::PrototypeC() {
@@ -1286,7 +1436,6 @@ int SemiGlobalSimplifier::PrototypeCancelSingularityPair(SingularityLink& l, Bas
     }
     return nextVid;
 }
-
 
 bool SemiGlobalSimplifier::PrototypeCheckBoundarySingularity(size_t vid) {
     auto& v = mesh.V.at(vid);
@@ -1706,40 +1855,41 @@ void SemiGlobalSimplifier::GenerateSingularityPair(SingularityLink& l1, Singular
 }
 
 int SemiGlobalSimplifier::PullSingularity(SingularityLink& l1, SingularityLink& l2) {
-    // std::cout << "Inside PullSingularity" << std::endl;
+    // PrototypeSaveMesh(l1, l2, "Before");
+    std::cout << "Inside PullSingularity" << std::endl;
     std::vector<size_t> mainPath = l1.linkVids;
     std::vector<size_t> secondaryPath = l2.linkVids;
-
-    // std::cout << "mainPath: ";
-    // for (auto vid: mainPath) {
-    //     std::cout << vid << " ";
-    // }
-    // std::cout  << std::endl;
+    if (!ValidatePath(mainPath) || !ValidatePath(secondaryPath)) return -1;
+    std::cout << "mainPath: ";
+    for (auto vid: mainPath) {
+        std::cout << vid << " ";
+    }
+    std::cout  << std::endl;
     
-    // std::cout << "secondaryPath: ";
-    // for (auto vid: secondaryPath) {
-    //     std::cout << vid << " ";
-    // }
-    // std::cout  << std::endl;
+    std::cout << "secondaryPath: ";
+    for (auto vid: secondaryPath) {
+        std::cout << vid << " ";
+    }
+    std::cout  << std::endl;
 
     std::vector<int> Rots = GetTraverseInfo(l1, l2);
     if (Rots.at(0) == 0) return -1;
-    // std::cout << "Got traverse info" << std::endl;
-    // std::cout << "Rots: ";
-    // for (auto r: Rots) {
-    //     std::cout << r << " ";
-    // }
-    // std::cout  << std::endl;
+    std::cout << "Got traverse info" << std::endl;
+    std::cout << "Rots: ";
+    for (auto r: Rots) {
+        std::cout << r << " ";
+    }
+    std::cout  << std::endl;
     // return -1;
     auto& toMove = mesh.V.at(mainPath.at(0));
     size_t sourceDir = mainPath.at(1);
     size_t secondaryDir = secondaryPath.at(1);
 
-    // std::cout << "toMove: " << toMove.id << " sourceDir: " << sourceDir << " secondaryDir: " << secondaryDir << std::endl;
+    std::cout << "toMove: " << toMove.id << " sourceDir: " << sourceDir << " secondaryDir: " << secondaryDir << std::endl;
 
     std::vector<size_t> threeFiveIds = GetThreeFivePairIds(toMove.id, sourceDir, secondaryDir);
     if (threeFiveIds.size() < 2) return -1;
-    // std::cout << "threeID: " << threeFiveIds.at(0) << " " << mesh.V.at(threeFiveIds.at(0)).N_Vids.size() << " fiveID: " << threeFiveIds.at(1) << " " << mesh.V.at(threeFiveIds.at(1)).N_Vids.size() << std::endl;
+    std::cout << "threeID: " << threeFiveIds.at(0) << " " << mesh.V.at(threeFiveIds.at(0)).N_Vids.size() << " fiveID: " << threeFiveIds.at(1) << " " << mesh.V.at(threeFiveIds.at(1)).N_Vids.size() << std::endl;
     auto& sourceDirV = mesh.V.at(sourceDir);
     // size_t startId;
     // if (sourceDirV.N_Vids.size() == 3) {
@@ -1781,18 +1931,19 @@ int SemiGlobalSimplifier::PullSingularity(SingularityLink& l1, SingularityLink& 
     //     tfp->Move(secondaryPath.at(i), skipCheck);
     //     // return -1;
     // }
-    if (MovePair(threeFiveIds, secondaryPath) == -1) return -1;
+    // if (MovePair(threeFiveIds, secondaryPath) == -1) return -1;
+    MovePair(threeFiveIds, secondaryPath);
 
-    // std::cout << "After moving singularity" << std::endl;
+    std::cout << "After moving singularity" << std::endl;
     l1.linkVids = std::vector<size_t>(mainPath.begin()+1, mainPath.end());
     l1.frontId = l1.linkVids.front();
     l1.backId = l1.linkVids.back();
 
-    // std::cout << "l1 vids: ";
-    // for (auto vid: l1.linkVids) {
-    //     std::cout << vid << " ";
-    // }
-    // std::cout  << std::endl;
+    std::cout << "l1 vids: ";
+    for (auto vid: l1.linkVids) {
+        std::cout << vid << " ";
+    }
+    std::cout  << std::endl;
 
     l1.a -= 1;
     if (l1.a == 0) {
@@ -1806,11 +1957,11 @@ int SemiGlobalSimplifier::PullSingularity(SingularityLink& l1, SingularityLink& 
     l2.frontId = l2.linkVids.front();
     l2.backId = l2.linkVids.back();
 
-    // std::cout << "l2 vids: ";
-    // for (auto vid: l2.linkVids) {
-    //     std::cout << vid << " ";
-    // }
-    // std::cout  << std::endl;
+    std::cout << "l2 vids: ";
+    for (auto vid: l2.linkVids) {
+        std::cout << vid << " ";
+    }
+    std::cout  << std::endl;
     // return -1;
 
     /*std::vector<size_t> newPath1 = {sourceDir, startId};
@@ -1890,6 +2041,7 @@ int SemiGlobalSimplifier::PullSingularity(SingularityLink& l1, SingularityLink& 
         l2.frontId = l2.linkVids.front();
         l2.backId = l2.linkVids.back();
     }*/
+    // PrototypeSaveMesh(l1, l2, "After");
     if (l1.a + l1.b == 1) return -1;
     return 0;
 }
@@ -2337,6 +2489,7 @@ std::vector<SingularityLink> SemiGlobalSimplifier::GetCrossLinks(SingularityLink
             newL.backId = newL.linkVids.back();
             newL.a = b.size();
             newL.b = tempL.linkEids.size();
+            newL.rot = PrototypeGetRotations(tempL.linkVids.front(), tempL.linkEids.front(), b.back());
             {
                 std::lock_guard<std::mutex> lock(mtx);
                 newLinks.push_back(newL);

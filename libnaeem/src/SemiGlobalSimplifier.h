@@ -42,6 +42,7 @@ struct SingularityLink {
     int a = 0;
     int b = 0;
     double rank = 1.0;
+    int rot = 0;
 };
 
 struct LinkComparator {
@@ -49,7 +50,7 @@ struct LinkComparator {
 
     bool operator()(SingularityLink& l, SingularityLink& r) {
         if (l.rank == r.rank) {
-            return (l.a+l.b) >= (r.a+r.b);
+            return (l.a+l.b) > (r.a+r.b);
         }
         return l.rank > r.rank;
         // return (l.a+l.b) >= (r.a+r.b) && l.rank >= r.rank;
@@ -59,7 +60,7 @@ struct LinkComparator {
 struct SingularityGroup {
     SingularityLink l1;
     SingularityLink l2;
-    double rank;
+    double rank = 0.0;
 };
 
 struct GroupComparator {
@@ -142,6 +143,10 @@ class SemiGlobalSimplifier {
         void PrototypeC();
         void PrototypeD();
         void PrototypeE();
+        int PrototypeGetRotations(size_t vid, size_t start, size_t end);
+        void PrototypeSaveMesh(SingularityLink& l1, SingularityLink& l2, std::string in);
+        void PrototypeResolveGroup(SingularityLink& l1, SingularityLink& l2);
+        int PrototypeCancelThreeFivePair(SingularityLink& l1, SingularityLink& l2);
         int PrototypeCancelSingularity(size_t vid, BaseComplexQuad& bc);
         bool PrototypeCheckBoundarySingularity(size_t vid);
         int PrototypeCancelSingularityPair(SingularityLink& l, BaseComplexQuad& bc);

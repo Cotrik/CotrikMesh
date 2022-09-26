@@ -60,7 +60,7 @@ void DirectSeparatrixCollapse::SetRanking(glm::dvec3 d) {
                 max += v.N_Vids.size();
             }
         } else {
-            max += v.N_Vids.size() == 4 ? v.N_Vids.size() * 2 : v.N_Vids.size();
+            max += v.N_Vids.size() == 4 ? v.N_Vids.size() * 8 : v.N_Vids.size();
         }
     }
 

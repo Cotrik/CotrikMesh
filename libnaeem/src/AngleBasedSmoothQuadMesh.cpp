@@ -937,7 +937,7 @@ void SmoothAlgorithm::smoothMesh() {
                     v.x = delta_coords.at(i).x;
                     v.y = delta_coords.at(i).y;
                 }
-                break;                
+                // break;                
             }
             // if (boundarySmoothing) {
                 int it2 = 0;

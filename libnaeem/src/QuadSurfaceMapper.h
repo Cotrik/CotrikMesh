@@ -13,6 +13,7 @@
 #include <vtkImplicitPolyDataDistance.h>
 #include <vtkDistancePolyDataFilter.h>
 #include <vtkTriangleFilter.h>
+// #include <vtkHausdorffDistancePointSetFilter.h>
 #include <glm/glm.hpp>
 
 #include "Mesh.h"
@@ -29,10 +30,11 @@ class SurfaceMapper {
         void SetTarget(Mesh& mesh);
         glm::dvec3 GetClosestPoint(glm::dvec3 p);
         void ExecutePolyDistanceFilter(Mesh& mesh);
+        // double ExecuteHaursdorffDsitanceFilter(Mesh& m1, Mesh& m2);
         void RemapVertex(Mesh& mesh_, size_t vid, glm::dvec3 c);
         void SetLocator(Mesh& mesh_, std::vector<size_t> V);
     private:
-        Mesh& source = Mesh();
+        Mesh& source = Mesh(std::vector<Vertex>{}, std::vector<Cell>{}, QUAD);
         Mesh& target = Mesh();
         MeshUtil mu;
         vtkSmartPointer<vtkPolyData> source_polyData = vtkSmartPointer<vtkPolyData>::New();
@@ -41,7 +43,8 @@ class SurfaceMapper {
         vtkSmartPointer<vtkCellLocator> cell_locator = vtkSmartPointer<vtkCellLocator>::New();
         vtkSmartPointer<vtkImplicitPolyDataDistance> point_finder = vtkSmartPointer<vtkImplicitPolyDataDistance>::New();
         vtkSmartPointer<vtkDistancePolyDataFilter> polyDistanceFilter = vtkSmartPointer<vtkDistancePolyDataFilter>::New();
-        
+        // vtkSmartPointer<vtkHausdorffDistancePointSetFilter> haursdorffDistanceFilter = vtkSmartPointer<vtkHausdorffDistancePointSetFilter>::New();
+
         vtkSmartPointer<vtkPolyData> poly = vtkSmartPointer<vtkPolyData>::New();
         vtkNew<vtkPoints> points;
         vtkNew<vtkCellArray> cells;

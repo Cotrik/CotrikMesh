@@ -38,7 +38,19 @@ int main(int argc, char* argv[]) {
     source.BuildAllConnectivities();
     source.ExtractSingularities();
     // source.ExtractBoundary();
-	source.BuildParallelE();	
+	source.BuildParallelE();
+
+    // MeshFileReader target_reader(output_f.c_str());
+    // Mesh& target = (Mesh&) target_reader.GetMesh();
+    // target.RemoveUselessVertices();
+    // target.BuildAllConnectivities();
+    // target.ExtractSingularities();
+    // source.ExtractBoundary();
+	// target.BuildParallelE();
+
+    // SurfaceMapper sm();
+    // std::cout << "Haursdorff distance: " << sm.ExecuteHaursdorffDsitanceFilter(source, target)  << std::endl;
+    // return;
     // for (auto& el: source.V) {
     //     std:cout << el.N_Fids.size() << std::endl;
     // }
@@ -52,6 +64,44 @@ int main(int argc, char* argv[]) {
     
     FeatureExtractor fe(source, 20.0, mu);
     fe.Extract();
+    std::cout << "Writing output file" << std::endl;
+    std::ofstream ofs("FeaturePoints.vtk");
+    ofs << "# vtk DataFile Version 3.0\n"
+        << "FeaturePoints.vtk.vtk\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs << "POINTS " << source.V.size() << " double\n";
+    std::vector<size_t> c_indices;
+    // for (auto& v: source.V) {
+        // if (v.type == FEATURE || v.isBoundary) c_indices.push_back(v.id);
+        // if ((v.isBoundary) && v.N_Fids.size() != v.idealValence) {
+        //     c_indices.push_back(v.id);
+        //     std::cout << "vertices: " << v.N_Vids.size() << " edges: " << v.N_Eids.size() << " faces: "  << v.N_Fids.size() << " ideal valence: " << v.idealValence << std::endl;
+        // } 
+    // }
+    // std::vector<size_t> c_indices = {12, 296};
+    // std::cout << c_indices.size() << std::endl;
+    std::set<size_t> eSet;
+    for (auto& e: source.E) {
+        auto& v1 = source.V.at(e.Vids.at(0));
+        auto& v2 = source.V.at(e.Vids.at(1));
+        if ((v1.type == FEATURE || v1.isBoundary) && (v2.type == FEATURE || v2.isBoundary)) eSet.insert(e.id);
+    }
+    c_indices.insert(c_indices.begin(), eSet.begin(), eSet.end());
+    for (size_t i = 0; i < source.V.size(); i++) {
+        ofs << std::fixed << std::setprecision(7) <<  source.V.at(i).x << " " <<  source.V.at(i).y << " " <<  source.V.at(i).z << "\n";
+    }
+    ofs << "CELLS " << c_indices.size() << " " << 3 * c_indices.size() << std::endl;
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        auto& e = source.E.at(c_indices.at(i));
+        ofs << "2 " << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;
+        // ofs << "1 " << c_indices.at(i) << std::endl;
+    }
+    ofs << "CELL_TYPES " << c_indices.size() << "\n";
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        ofs << "3" << std::endl;
+    }
+    return 0;
     // for (auto& v: source.V) {
     //     if ((v.isBoundary || v.type == FEATURE) && v.idealValence != 2) std::cout << v.idealValence << " ";
     // }
@@ -97,6 +147,25 @@ int main(int argc, char* argv[]) {
     // while (res) {
     // }
 
+    int n = 0;
+    std::vector<bool> isVisited(source.V.size(), false);
+    for (auto& v: source.V) {
+        if (!isVisited.at(v.id) && v.type != FEATURE && !v.isBoundary && (v.N_Vids.size() == 5 || v.N_Vids.size() == 3)) {
+            int valenceToCheck = v.N_Vids.size() == 5 ? 3 : 5;
+            for (auto fid: v.N_Fids) {
+                auto& f = source.F.at(fid);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                auto& fv = source.V.at(f.Vids.at((idx+2)%f.Vids.size()));
+                if (!isVisited.at(fv.id) && fv.type != FEATURE && !fv.isBoundary && fv.N_Vids.size() == valenceToCheck) {
+                    n += 1;
+                    isVisited.at(v.id) = true;
+                    isVisited.at(fv.id) = true;
+                    break;
+                }
+            }
+        }
+    }
+    std::cout << "Diagonal 3-5 pairs: " << n << std::endl;
     sg.Smooth();
     sg.PrototypeE();
     // sg.PrototypeD();
@@ -239,34 +308,7 @@ int main(int argc, char* argv[]) {
     //     }
     // }
     // std::cout << std::endl;
-    // std::cout << "Writing output file" << std::endl;
-    // std::ofstream ofs("FeaturePoints.vtk");
-    // ofs << "# vtk DataFile Version 3.0\n"
-    //     << "FeaturePoints.vtk.vtk\n"
-    //     << "ASCII\n\n"
-    //     << "DATASET UNSTRUCTURED_GRID\n";
-    // ofs << "POINTS " << source.V.size() << " double\n";
-    // std::vector<size_t> c_indices;
-    // for (auto& v: source.V) {
-    //     // if (v.type == FEATURE || v.isBoundary) c_indices.push_back(v.id);
-    //     if ((v.isBoundary) && v.N_Fids.size() != v.idealValence) {
-    //         c_indices.push_back(v.id);
-    //         std::cout << "vertices: " << v.N_Vids.size() << " edges: " << v.N_Eids.size() << " faces: "  << v.N_Fids.size() << " ideal valence: " << v.idealValence << std::endl;
-    //     } 
-    // }
-    // // std::vector<size_t> c_indices = {12, 296};
-    // std::cout << c_indices.size() << std::endl;
-    // for (size_t i = 0; i < source.V.size(); i++) {
-    //     ofs << std::fixed << std::setprecision(7) <<  source.V.at(i).x << " " <<  source.V.at(i).y << " " <<  source.V.at(i).z << "\n";
-    // }
-    // ofs << "CELLS " << c_indices.size() << " " << 2 * c_indices.size() << std::endl;
-    // for (size_t i = 0; i < c_indices.size(); i++) {
-    //     ofs << "1 " << c_indices.at(i) << std::endl;
-    // }
-    // ofs << "CELL_TYPES " << c_indices.size() << "\n";
-    // for (size_t i = 0; i < c_indices.size(); i++) {
-    //     ofs << "1" << std::endl;
-    // }
+    
 
     // MeshFileReader target_reader(target_f.c_str());
     // Mesh& target = (Mesh&) target_reader.GetMesh();
@@ -396,9 +438,11 @@ if (breakLoop) break;*/
 // Comparison
 // Ranking based on configuration
 
-// Feedback Annual Review Nguen
-// Include slides at the start about the Phd program
-// Add date on slides
-// Include visual examples in the first slides
-// Too much content on csn
-// what is a visualization task
+// 3-singularity movements
+// Same rotation: element reduction all the way
+// Different rotation: element reduction along a and element addition along b
+// Same rotation both links: invalid
+// Different rotation both links: invalid
+// Different rotation one link: a must be greater than other link's a
+
+// 5-singularity movements

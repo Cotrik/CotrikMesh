@@ -54,14 +54,14 @@ int main(int argc, char* argv[]) {
     simplifier.SmoothMesh();
     // simplifier.smoothGlobal = true;
     // simplifier.SmoothMesh(true);
-    simplifier.RefineMesh();
-    simplifier.init();
+    // simplifier.RefineMesh();
+    // simplifier.init();
     // SurfaceMapper sm(mesh, simplifier.origMesh);
     // for (auto& v: mesh.V) {
     //     v = sm.MapPoint(v.xyz());
     // }
-    simplifier.smoothGlobal = true;
-    simplifier.SmoothMesh();
+    // simplifier.smoothGlobal = true;
+    // simplifier.SmoothMesh();
     // simplifier.smooth_project(2);
 	{
         // simplifier.RefineMesh();
