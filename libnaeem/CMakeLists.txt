@@ -70,4 +70,4 @@ add_library(naeem SHARED STATIC
     src/VertexSplit.h
     src/VertexSplit.cpp
 )
-target_link_libraries(naeem cotrik ${ALL_LIBS})
+target_link_libraries(naeem ${ALL_LIBS})

@@ -159,5 +159,5 @@ add_library(cotrik SHARED STATIC
 	src/Util.cpp
     src/PatchSimplifierOperations.h
 )
-target_link_libraries(cotrik naeem ${ALL_LIBS})
+target_link_libraries(cotrik ${ALL_LIBS})
 #install(FILES cotrik DESTINATION D:/Program\ Files/CotrikMesh/)
