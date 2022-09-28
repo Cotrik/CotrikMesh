@@ -34,7 +34,7 @@ void Smoother::SetMembers(Mesh& mesh_, MeshUtil& mu_) {
     mu = &mu_;
 }
 
-void Smoother::Smooth(std::vector<size_t>& V) {
+void Smoother::Smooth(std::vector<size_t> V) {
     CheckValidity();
     bool performMapping = V.empty() ? true : false;
     if (V.empty()) {
