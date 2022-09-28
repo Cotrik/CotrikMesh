@@ -50,8 +50,8 @@ int main(int argc, char* argv[]) {
 	simplifier.init();
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Simplification time: " << duration << " seconds" << std::endl;
-    simplifier.smoothGlobal = true;
-    simplifier.SmoothMesh();
+    // simplifier.smoothGlobal = true;
+    // simplifier.SmoothMesh();
     // simplifier.smoothGlobal = true;
     // simplifier.SmoothMesh(true);
     // simplifier.RefineMesh();

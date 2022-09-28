@@ -401,7 +401,7 @@ bool PatchSimplifier::Simplify(int& iter) {
     else {
         // smoothGlobal = false;
         // std::cout << "Before smoothing local" << std::endl;
-        SmoothMesh();
+        // SmoothMesh();
         // std::cout << "After smoothing local" << std::endl;
         // for (auto& v: mesh.V) {
         //     std::cout << v.x << " " << v.y << " " << v.z << std::endl; 
