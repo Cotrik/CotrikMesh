@@ -14,10 +14,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})   
 include_directories(
-    ${PROJECT_SOURCE_DIR}/eigen3
-    ${PROJECT_SOURCE_DIR}/verdict/vtkverdict
-    ${PROJECT_SOURCE_DIR}/libigl/include
-    ${PROJECT_SOURCE_DIR}/libcotrik/src
+    ${PROJECT_SOURCE_DIR}/eigen3/
+    ${PROJECT_SOURCE_DIR}/verdict/vtkverdict/
+    ${PROJECT_SOURCE_DIR}/libigl/include/
+    ${PROJECT_SOURCE_DIR}/libcotrik/src/
     ../
     ${VTK_INCLUDE_DIRS}
 )
@@ -44,8 +44,6 @@ add_library(naeem SHARED STATIC
     src/EdgeRotation.cpp
     src/FeatureExtractor.h
     src/FeatureExtractor.cpp
-    src/LocalSimplifier.h
-    src/LocalSimplifier.cpp
     src/MeshUtil.h
     src/MeshUtil.cpp
     src/ParallelFor.h
@@ -70,4 +68,4 @@ add_library(naeem SHARED STATIC
     src/VertexSplit.h
     src/VertexSplit.cpp
 )
-target_link_libraries(naeem ${ALL_LIBS})
+target_link_libraries(naeem cotrik ${ALL_LIBS})
