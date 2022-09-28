@@ -3971,7 +3971,7 @@ void SemiGlobalSimplifier::SetSecondaryPath(size_t& secondaryId, size_t& toMoveI
     }
 }
 
-void SemiGlobalSimplifier::MoveSingularities(size_t& toMoveId, size_t& sourceId, size_t& secondaryId, size_t& sourceDir, size_t& secondaryDir, std::vector<size_t>& secondaryPath) {
+void SemiGlobalSimplifier::MoveSingularities(size_t& toMoveId, size_t& sourceId, size_t& secondaryId, size_t& sourceDir, size_t& secondaryDir, std::vector<size_t> secondaryPath) {
     auto& toMove = mesh->V.at(toMoveId);
     std::cout << "toMove: " << toMoveId << " " << toMove.N_Vids.size() << " source: " << sourceId << " " << mesh->V.at(sourceId).N_Vids.size() << " secondary: " << secondaryId << " " << mesh->V.at(secondaryId).N_Vids.size() << std::endl; 
     std::cout << "toMove: " << toMoveId << " " << toMove.N_Vids.size() << " source dir: " << sourceDir << " " << mesh->V.at(sourceDir).N_Vids.size() << " secondary dir: " << secondaryDir << " " << mesh->V.at(secondaryDir).N_Vids.size() << std::endl; 

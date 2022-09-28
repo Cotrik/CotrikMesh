@@ -161,7 +161,7 @@ class SemiGlobalSimplifier {
         size_t GetFaceId(size_t vid, size_t exclude_vid);
         size_t GetDiagonalV(size_t vid, size_t fid);
         std::vector<size_t> GetThreeFivePairIds(size_t vid, size_t mainId, size_t secondaryId);
-        void MoveSingularities(size_t& toMoveId, size_t& sourceId, size_t& secondaryId, size_t& sourceDir, size_t& secondaryDir, std::vector<size_t>& secondaryPath);
+        void MoveSingularities(size_t& toMoveId, size_t& sourceId, size_t& secondaryId, size_t& sourceDir, size_t& secondaryDir, std::vector<size_t> secondaryPath);
         void SetSecondaryPath(size_t& secondaryId, size_t& toMoveId, size_t& sourceId, std::vector<size_t>& mainPath, std::vector<size_t>& secondaryPath, BaseComplexQuad& bc);
         std::vector<std::shared_ptr<SimplificationOperation>> Ops;
         PQueue<std::shared_ptr<SimplificationOperation>> Op_Q;
