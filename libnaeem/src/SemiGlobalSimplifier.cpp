@@ -4,6 +4,7 @@
 #include <queue>
 #include <deque>
 #include <utility>
+#include <memory>
 #include "ParallelFor.h"
 #include "SemiGlobalSimplifier.h"
 
@@ -229,7 +230,7 @@ void SemiGlobalSimplifier::SetDiagonalCollapseOperations() {
     }
     std::cout << Ops.size() << std::endl;
     int i = 0;
-    for (auto& op: Ops) {
+    for (auto op: Ops) {
         op->PerformOperation();
         i += 1;
         if (i >= iters) break;        
@@ -286,7 +287,7 @@ void SemiGlobalSimplifier::SetBoundaryDirectSeparatrixOperations(bool looseColla
     int i = 0;
     std::cout << Op_Q.size() << " boundary direct separatrix operations" << std::endl;
     while (!Op_Q.empty()) {
-        auto& op = Op_Q.pop();
+        auto op = Op_Q.pop();
         op->PerformOperation();
         // smoother->Smooth(op->smoothV);
         for (auto key: op->toUpdate) {
@@ -330,7 +331,7 @@ void SemiGlobalSimplifier::SetDirectSeparatrixOperations(bool looseCollapse) {
     int i = 0;
     std::cout << Op_Q.size() << " direct separatrix operations" << std::endl;
     while (!Op_Q.empty()) {
-        auto& op = Op_Q.pop();
+        auto op = Op_Q.pop();
         op->PerformOperation();
         // smoother->Smooth(op->smoothV);
         for (auto key: op->toUpdate) {
@@ -375,7 +376,7 @@ void SemiGlobalSimplifier::SetSeparatrixOperations() {
     std::cout << Op_Q.size() << " separatrix operations" << std::endl;
     int i = 0;
     while (!Op_Q.empty()) {
-        auto& op = Op_Q.pop();
+        auto op = Op_Q.pop();
         op->PerformOperation();
         // std::cout << "Getting to update operations" << std::endl;
         for (auto vid: op->toUpdate) {
@@ -461,7 +462,7 @@ void SemiGlobalSimplifier::SetBoundarySeparatrixOperations() {
     std::cout << Op_Q.size() << " boundary separatrix operations" << std::endl;
     int i = 0;
     while (!Op_Q.empty()) {
-        auto& op = Op_Q.pop();
+        auto op = Op_Q.pop();
         op->PerformOperation();
         i += 1;
         // if (i > iters) break;
@@ -514,7 +515,7 @@ void SemiGlobalSimplifier::SetHalfSeparatrixOperations() {
     std::cout << Op_Q.size() << " half separatrix operations" << std::endl;
     int i = 0;
     while (!Op_Q.empty()) {
-        auto& op = Op_Q.pop();
+        auto op = Op_Q.pop();
         op->PerformOperation();
         // for (auto vid: op->toUpdate) {
         //     std::vector<SingularityLink> links = TraceSingularityLinks(mesh->V.at(vid), bc);
