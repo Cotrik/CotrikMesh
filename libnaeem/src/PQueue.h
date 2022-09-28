@@ -8,6 +8,8 @@
 #ifndef P_QUEUE_H_
 #define P_QUEUE_H_
 
+#include <iostream>
+#include <math.h>
 #include <vector>
 #include <unordered_map>
 
