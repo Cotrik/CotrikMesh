@@ -31,23 +31,23 @@ void SimplificationOperation::SetMembers(Mesh& mesh_, MeshUtil& mu_, Smoother& s
     smoother = &smoother_;
 }
 
-std::vector<size_t> SimplificationOperation::GetDifference(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> SimplificationOperation::GetDifference(std::vector<size_t> a, std::vector<size_t> b) {
     return mu->GetDifference(a, b);
 }
 
-std::vector<size_t> SimplificationOperation::GetUnion(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> SimplificationOperation::GetUnion(std::vector<size_t> a, std::vector<size_t> b) {
     return mu->GetUnion(a, b);
 }
 
-std::vector<size_t> SimplificationOperation::GetIntersection(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> SimplificationOperation::GetIntersection(std::vector<size_t> a, std::vector<size_t> b) {
     return mu->GetIntersection(a, b);
 }
 
-void SimplificationOperation::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+void SimplificationOperation::AddContents(std::vector<size_t> a, std::vector<size_t> b) {
     mu->AddContents(a, b);
 }
 
-void SimplificationOperation::UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+void SimplificationOperation::UpdateContents(std::vector<size_t> a, std::vector<size_t> b) {
     mu->UpdateContents(a, b);
 }
 

@@ -201,7 +201,7 @@ double MeshUtil::GetInteriorAngleAtEdge(int vid, int eid) {
     return alpha1 + alpha2;
 }
 
-std::vector<size_t> MeshUtil::GetDifference(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> MeshUtil::GetDifference(std::vector<size_t> a, std::vector<size_t> b) {
     std::vector<size_t> diff;
     std::sort(a.begin(), a.end());
     std::sort(b.begin(), b.end());
@@ -209,7 +209,7 @@ std::vector<size_t> MeshUtil::GetDifference(std::vector<size_t>& a, std::vector<
     return diff;
 }
 
-std::vector<size_t> MeshUtil::GetUnion(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> MeshUtil::GetUnion(std::vector<size_t> a, std::vector<size_t> b) {
     std::vector<size_t> uni;
     std::sort(a.begin(), a.end());
     std::sort(b.begin(), b.end());
@@ -217,7 +217,7 @@ std::vector<size_t> MeshUtil::GetUnion(std::vector<size_t>& a, std::vector<size_
     return uni;
 }
 
-std::vector<size_t> MeshUtil::GetIntersection(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> MeshUtil::GetIntersection(std::vector<size_t> a, std::vector<size_t> b) {
     std::vector<size_t> itn;
     std::sort(a.begin(), a.end());
     std::sort(b.begin(), b.end());
@@ -225,7 +225,7 @@ std::vector<size_t> MeshUtil::GetIntersection(std::vector<size_t>& a, std::vecto
     return itn;
 }
 
-std::vector<size_t> MeshUtil::GetIntersectionParallel(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> MeshUtil::GetIntersectionParallel(std::vector<size_t> a, std::vector<size_t> b) {
     std::vector<size_t> itn;
     for (auto el: a) {
         if (std::find(b.begin(), b.end(), el) != b.end()) itn.push_back(el);
@@ -233,14 +233,16 @@ std::vector<size_t> MeshUtil::GetIntersectionParallel(std::vector<size_t>& a, st
     return itn;
 }
 
-void MeshUtil::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
-    std::vector<size_t> temp = GetUnion(a, b);
+void MeshUtil::AddContents(std::vector<size_t>& a, std::vector<size_t> b) {
+    std::vector<size_t> temp = a;
+    temp = GetUnion(temp, b);
     a.clear();
     a.insert(a.begin(), temp.begin(), temp.end());
 }
 
-void MeshUtil::UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b) {
-    std::vector<size_t> temp = GetDifference(a, b);
+void MeshUtil::UpdateContents(std::vector<size_t>& a, std::vector<size_t> b) {
+    std::vector<size_t> temp = a;
+    temp = GetDifference(temp, b);
     a.clear();
     a.insert(a.begin(), temp.begin(), temp.end());
 }

@@ -41,12 +41,12 @@ class MeshUtil {
         double GetInteriorAngleAtEdge(int vid, int eid);
 
         // Misc
-        void AddContents(std::vector<size_t>& a, std::vector<size_t>& b);
-        void UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b);
-        std::vector<size_t> GetDifference(std::vector<size_t>& a, std::vector<size_t>& b);
-        std::vector<size_t> GetUnion(std::vector<size_t>& a, std::vector<size_t>& b);
-        std::vector<size_t> GetIntersection(std::vector<size_t>& a, std::vector<size_t>& b);
-        std::vector<size_t> GetIntersectionParallel(std::vector<size_t>& a, std::vector<size_t>& b);
+        void AddContents(std::vector<size_t>& a, std::vector<size_t> b);
+        void UpdateContents(std::vector<size_t>& a, std::vector<size_t> b);
+        std::vector<size_t> GetDifference(std::vector<size_t> a, std::vector<size_t> b);
+        std::vector<size_t> GetUnion(std::vector<size_t> a, std::vector<size_t> b);
+        std::vector<size_t> GetIntersection(std::vector<size_t> a, std::vector<size_t> b);
+        std::vector<size_t> GetIntersectionParallel(std::vector<size_t> a, std::vector<size_t> b);
         
     private:
         Mesh* mesh;
