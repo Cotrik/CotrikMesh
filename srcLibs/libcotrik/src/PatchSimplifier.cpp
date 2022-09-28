@@ -435,7 +435,13 @@ bool PatchSimplifier::Simplify(int& iter) {
         SmoothMesh();
     }*/
     
-   
+    // Step 4 -- singlet collapsing
+    if (canceledFids.empty()) {
+        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
+        diagnalCollapseSimplifier.Run3(canceledFids);
+        // diagnalCollapseSimplifier.CollapseSinglets(canceledFids);
+        if (!canceledFids.empty()) std::cout << "singlet collapsing" << std::endl;
+    }
 
     // Step 1 -- doublet removal
     if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
@@ -446,18 +452,18 @@ bool PatchSimplifier::Simplify(int& iter) {
     }
 
     // Step 2 -- doublet splitting
-    if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
-        SheetSplitSimplifier sheetSplitSimplifier(mesh);
-        sheetSplitSimplifier.Run(canceledFids);
-        if (!canceledFids.empty()) std::cout << "remove_doublet from sheetSplitSimplifier" << std::endl;
-    }
+    // if (canceledFids.empty() && Simplifier::SHEET_SPLIT) {
+    //     SheetSplitSimplifier sheetSplitSimplifier(mesh);
+    //     sheetSplitSimplifier.Run(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "remove_doublet from sheetSplitSimplifier" << std::endl;
+    // }
     
     // Step -- triplet splitting (optional)
-    if (canceledFids.empty() && Simplifier::TRIP) {
-        TriangleSimplifier triangleSimplifier(mesh);
-        triangleSimplifier.Run(canceledFids);
-        if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
-    }
+    // if (canceledFids.empty() && Simplifier::TRIP) {
+    //     TriangleSimplifier triangleSimplifier(mesh);
+    //     triangleSimplifier.Run(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "collapse faces from TriangleSimplifier" << std::endl;
+    // }
 
     // Step 3 -- edge rotation
     if (canceledFids.empty() && Simplifier::ROTATE) {
@@ -475,14 +481,6 @@ bool PatchSimplifier::Simplify(int& iter) {
     //     writer.WriteFile();
     // }    
     
-    
-    // Step 4 -- singlet collapsing
-    if (canceledFids.empty()) {
-        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
-        diagnalCollapseSimplifier.Run3(canceledFids);
-        // diagnalCollapseSimplifier.CollapseSinglets(canceledFids);
-        if (!canceledFids.empty()) std::cout << "singlet collapsing" << std::endl;
-    }
 
     // Step 5 -- <separatrix splitting> and <separatrix splitting (optional)>
     if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
@@ -504,14 +502,14 @@ bool PatchSimplifier::Simplify(int& iter) {
     }
 
     
-    if (canceledFids.empty() && Simplifier::GLOBAL) {
-        // global_simplify(canceledFids);
-       SheetSimplifier sheetSimplifier(mesh);
-       sheetSimplifier.Run(canceledFids);
-    //    sheetSimplifier.ExtractAndCollapse(canceledFids);
-        if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
+    // if (canceledFids.empty() && Simplifier::GLOBAL) {
+    //     // global_simplify(canceledFids);
+    //    SheetSimplifier sheetSimplifier(mesh);
+    //    sheetSimplifier.Run(canceledFids);
+    // //    sheetSimplifier.ExtractAndCollapse(canceledFids);
+    //     if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
 
-    }
+    // }
     if (canceledFids.empty() && Simplifier::GLOBAL) {
         SingleSheetSimplifier sheetSimplifier(mesh);
        sheetSimplifier.Run(canceledFids);
