@@ -4,7 +4,7 @@
 #include "Mesh.h"
 #include <glm/glm.hpp>
 
-class SmoothAlgorithm {
+class SmoothingAlgorithm {
 
 private:
     Mesh& mesh;
@@ -18,8 +18,8 @@ private:
     double boundaryE = 0.0;
 
 public:
-    SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double l_r, bool global_, bool boundary_smoothing);
-    ~SmoothAlgorithm();
+    SmoothingAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double l_r, bool global_, bool boundary_smoothing);
+    ~SmoothingAlgorithm();
 
     std::vector<Vertex> original_vertices;
     std::vector<Vertex> input_vertices;

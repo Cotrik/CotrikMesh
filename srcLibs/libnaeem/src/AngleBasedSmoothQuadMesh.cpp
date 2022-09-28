@@ -8,7 +8,7 @@
 
 #define PI 3.14159265
 
-SmoothAlgorithm::SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double l_r, bool global_, bool boundary_smoothing) : mesh(mesh), boundary_mesh(boundary_mesh) {
+SmoothingAlgorithm::SmoothingAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double l_r, bool global_, bool boundary_smoothing) : mesh(mesh), boundary_mesh(boundary_mesh) {
     iters = it;
     lambda = l_r;
     // tau = t;
@@ -21,9 +21,9 @@ SmoothAlgorithm::SmoothAlgorithm(Mesh& mesh, Mesh& boundary_mesh, int it, double
     boundarySmoothing = boundary_smoothing;
     std::cout << "min displacement limit: " << min_displacement_limit << std::endl;
 }
-SmoothAlgorithm::~SmoothAlgorithm() {}
+SmoothingAlgorithm::~SmoothingAlgorithm() {}
 
-void SmoothAlgorithm::setOriginalVertices() {
+void SmoothingAlgorithm::setOriginalVertices() {
     original_vertices.resize(boundary_mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
     for (int i = 0; i < boundary_mesh.V.size(); i++) {
         if (!boundary_mesh.V.at(i).isBoundary) {
@@ -58,7 +58,7 @@ void SmoothAlgorithm::setOriginalVertices() {
     }
 }
 
-double SmoothAlgorithm::getMinEdgeLength() {
+double SmoothingAlgorithm::getMinEdgeLength() {
     double min_edge_length = -1;
     for (auto& e: mesh.E) {
         Vertex& v1 = mesh.V.at(e.Vids[0]);
@@ -73,7 +73,7 @@ double SmoothAlgorithm::getMinEdgeLength() {
     return min_edge_length;
 }
 
-void SmoothAlgorithm::extractBoundary() {
+void SmoothingAlgorithm::extractBoundary() {
     for (auto& v: boundary_mesh.V) {
         if (v.isBoundary) {
             v.isVisited = false;
@@ -133,7 +133,7 @@ void SmoothAlgorithm::extractBoundary() {
     }
 }
 
-void SmoothAlgorithm::remapToOriginalBoundary() {
+void SmoothingAlgorithm::remapToOriginalBoundary() {
     for (auto patch: input_boundary) {
         delta_coords.clear();
         delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
@@ -216,7 +216,7 @@ void SmoothAlgorithm::remapToOriginalBoundary() {
     }
 }
 
-void SmoothAlgorithm::resampleBoundaryVertices() {
+void SmoothingAlgorithm::resampleBoundaryVertices() {
     bool hasNegativeElementsPresentAlready = false;
     for (auto& v: mesh.V) {
         if (!v.isBoundary || !v.isMovable) {
@@ -320,7 +320,7 @@ void SmoothAlgorithm::resampleBoundaryVertices() {
     }
 }
 
-void SmoothAlgorithm::resampleBoundaryVertices1() {
+void SmoothingAlgorithm::resampleBoundaryVertices1() {
     bool hasNegativeElementsPresentAlready = false;
     for (auto& v: mesh.V) {
         if (!v.isBoundary || !v.isMovable) {
@@ -461,7 +461,7 @@ void SmoothAlgorithm::resampleBoundaryVertices1() {
     }
 }
 
-void SmoothAlgorithm::remapBoundaryVertices() {
+void SmoothingAlgorithm::remapBoundaryVertices() {
     for (int i = 0; i < mesh.V.size(); i++) {
         if (mesh.V.at(i).isBoundary && mesh.V.at(i).isMovable) {
             glm::dvec3 new_v = delta_coords.at(i);
@@ -557,7 +557,7 @@ void SmoothAlgorithm::remapBoundaryVertices() {
     }
 }
 
-void SmoothAlgorithm::smoothLaplacianSimple() {
+void SmoothingAlgorithm::smoothLaplacianSimple() {
     int it = 0;
     double dt = 0;
     std::vector<Vertex> buffer_V(mesh.V.size());
@@ -616,7 +616,7 @@ void SmoothAlgorithm::smoothLaplacianSimple() {
     calculateMeshAngles();
 }
 
-void SmoothAlgorithm::smoothLaplacianScaleBased() {
+void SmoothingAlgorithm::smoothLaplacianScaleBased() {
     calculateMeshAngles();
     int it = 0;
     double dt = 0;
@@ -687,7 +687,7 @@ void SmoothAlgorithm::smoothLaplacianScaleBased() {
     calculateMeshAngles();
 }
 
-void SmoothAlgorithm::setBoundaryVerticesMovable() {
+void SmoothingAlgorithm::setBoundaryVerticesMovable() {
     // for (auto& v: mesh.V) {
         // if (!v.isBoundary) {
         //     int n_b = 0;
@@ -744,7 +744,7 @@ void SmoothAlgorithm::setBoundaryVerticesMovable() {
     }
 }
 
-void SmoothAlgorithm::findNegativeElements() {
+void SmoothingAlgorithm::findNegativeElements() {
     while (true) {
         std::vector<size_t> faceIds;
         bool foundCrossQuad = false;
@@ -802,7 +802,7 @@ void SmoothAlgorithm::findNegativeElements() {
     }
 }
 
-void SmoothAlgorithm::fixCrossQuad(int fid) {
+void SmoothingAlgorithm::fixCrossQuad(int fid) {
     Face& f = mesh.F.at(fid);
     for (auto id: f.Vids) {
         Vertex& v = mesh.V.at(id);
@@ -888,7 +888,7 @@ void SmoothAlgorithm::fixCrossQuad(int fid) {
 }
 
 
-void SmoothAlgorithm::smoothMesh() {
+void SmoothingAlgorithm::smoothMesh() {
     std::cout << "Started Mesh Smoothing" << std::endl;
     std::cout << mesh.V.size() << std::endl;
     setOriginalVertices();
@@ -987,7 +987,7 @@ void SmoothAlgorithm::smoothMesh() {
     calculateMeshAngles();
 }
 
-void SmoothAlgorithm::smoothLaplacianCotangentBased() {
+void SmoothingAlgorithm::smoothLaplacianCotangentBased() {
     // delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
     std::vector<glm::dvec3> new_coords(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
     std::vector<double> vertices_weights(mesh.V.size(), 0.0);
@@ -1066,7 +1066,7 @@ void SmoothAlgorithm::smoothLaplacianCotangentBased() {
     }
 }
 
-void SmoothAlgorithm::SmoothAngleBased() {
+void SmoothingAlgorithm::SmoothAngleBased() {
     // delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
     std::vector<glm::dvec3> new_coords(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
     for (int i = 0; i < mesh.V.size(); i++) {
@@ -1139,7 +1139,7 @@ void SmoothAlgorithm::SmoothAngleBased() {
     }
 }
 
-void SmoothAlgorithm::angleBasedSmoothing() {
+void SmoothingAlgorithm::angleBasedSmoothing() {
     // delta_coords.resize(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
     std::vector<double> vertex_weights(mesh.V.size(), 0);
     std::vector<glm::dvec3> new_coords(mesh.V.size(), glm::dvec3(0.0, 0.0, 0.0));
@@ -1275,7 +1275,7 @@ void SmoothAlgorithm::angleBasedSmoothing() {
     }
 }
 
-void SmoothAlgorithm::calculateMeshAngles() {
+void SmoothingAlgorithm::calculateMeshAngles() {
     std::vector<int> angles_histogram(180, 0);
     double min_angle = -1;
     double max_angle = -1;
@@ -1326,7 +1326,7 @@ void SmoothAlgorithm::calculateMeshAngles() {
     // }
 }
 
-bool SmoothAlgorithm::isMeshNonManifold() {
+bool SmoothingAlgorithm::isMeshNonManifold() {
     std::cout << "checking mesh manifold" << std::endl;
     std::vector<int> vs;
     bool non_mainfold = false;
@@ -1414,7 +1414,7 @@ bool SmoothAlgorithm::isMeshNonManifold() {
     return false;
 }
 
-double SmoothAlgorithm::getMeshEnergy(bool consider_boundary) {
+double SmoothingAlgorithm::getMeshEnergy(bool consider_boundary) {
     double E = 0.0;
     int nV = 1;
     tau = 0.0001;
@@ -1434,7 +1434,7 @@ double SmoothAlgorithm::getMeshEnergy(bool consider_boundary) {
     return E / nV;
 }
 
-double SmoothAlgorithm::getVertexEnergy(int vid) {
+double SmoothingAlgorithm::getVertexEnergy(int vid) {
     Vertex& v = mesh.V.at(vid);
     double E = 0.0;
     bool withOneRing = false;
@@ -1500,7 +1500,7 @@ double SmoothAlgorithm::getVertexEnergy(int vid) {
     return E;
 }
 
-bool SmoothAlgorithm::isFaceNegative(int fid, int vid, glm::dvec3 false_coord) {
+bool SmoothingAlgorithm::isFaceNegative(int fid, int vid, glm::dvec3 false_coord) {
     Face& f = mesh.F.at(fid);
     int sign = 0;
     glm::dvec3 temp_coord(0.0, 0.0, 0.0);

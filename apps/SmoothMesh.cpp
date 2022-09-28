@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
 
     std::vector<size_t> v_;
     if (smoothing_algorithm.compare("LAPLACIAN") == 0) {
-        SmoothAlgorithm algorithm(mesh, boundary_mesh, iterations, lambda, true, true);
+        SmoothingAlgorithm algorithm(mesh, boundary_mesh, iterations, lambda, true, true);
         // algorithm.smoothLaplacianSimple();
         // algorithm.smoothLaplacianScaleBased();
         // algorithm.smoothLaplacianCotangentBased();
