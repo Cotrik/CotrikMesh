@@ -33,7 +33,6 @@ void FeatureExtractor::CheckValidity() {
 }
 
 vtkSmartPointer<vtkPolyData> FeatureExtractor::GetPolyDataFromMesh() {
-    mu->SetMesh(*mesh);
     return mu->GetPolyData();
 }
 

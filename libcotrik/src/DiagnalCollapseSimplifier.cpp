@@ -20,7 +20,7 @@ bool opComp(const collapsableDiagonal& a, const collapsableDiagonal& b) {
 
 DiagnalCollapseSimplifier::DiagnalCollapseSimplifier(Mesh& mesh) : Simplifier(mesh) {
     // TODO Auto-generated constructor stub
-    mu.SetMesh(mesh);
+    mu.SetMembers(mesh);
 
 }
 

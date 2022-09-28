@@ -64,7 +64,6 @@ void SurfaceMapper::SetCellLocator() {
 }
 
 vtkSmartPointer<vtkPolyData> SurfaceMapper::GetPolyDataFromMesh(Mesh& mesh) {
-    mu->SetMesh(mesh);
     return mu->GetPolyData();
 }
 

@@ -24,7 +24,7 @@ class MeshUtil {
         MeshUtil& operator = (const MeshUtil&);
 
         // MeshUtil setters and getters
-        void SetMesh(Mesh& mesh_);
+        void SetMembers(Mesh& mesh_);
 
         // Mesh Utils
         vtkSmartPointer<vtkPolyData> GetPolyData();
@@ -49,7 +49,7 @@ class MeshUtil {
         std::vector<size_t> GetIntersectionParallel(std::vector<size_t>& a, std::vector<size_t>& b);
         
     private:
-        Mesh& mesh = Mesh();
+        Mesh* mesh;
 
         void CheckValidity();
 };
