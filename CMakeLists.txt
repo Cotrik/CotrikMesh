@@ -4,13 +4,15 @@ if(COMMAND cmake_policy)
   cmake_policy(SET CMP0003 NEW)
 endif(COMMAND cmake_policy)
 
+SET(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+
 project (CotrikMesh)
 
 # Set release build:
 # IF(DEFINED CMAKE_BUILD_TYPE)
   # SET (CMAKE_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
 # ELSE()
-  SET (CMAKE_BUILD_TYPE "Release")
+  # SET (CMAKE_BUILD_TYPE "Release")
 # ENDIF()
 
 #add_subdirectory(libframe)
