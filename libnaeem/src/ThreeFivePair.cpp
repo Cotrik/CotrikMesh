@@ -66,23 +66,23 @@ bool ThreeFivePair::IsOperationValid() {
     return true;
 }
 
-std::vector<size_t> ThreeFivePair::GetDifference(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> ThreeFivePair::GetDifference(std::vector<size_t> a, std::vector<size_t> b) {
     return mu->GetDifference(a, b);
 }
 
-std::vector<size_t> ThreeFivePair::GetUnion(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> ThreeFivePair::GetUnion(std::vector<size_t> a, std::vector<size_t> b) {
     return mu->GetUnion(a, b);
 }
 
-std::vector<size_t> ThreeFivePair::GetIntersection(std::vector<size_t>& a, std::vector<size_t>& b) {
+std::vector<size_t> ThreeFivePair::GetIntersection(std::vector<size_t> a, std::vector<size_t> b) {
     return mu->GetIntersection(a, b);
 }
 
-void ThreeFivePair::AddContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+void ThreeFivePair::AddContents(std::vector<size_t>& a, std::vector<size_t> b) {
     mu->AddContents(a, b);
 }
 
-void ThreeFivePair::UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b) {
+void ThreeFivePair::UpdateContents(std::vector<size_t>& a, std::vector<size_t> b) {
     mu->UpdateContents(a, b);
 }
 

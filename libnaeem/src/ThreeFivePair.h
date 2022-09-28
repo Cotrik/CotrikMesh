@@ -35,11 +35,11 @@ class ThreeFivePair {
     private:
         void CheckValidity();
         bool IsOperationValid();
-        void AddContents(std::vector<size_t>& a, std::vector<size_t>& b);
-        void UpdateContents(std::vector<size_t>& a, std::vector<size_t>& b);
-        std::vector<size_t> GetDifference(std::vector<size_t>& a, std::vector<size_t>& b);
-        std::vector<size_t> GetUnion(std::vector<size_t>& a, std::vector<size_t>& b);
-        std::vector<size_t> GetIntersection(std::vector<size_t>& a, std::vector<size_t>& b);
+        void AddContents(std::vector<size_t>& a, std::vector<size_t> b);
+        void UpdateContents(std::vector<size_t>& a, std::vector<size_t> b);
+        std::vector<size_t> GetDifference(std::vector<size_t> a, std::vector<size_t> b);
+        std::vector<size_t> GetUnion(std::vector<size_t> a, std::vector<size_t> b);
+        std::vector<size_t> GetIntersection(std::vector<size_t> a, std::vector<size_t> b);
     
         Mesh* mesh;
         MeshUtil* mu;

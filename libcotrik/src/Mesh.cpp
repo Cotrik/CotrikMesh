@@ -3713,7 +3713,7 @@ void Mesh::ExtractOneRingNeighbors(Vertex& source) {
 }
 
 void Mesh::SetIdealValence(size_t vid) {
-    auto intersection = [](std::vector<size_t>& a, std::vector<size_t>& b) {
+    auto intersection = [](std::vector<size_t> a, std::vector<size_t> b) {
         std::vector<size_t> itn;
         std::sort(a.begin(), a.end());
         std::sort(b.begin(), b.end());
@@ -3721,7 +3721,7 @@ void Mesh::SetIdealValence(size_t vid) {
         return itn;
     };
     
-    auto difference = [](std::vector<size_t>& a, std::vector<size_t>& b) {
+    auto difference = [](std::vector<size_t> a, std::vector<size_t> b) {
         std::vector<size_t> diff;
         std::sort(a.begin(), a.end());
         std::sort(b.begin(), b.end());
