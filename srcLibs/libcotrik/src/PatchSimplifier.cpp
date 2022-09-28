@@ -97,7 +97,11 @@ bool PatchSimplifier::SimplifyMesh(int& iter) {
     init();
 
     if (iter == 0) {
-        featurePreserved ? get_feature() : origMesh = mesh;
+        if (featurePreserved) {
+            get_feature();
+        } else {
+            origMesh = mesh;
+        }
         for (auto& v: origMesh.V) {
             if (v.isBoundary && !v.isCorner) {
                 origBoundaryVids.push_back(v.id);
