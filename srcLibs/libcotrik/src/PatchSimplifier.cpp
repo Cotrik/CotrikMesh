@@ -501,14 +501,27 @@ bool PatchSimplifier::Simplify(int& iter) {
         } else std::cout << "strict_simplify\n";
     }
 
+ // Step 8 -- diagonal collapsing
+    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
+        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
+        diagnalCollapseSimplifier.Run(canceledFids);
+        // diagnalCollapseSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
+    }
     
-    // if (canceledFids.empty() && Simplifier::GLOBAL) {
-    //     // global_simplify(canceledFids);
-    //    SheetSimplifier sheetSimplifier(mesh);
-    //    sheetSimplifier.Run(canceledFids);
-    // //    sheetSimplifier.ExtractAndCollapse(canceledFids);
-    //     if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
+    if (canceledFids.empty() && Simplifier::GLOBAL) {
+        // global_simplify(canceledFids);
+       SheetSimplifier sheetSimplifier(mesh);
+       sheetSimplifier.Run(canceledFids);
+    //    sheetSimplifier.ExtractAndCollapse(canceledFids);
+        if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
 
+    }
+
+    // if (canceledFids.empty() && Simplifier::GLOBAL) {
+    //     SingleSheetSimplifier sheetSimplifier(mesh);
+    //    sheetSimplifier.Run(canceledFids);
+    //     // sheetSimplifier.ExtractAndCollapse(canceledFids);
     // }
 
     if (canceledFids.empty() && Simplifier::HALF) {
@@ -521,19 +534,7 @@ bool PatchSimplifier::Simplify(int& iter) {
         if (!canceledFids.empty()) std::cout << "half_simplify\n";
     }
 
-    if (canceledFids.empty() && Simplifier::GLOBAL) {
-        SingleSheetSimplifier sheetSimplifier(mesh);
-       sheetSimplifier.Run(canceledFids);
-        // sheetSimplifier.ExtractAndCollapse(canceledFids);
-    }
    
-     // Step 8 -- diagonal collapsing
-    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
-        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
-        diagnalCollapseSimplifier.Run(canceledFids);
-        // diagnalCollapseSimplifier.RunCollective(canceledFids);
-        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
-    }
 
     if (canceledFids.empty()) {
         update(canceledFids);
