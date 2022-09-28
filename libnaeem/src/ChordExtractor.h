@@ -26,6 +26,9 @@ class ChordExtractor {
         ChordExtractor(const ChordExtractor& r);
         ~ChordExtractor();
 
+        void SetMembers(Mesh& mesh_);
+        void CheckValidity();
+
         void Extract();
         void SetVertices();
         void BuildChord(Edge& start);
@@ -39,7 +42,7 @@ class ChordExtractor {
         std::vector<Vertex> Vertices;
         std::vector<Edge> Edges;
     private:
-        Mesh& mesh = Mesh();
+        Mesh* mesh;
         std::unordered_map<size_t, size_t> edgeMap;
         std::vector<bool> isEdgeVisited;
 };

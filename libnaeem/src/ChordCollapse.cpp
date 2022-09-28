@@ -2,22 +2,26 @@
 #include <cstdlib>
 
 ChordCollapse::ChordCollapse() {}
-ChordCollapse::ChordCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, ChordExtractor& ce_, size_t chordId_) : SimplificationOperation(mesh_, mu_, smoother_), ce(ce_) {
-    chord = ce.Chords.at(chordId_);
+ChordCollapse::ChordCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, ChordExtractor& ce_, size_t chordId_) : SimplificationOperation(mesh_, mu_, smoother_), ce(&ce_) {
+    chord = &ce->Chords.at(chordId_);
 }
 ChordCollapse::~ChordCollapse() {}
 
 void ChordCollapse::SetRanking(glm::dvec3 d) {
     CheckValidity();
+    if (ce == NULL) {
+        std::cout << "No Chord Extractor initialized for Chord Collapse." << std::endl;
+        exit(0);
+    }
 }
 
 bool ChordCollapse::IsOperationValid() {
     CheckValidity();
 
-    // return ce.isChordValid(chord.id);
+    // return ce->isChordValid(chord->id);
     bool isValid = true;
-    for (auto eId: chord.Edges) {
-        Edge& e = ce.Edges.at(eId);
+    for (auto eId: chord->Edges) {
+        Edge& e = ce->Edges.at(eId);
         for (auto eid: e.Vids) {
             Edge& meshEdge = mesh->E.at(eid);
             if (!IsCollapsable(meshEdge.Vids[0], meshEdge.Vids[1])) {
@@ -36,8 +40,8 @@ void ChordCollapse::PerformOperation() {
     if (!IsOperationValid()) return;
     std::cout << "Performing Chord Collapse" << std::endl;
     int i = 0;
-    for (auto& eid: chord.Edges) {
-        Edge& e = ce.Edges.at(eid);
+    for (auto& eid: chord->Edges) {
+        Edge& e = ce->Edges.at(eid);
         if (e.Vids.empty()) continue;
         Edge& e1 = mesh->E.at(e.Vids.at(0));
         Edge& e2 = mesh->E.at(e.Vids.at(1));
@@ -54,8 +58,8 @@ void ChordCollapse::PerformOperation() {
         CollapseEdge(e2, mesh->E.at(edgeToRemoveId));
         UpdateEdges(fid, mesh->E.at(edgeToKeepId), mesh->E.at(edgeToRemoveId));
     }
-    for (auto& eid: chord.Edges) {
-        Edge& e = ce.Edges.at(eid);
+    for (auto& eid: chord->Edges) {
+        Edge& e = ce->Edges.at(eid);
         if (e.Vids.empty()) continue;
         Edge& e1 = mesh->E.at(e.Vids.at(0));
         Edge& e2 = mesh->E.at(e.Vids.at(1));
@@ -128,12 +132,12 @@ void ChordCollapse::CollapseEdge(Edge& e, Edge& edgeToRemove) {
 void ChordCollapse::UpdateEdges(size_t fid, Edge& edgeToKeep, Edge& edgeToRemove) {
 
     Face& f = mesh->F.at(fid);
-    Vertex& vertexToKeep = ce.Vertices.at(edgeToKeep.id);
-    Vertex& vertexToRemove = ce.Vertices.at(edgeToRemove.id);
+    Vertex& vertexToKeep = ce->Vertices.at(edgeToKeep.id);
+    Vertex& vertexToRemove = ce->Vertices.at(edgeToRemove.id);
 
     std::vector<size_t> commonEdges = GetIntersection(vertexToKeep.N_Eids, vertexToRemove.N_Eids);
     std::vector<size_t> diffEdges = GetDifference(vertexToRemove.N_Eids, vertexToKeep.N_Eids);
-    ce.Edges.at(commonEdges.at(0)).Vids.clear();
+    ce->Edges.at(commonEdges.at(0)).Vids.clear();
     UpdateContents(vertexToKeep.N_Eids, commonEdges);
     AddContents(vertexToKeep.N_Eids, diffEdges);
     UpdateContents(edgeToKeep.N_Fids, std::vector<size_t>{fid});
@@ -144,7 +148,7 @@ void ChordCollapse::UpdateEdges(size_t fid, Edge& edgeToKeep, Edge& edgeToRemove
         UpdateContents(faceToUpdate.Eids, std::vector<size_t>{edgeToRemove.id});
         AddContents(faceToUpdate.Eids, std::vector<size_t>{edgeToKeep.id});
 
-        Edge& edgeToupdate = ce.Edges.at(diffEdges.at(0));
+        Edge& edgeToupdate = ce->Edges.at(diffEdges.at(0));
         if (!edgeToupdate.Vids.empty()) {
             edgeToupdate.Vids.at(0) == vertexToRemove.id ? edgeToupdate.Vids.at(0) = vertexToKeep.id : edgeToupdate.Vids.at(1) = vertexToKeep.id;
         }
@@ -162,8 +166,8 @@ double ChordCollapse::CalculateRanking() {
     double E_v = 0.0;
 
     std::set<size_t> edges;
-    for (auto& eid: chord.Edges) {
-        Edge& e = ce.Edges.at(eid);
+    for (auto& eid: chord->Edges) {
+        Edge& e = ce->Edges.at(eid);
         edges.insert(e.Vids.at(0));
         edges.insert(e.Vids.at(1));
     }

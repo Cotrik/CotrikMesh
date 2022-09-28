@@ -9,7 +9,6 @@
 #define SMOOTH_H_
 
 #include "Mesh.h"
-#include "QuadSurfaceMapper.h"
 #include "MeshUtil.h"
 // #include "ParallelFor.h"
 
@@ -20,14 +19,13 @@ class Smoother {
         Smoother(const Smoother& r);
         ~Smoother();
 
-        void SetMesh(Mesh& mesh_);
+        void SetMembers(Mesh& mesh_, MeshUtil& mu_);
 
         void Smooth(std::vector<size_t>& V);
         void SetIters(int iters_) {iters = iters_;}
     private:
         Mesh* mesh;
         MeshUtil* mu;
-        SurfaceMapper sm;
 
         int iters = 0;
         

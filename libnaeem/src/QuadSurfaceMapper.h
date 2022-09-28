@@ -22,8 +22,8 @@
 class SurfaceMapper {
     public:
         SurfaceMapper();
-        SurfaceMapper(Mesh& source_, Mesh& target_, MeshUtil& mu_ = MeshUtil());
-        SurfaceMapper(Mesh& target_, MeshUtil& mu_ = MeshUtil());
+        SurfaceMapper(Mesh& source_, Mesh& target_, MeshUtil& mu_);
+        SurfaceMapper(Mesh& target_, MeshUtil& mu_);
         ~SurfaceMapper();
 
         void SetSource(Mesh& mesh);

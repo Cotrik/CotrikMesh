@@ -5,8 +5,7 @@
 #define PI 3.14159265
 
 Smoother::Smoother() {}
-Smoother::Smoother(Mesh& mesh_, MeshUtil& mu_) : mesh(&mesh_), sm(mesh_), mu(&mu_) {
-    // sm.SetTarget(mesh);
+Smoother::Smoother(Mesh& mesh_, MeshUtil& mu_) : mesh(&mesh_), mu(&mu_) {
 }
 
 Smoother::Smoother(const Smoother& r) {
@@ -20,15 +19,19 @@ void Smoother::CheckValidity() {
         std::cout << "No mesh to use for Smoother." << std::endl;
         exit(0);
     }
+    if (mu == NULL) {
+        std::cout << "No MeshUtil initialized for Smoother." << std::endl;
+        exit(0);
+    }
     if (mesh->V.size() == 0 || mesh->F.size() == 0 || mesh->C.size() == 0) {
         std::cout << "No mesh to use for Smoother." << std::endl;
         exit(0);
     }
 }
 
-void Smoother::SetMesh(Mesh& mesh_) {
+void Smoother::SetMembers(Mesh& mesh_, MeshUtil& mu_) {
     mesh = &mesh_;
-    sm.SetTarget(*mesh);
+    mu = &mu_;
 }
 
 void Smoother::Smooth(std::vector<size_t>& V) {

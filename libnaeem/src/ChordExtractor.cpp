@@ -1,7 +1,7 @@
 #include "ChordExtractor.h"
 
 ChordExtractor::ChordExtractor() {}
-ChordExtractor::ChordExtractor(Mesh& mesh_) : mesh(mesh_) {}
+ChordExtractor::ChordExtractor(Mesh& mesh_) : mesh(&mesh_) {}
 ChordExtractor::ChordExtractor(const ChordExtractor& r) {
     std::cout << "Setting extractor" << std::endl;
     Vertices = r.Vertices;
@@ -11,10 +11,25 @@ ChordExtractor::ChordExtractor(const ChordExtractor& r) {
 }
 ChordExtractor::~ChordExtractor() {}
 
+void ChordExtractor::SetMembers(Mesh& mesh_) {
+    mesh = &mesh_;
+}
+
+void ChordExtractor::CheckValidity() {
+    if (mesh == NULL) {
+        std::cout << "No mesh to use for Chord Extractor." << std::endl;
+        exit(0);
+    }
+    if (mesh->V.size() == 0 || mesh->F.size() == 0 || mesh->C.size() == 0) {
+        std::cout << "No mesh to use for Chord Extractor." << std::endl;
+        exit(0);
+    }
+}
+
 void ChordExtractor::Extract() {
     SetVertices();
     InititateVisitedEdges();
-    for (auto& e: mesh.E) {
+    for (auto& e: mesh->E) {
         if (isEdgeVisited[e.id] || e.Vids.empty()) continue;
         BuildChord(e);
     }
@@ -22,13 +37,13 @@ void ChordExtractor::Extract() {
 }
 
 void ChordExtractor::SetVertices() {
-    for (auto& e: mesh.E) {
+    for (auto& e: mesh->E) {
         if (e.Vids.empty()) {
             Vertex v = glm::dvec3(0.0, 0.0, 0.0);
             Vertices.push_back(v);
             continue;
         }
-        glm::dvec3 coords = 0.5 * (mesh.V.at(e.Vids.at(0)).xyz() + mesh.V.at(e.Vids.at(1)).xyz());
+        glm::dvec3 coords = 0.5 * (mesh->V.at(e.Vids.at(0)).xyz() + mesh->V.at(e.Vids.at(1)).xyz());
         Vertex v = coords;
         v.id = e.id;
         Vertices.push_back(v);
@@ -43,13 +58,13 @@ void ChordExtractor::BuildChord(Edge& start) {
         size_t id = q.front();
         q.pop();
         if (isEdgeVisited[id]) continue;
-        Edge& currentEdge = mesh.E.at(id);
+        Edge& currentEdge = mesh->E.at(id);
         isEdgeVisited[id] = true;
         std::vector<size_t> parallelEs = GetParallelEdges(currentEdge);
         if (parallelEs.empty()) continue;
         for (auto eid: parallelEs) {
             q.push(eid);
-            Edge& parallelEdge = mesh.E.at(eid);
+            Edge& parallelEdge = mesh->E.at(eid);
             Edge newEdge(std::vector<size_t>{currentEdge.id, parallelEdge.id});
             newEdge.id = Edges.size();
             Edges.push_back(newEdge);
@@ -79,9 +94,9 @@ bool ChordExtractor::isChordValid(size_t id) {
     for (auto eId: chord.Edges) {
         Edge& e = Edges.at(eId);
         for (auto eid: e.Vids) {
-            Edge& meshEdge = mesh.E.at(eid);
-            auto& v0 = mesh.V.at(meshEdge.Vids[0]);
-            auto& v1 = mesh.V.at(meshEdge.Vids[1]);
+            Edge& meshEdge = mesh->E.at(eid);
+            auto& v0 = mesh->V.at(meshEdge.Vids[0]);
+            auto& v1 = mesh->V.at(meshEdge.Vids[1]);
             int count = 0;
             if (v0.isCorner) ++count;
             if (v1.isCorner) ++count;
@@ -132,11 +147,11 @@ bool ChordExtractor::isChordValid(size_t id) {
 std::vector<size_t> ChordExtractor::GetParallelEdges(Edge& e) {
     std::vector<size_t> res;
     for (auto nfid: e.N_Fids) {
-        Face& f = mesh.F.at(nfid);
+        Face& f = mesh->F.at(nfid);
         for (auto faceEid: f.Eids) {
             if (faceEid == e.id) continue;
             if (isEdgeVisited[faceEid]) continue;
-            Edge& faceEdge = mesh.E.at(faceEid);
+            Edge& faceEdge = mesh->E.at(faceEid);
             if (std::find(faceEdge.Vids.begin(), faceEdge.Vids.end(), e.Vids.at(0)) == faceEdge.Vids.end() &&
                 std::find(faceEdge.Vids.begin(), faceEdge.Vids.end(), e.Vids.at(1)) == faceEdge.Vids.end()) {
                     res.push_back(faceEid);
@@ -148,7 +163,7 @@ std::vector<size_t> ChordExtractor::GetParallelEdges(Edge& e) {
 
 void ChordExtractor::InititateVisitedEdges() {
     isEdgeVisited.clear();
-    isEdgeVisited.resize(mesh.E.size(), false);
+    isEdgeVisited.resize(mesh->E.size(), false);
 }
 
 void ChordExtractor::Write(std::vector<size_t> chords) {

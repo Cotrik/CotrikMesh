@@ -34,8 +34,8 @@ class ChordCollapse : public SimplificationOperation {
         void CollapseEdge(Edge& e, Edge& edgeToRemove);
         void UpdateEdges(size_t fid, Edge& edgeToKeep, Edge& edgeToRemove);
 
-        ChordExtractor& ce = ChordExtractor();
-        Chord& chord = Chord();
+        ChordExtractor* ce;
+        Chord* chord;
         std::vector<size_t> edgesIds;
 };
 
