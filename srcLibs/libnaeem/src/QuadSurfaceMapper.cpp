@@ -29,13 +29,15 @@ SurfaceMapper::SurfaceMapper(Mesh& target_, MeshUtil& mu_) : target(&target_), m
 
 SurfaceMapper::~SurfaceMapper() {}
 
-void SurfaceMapper::SetSource(Mesh& mesh) {
+void SurfaceMapper::SetSource(Mesh& mesh, MeshUtil& mu_) {
     source = &mesh;
+    mu = &mu_;
     source_polyData = GetPolyDataFromMesh(*source);
 }
 
-void SurfaceMapper::SetTarget(Mesh& mesh) {
+void SurfaceMapper::SetTarget(Mesh& mesh, MeshUtil& mu_) {
     target = &mesh;
+    mu = &mu_;
     target_polyData = GetPolyDataFromMesh(*target);
     // point_finder->SetInput(target_polyData);
     SetCellLocator();

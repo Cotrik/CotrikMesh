@@ -34,7 +34,7 @@ bool Simplifier::checkCorner = true;
 bool Simplifier::writeFile = false;
 
 Simplifier::Simplifier(Mesh& mesh) : mesh(mesh) {
-	// mu.SetMesh(mesh);
+	mu.SetMembers(mesh);
 }
 
 Simplifier::~Simplifier() {}
@@ -1136,7 +1136,7 @@ void Simplifier::get_feature() {
 //	    }
 	}
 	origMesh = mesh;
-	sm.SetTarget(origMesh);
+	sm.SetTarget(origMesh, mu);
 }
 
 void Simplifier::update(std::set<size_t>& canceledFids) {

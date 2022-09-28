@@ -26,8 +26,8 @@ class SurfaceMapper {
         SurfaceMapper(Mesh& target_, MeshUtil& mu_);
         ~SurfaceMapper();
 
-        void SetSource(Mesh& mesh);
-        void SetTarget(Mesh& mesh);
+        void SetSource(Mesh& mesh, MeshUtil& mu_);
+        void SetTarget(Mesh& mesh, MeshUtil& mu_);
         glm::dvec3 GetClosestPoint(glm::dvec3 p);
         void ExecutePolyDistanceFilter(Mesh& mesh);
         // double ExecuteHaursdorffDsitanceFilter(Mesh& m1, Mesh& m2);
