@@ -24,16 +24,15 @@ find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})  
 
 include_directories(
-    ${PROJECT_SOURCE_DIR}/libcotrik/src/ 
-    ${PROJECT_SOURCE_DIR}/libnaeem/src/ 
+    ${PROJECT_SOURCE_DIR}/srcLibs/libcotrik/src/ 
+    ${PROJECT_SOURCE_DIR}/srcLibs/libnaeem/src/ 
+    ${PROJECT_SOURCE_DIR}/srcLibs/ 
     ${PROJECT_SOURCE_DIR}/eigen3/
     ${PROJECT_SOURCE_DIR}/libigl/include/
     ${PROJECT_SOURCE_DIR}/libigl/external/
     ../
     )
     
-link_directories(/usr/local/lib)    
-
 foreach(app 
     Align
     #AutoMeshOpt
@@ -145,7 +144,8 @@ foreach(app
 	ConvexCut
 )
     add_executable(${app} ${app}.cpp)
-    target_link_libraries(${app} cotrik naeem
+    # target_link_libraries(${app} cotrik naeem
+    target_link_libraries(${app} srcLibs
     #CoMISo pthread
     )	#install(FILES ${app} DESTINATION D:/Program\ Files/CotrikMesh/)
 endforeach()
