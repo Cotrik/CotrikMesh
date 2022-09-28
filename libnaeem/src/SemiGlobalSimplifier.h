@@ -14,9 +14,6 @@
 
 #include "Mesh.h"
 #include "BaseComplexQuad.h"
-#include "BaseComplexSheetQuad.h"
-#include "SheetSimplifier.h"
-#include "SingleSheetSimplifier.h"
 #include "ChordExtractor.h"
 #include "ChordCollapse.h"
 // #include "SimplificationOperation.h"
