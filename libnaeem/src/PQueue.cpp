@@ -18,7 +18,7 @@ int PQueue<T>::size() {
 
 template <class T>
 int PQueue<T>::parent(int index) {
-    return floor(0.5 * (index - 1));
+    return floor((int)(0.5 * (index - 1)));
 }
 
 template <class T>
