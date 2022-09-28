@@ -481,6 +481,13 @@ bool PatchSimplifier::Simplify(int& iter) {
     //     writer.WriteFile();
     // }    
     
+    // Step 8 -- diagonal collapsing
+    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
+        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
+        diagnalCollapseSimplifier.Run(canceledFids);
+        // diagnalCollapseSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
+    }
 
     // Step 5 -- <separatrix splitting> and <separatrix splitting (optional)>
     if (canceledFids.empty() && (Simplifier::COLLAPSE || Simplifier::SPLIT)) {
@@ -510,11 +517,6 @@ bool PatchSimplifier::Simplify(int& iter) {
     //     if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
 
     // }
-    if (canceledFids.empty() && Simplifier::GLOBAL) {
-        SingleSheetSimplifier sheetSimplifier(mesh);
-       sheetSimplifier.Run(canceledFids);
-        // sheetSimplifier.ExtractAndCollapse(canceledFids);
-    }
 
     if (canceledFids.empty() && Simplifier::HALF) {
        BaseComplexQuad baseComplex(mesh);
@@ -526,12 +528,10 @@ bool PatchSimplifier::Simplify(int& iter) {
         if (!canceledFids.empty()) std::cout << "half_simplify\n";
     }
 
-    // Step 8 -- diagonal collapsing
-    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
-        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
-        diagnalCollapseSimplifier.Run(canceledFids);
-        // diagnalCollapseSimplifier.RunCollective(canceledFids);
-        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
+    if (canceledFids.empty() && Simplifier::GLOBAL) {
+        SingleSheetSimplifier sheetSimplifier(mesh);
+       sheetSimplifier.Run(canceledFids);
+        // sheetSimplifier.ExtractAndCollapse(canceledFids);
     }
    
 
