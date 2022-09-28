@@ -19,7 +19,7 @@ bool ChordCollapse::IsOperationValid() {
     for (auto eId: chord.Edges) {
         Edge& e = ce.Edges.at(eId);
         for (auto eid: e.Vids) {
-            Edge& meshEdge = mesh.E.at(eid);
+            Edge& meshEdge = mesh->E.at(eid);
             if (!IsCollapsable(meshEdge.Vids[0], meshEdge.Vids[1])) {
                 isValid = false;
                 break;
@@ -39,26 +39,26 @@ void ChordCollapse::PerformOperation() {
     for (auto& eid: chord.Edges) {
         Edge& e = ce.Edges.at(eid);
         if (e.Vids.empty()) continue;
-        Edge& e1 = mesh.E.at(e.Vids.at(0));
-        Edge& e2 = mesh.E.at(e.Vids.at(1));
+        Edge& e1 = mesh->E.at(e.Vids.at(0));
+        Edge& e2 = mesh->E.at(e.Vids.at(1));
         size_t fid = GetIntersection(e1.N_Fids, e2.N_Fids).at(0);
-        std::vector<size_t> diffEdges = GetDifference(mesh.F.at(fid).Eids, std::vector<size_t>{e1.id, e2.id});
+        std::vector<size_t> diffEdges = GetDifference(mesh->F.at(fid).Eids, std::vector<size_t>{e1.id, e2.id});
         size_t edgeToKeepId = diffEdges.at(0);
         size_t edgeToRemoveId = diffEdges.at(1);
-        if (mesh.E.at(edgeToRemoveId).isBoundary) {
+        if (mesh->E.at(edgeToRemoveId).isBoundary) {
             edgeToKeepId = diffEdges.at(1);
             edgeToRemoveId = diffEdges.at(0);
         }
         
-        CollapseEdge(e1, mesh.E.at(edgeToRemoveId));
-        CollapseEdge(e2, mesh.E.at(edgeToRemoveId));
-        UpdateEdges(fid, mesh.E.at(edgeToKeepId), mesh.E.at(edgeToRemoveId));
+        CollapseEdge(e1, mesh->E.at(edgeToRemoveId));
+        CollapseEdge(e2, mesh->E.at(edgeToRemoveId));
+        UpdateEdges(fid, mesh->E.at(edgeToKeepId), mesh->E.at(edgeToRemoveId));
     }
     for (auto& eid: chord.Edges) {
         Edge& e = ce.Edges.at(eid);
         if (e.Vids.empty()) continue;
-        Edge& e1 = mesh.E.at(e.Vids.at(0));
-        Edge& e2 = mesh.E.at(e.Vids.at(1));
+        Edge& e1 = mesh->E.at(e.Vids.at(0));
+        Edge& e2 = mesh->E.at(e.Vids.at(1));
         e1.N_Fids.clear();
         e2.N_Fids.clear();
     }
@@ -73,8 +73,8 @@ void ChordCollapse::CollapseEdge(Edge& e, Edge& edgeToRemove) {
         source_id = e.Vids.at(1);
         target_id = e.Vids.at(0);
     }
-    Vertex& source = mesh.V.at(source_id);
-    Vertex& target = mesh.V.at(target_id);
+    Vertex& source = mesh->V.at(source_id);
+    Vertex& target = mesh->V.at(target_id);
     // if (!(target.isBoundary ^ source.isBoundary)) {
     //     target = 0.5 * (source.xyz() + target.xyz());
     // } else if (!(target.type == FEATURE ^ source.type == FEATURE)) {
@@ -92,28 +92,28 @@ void ChordCollapse::CollapseEdge(Edge& e, Edge& edgeToRemove) {
 
     for (auto nvid: source.N_Vids) {
         if (nvid == target.id) continue;
-        auto& v = mesh.V.at(nvid);
+        auto& v = mesh->V.at(nvid);
         UpdateContents(v.N_Vids, std::vector<size_t>{source.id});
         AddContents(v.N_Vids, std::vector<size_t>{target.id});
     }
 
     std::vector<size_t> eids = GetDifference(source.N_Eids, std::vector<size_t>{e.id});
     for (auto neid: eids) {
-        Edge& ne = mesh.E.at(neid);
+        Edge& ne = mesh->E.at(neid);
         ne.Vids.at(0) == source.id ? ne.Vids.at(0) = target.id : ne.Vids.at(1) = target.id;
     }
 
     std::vector<size_t> fids = GetDifference(source.N_Fids, e.N_Fids);
     std::vector<size_t> tfids = GetDifference(target.N_Fids, e.N_Fids);
     for (auto nfid: fids) {
-        Face& nf = mesh.F.at(nfid);
+        Face& nf = mesh->F.at(nfid);
         int idx = std::distance(nf.Vids.begin(), std::find(nf.Vids.begin(), nf.Vids.end(), source.id));
         nf.Vids.at(idx) = target.id;
         UpdateContents(nf.N_Fids, e.N_Fids);
         AddContents(nf.N_Fids, tfids);
     }
     for (auto nfid: tfids) {
-        Face& nf = mesh.F.at(nfid);
+        Face& nf = mesh->F.at(nfid);
         UpdateContents(nf.N_Fids, e.N_Fids);
         AddContents(nf.N_Fids, fids);
     }
@@ -127,7 +127,7 @@ void ChordCollapse::CollapseEdge(Edge& e, Edge& edgeToRemove) {
 
 void ChordCollapse::UpdateEdges(size_t fid, Edge& edgeToKeep, Edge& edgeToRemove) {
 
-    Face& f = mesh.F.at(fid);
+    Face& f = mesh->F.at(fid);
     Vertex& vertexToKeep = ce.Vertices.at(edgeToKeep.id);
     Vertex& vertexToRemove = ce.Vertices.at(edgeToRemove.id);
 
@@ -140,7 +140,7 @@ void ChordCollapse::UpdateEdges(size_t fid, Edge& edgeToKeep, Edge& edgeToRemove
     std::vector<size_t> facesToUpdate = GetDifference(edgeToRemove.N_Fids, std::vector<size_t>{fid});
     if (!facesToUpdate.empty()) {
         AddContents(edgeToKeep.N_Fids, facesToUpdate);
-        Face& faceToUpdate = mesh.F.at(facesToUpdate.at(0));
+        Face& faceToUpdate = mesh->F.at(facesToUpdate.at(0));
         UpdateContents(faceToUpdate.Eids, std::vector<size_t>{edgeToRemove.id});
         AddContents(faceToUpdate.Eids, std::vector<size_t>{edgeToKeep.id});
 
@@ -173,7 +173,7 @@ double ChordCollapse::CalculateRanking() {
     double max_val = -1.0;
     double avg_val = 0.0;
     for (auto eid: edges) {
-        Edge& e = mesh.E.at(eid);
+        Edge& e = mesh->E.at(eid);
         glm::dvec4 newV = CalculateQEM(e.Vids.at(0), e.Vids.at(1));
         if (newV[3] > max_qem) max_qem = newV[3];
         double d = CalculateAreaDistance(e.Vids.at(0), e.Vids.at(1));
@@ -192,8 +192,8 @@ double ChordCollapse::CalculateRanking() {
 }
 
 glm::dvec4 ChordCollapse::CalculateQEM(size_t v1_id, size_t v2_id) {
-    auto& v1 = mesh.V.at(v1_id);
-    auto& v2 = mesh.V.at(v2_id);
+    auto& v1 = mesh->V.at(v1_id);
+    auto& v2 = mesh->V.at(v2_id);
 
     // std::cout << "Vertex v1: " << v1.id << " " << v1.x << " " << v1.y << " " << v1.z << std::endl;
     // std::cout << "Vertex v2: " << v2.id << " " << v2.x << " " << v2.y << " " << v2.z << std::endl;
@@ -201,11 +201,11 @@ glm::dvec4 ChordCollapse::CalculateQEM(size_t v1_id, size_t v2_id) {
     glm::dmat4 Q1(0.0);
     // std::cout << "Calculating Q1" << std::endl;
     for (auto fid: v1.N_Fids) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         // std::cout << "neighbor face: " << f.id << " " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v1.id));
-        auto& v_a = mesh.V.at(f.Vids.at((idx+1)%f.Vids.size()));
-        auto& v_b = mesh.V.at(f.Vids.at((idx+3)%f.Vids.size()));
+        auto& v_a = mesh->V.at(f.Vids.at((idx+1)%f.Vids.size()));
+        auto& v_b = mesh->V.at(f.Vids.at((idx+3)%f.Vids.size()));
 
         // std::cout << "Vertex v_a: " << v_a.id << " " << v_a.x << " " << v_a.y << " " << v_a.z << std::endl;
         // std::cout << "Vertex v_b: " << v_b.id << " " << v_b.x << " " << v_b.y << " " << v_b.z << std::endl;
@@ -252,11 +252,11 @@ glm::dvec4 ChordCollapse::CalculateQEM(size_t v1_id, size_t v2_id) {
     glm::dmat4 Q2(0.0);
     // std::cout << "Calculating Q2" << std::endl;
     for (auto fid: v2.N_Fids) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         // std::cout << "neighbor face: " << f.id << " " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v2.id));
-        auto& v_a = mesh.V.at(f.Vids.at((idx+1)%f.Vids.size()));
-        auto& v_b = mesh.V.at(f.Vids.at((idx+3)%f.Vids.size()));
+        auto& v_a = mesh->V.at(f.Vids.at((idx+1)%f.Vids.size()));
+        auto& v_b = mesh->V.at(f.Vids.at((idx+3)%f.Vids.size()));
 
         // std::cout << "Vertex v_a: " << v_a.id << " " << v_a.x << " " << v_a.y << " " << v_a.z << std::endl;
         // std::cout << "Vertex v_b: " << v_b.id << " " << v_b.x << " " << v_b.y << " " << v_b.z << std::endl;
@@ -341,12 +341,12 @@ glm::dvec4 ChordCollapse::CalculateQEM(size_t v1_id, size_t v2_id) {
 }
 
 double ChordCollapse::CalculateAreaDistance(size_t v1_id, size_t v2_id) {
-    return glm::distance(mesh.V.at(v1_id).xyz(), mesh.V.at(v2_id).xyz());
+    return glm::distance(mesh->V.at(v1_id).xyz(), mesh->V.at(v2_id).xyz());
 }
 
 double ChordCollapse::CalculateValenceTerm(size_t v1_id, size_t v2_id) {
-    auto& v1 = mesh.V.at(v1_id);
-    auto& v2 = mesh.V.at(v2_id);
+    auto& v1 = mesh->V.at(v1_id);
+    auto& v2 = mesh->V.at(v2_id);
     int target_v = v1.N_Vids.size() + v2.N_Vids.size() - 4;
 
     int val_v1 = v1.N_Vids.size() >= 4 ? v1.N_Vids.size() - 4 : 4 - v1.N_Vids.size();

@@ -22,8 +22,8 @@
 class SurfaceMapper {
     public:
         SurfaceMapper();
-        SurfaceMapper(Mesh& source_, Mesh& target_);
-        SurfaceMapper(Mesh& target_);
+        SurfaceMapper(Mesh& source_, Mesh& target_, MeshUtil& mu_ = MeshUtil());
+        SurfaceMapper(Mesh& target_, MeshUtil& mu_ = MeshUtil());
         ~SurfaceMapper();
 
         void SetSource(Mesh& mesh);
@@ -34,9 +34,11 @@ class SurfaceMapper {
         void RemapVertex(Mesh& mesh_, size_t vid, glm::dvec3 c);
         void SetLocator(Mesh& mesh_, std::vector<size_t> V);
     private:
-        Mesh& source = Mesh(std::vector<Vertex>{}, std::vector<Cell>{}, QUAD);
-        Mesh& target = Mesh();
-        MeshUtil mu;
+        // Mesh& source = Mesh(std::vector<Vertex>{}, std::vector<Cell>{}, QUAD);
+        // Mesh& target = Mesh();
+        Mesh* source;
+        Mesh* target;
+        MeshUtil* mu;
         vtkSmartPointer<vtkPolyData> source_polyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> target_polyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> target_cellPolyData = vtkSmartPointer<vtkPolyData>::New();

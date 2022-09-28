@@ -15,13 +15,14 @@
 
 SurfaceMapper::SurfaceMapper() {}
 
-SurfaceMapper::SurfaceMapper(Mesh& source_, Mesh& target_) : source(source_), target(target_) {
-    source_polyData = GetPolyDataFromMesh(source);
-    target_polyData = GetPolyDataFromMesh(target);
+// SurfaceMapper::SurfaceMapper(Mesh& source_, Mesh& target_) : source(source_), target(target_) {
+SurfaceMapper::SurfaceMapper(Mesh& source_, Mesh& target_, MeshUtil& mu_) : source(&source_), target(&target_), mu(&mu_) {
+    source_polyData = GetPolyDataFromMesh(*source);
+    target_polyData = GetPolyDataFromMesh(*target);
 }
 
-SurfaceMapper::SurfaceMapper(Mesh& target_) : target(target_) {
-    target_polyData = GetPolyDataFromMesh(target);
+SurfaceMapper::SurfaceMapper(Mesh& target_, MeshUtil& mu_) : target(&target_), mu(&mu_) {
+    target_polyData = GetPolyDataFromMesh(*target);
     // point_finder->SetInput(target_polyData);
     SetCellLocator();
 }
@@ -29,13 +30,13 @@ SurfaceMapper::SurfaceMapper(Mesh& target_) : target(target_) {
 SurfaceMapper::~SurfaceMapper() {}
 
 void SurfaceMapper::SetSource(Mesh& mesh) {
-    source = mesh;
-    source_polyData = GetPolyDataFromMesh(mesh);
+    source = &mesh;
+    source_polyData = GetPolyDataFromMesh(*source);
 }
 
 void SurfaceMapper::SetTarget(Mesh& mesh) {
-    target = mesh;
-    target_polyData = GetPolyDataFromMesh(mesh);
+    target = &mesh;
+    target_polyData = GetPolyDataFromMesh(*target);
     // point_finder->SetInput(target_polyData);
     SetCellLocator();
 }
@@ -63,8 +64,8 @@ void SurfaceMapper::SetCellLocator() {
 }
 
 vtkSmartPointer<vtkPolyData> SurfaceMapper::GetPolyDataFromMesh(Mesh& mesh) {
-    mu.SetMesh(mesh);
-    return mu.GetPolyData();
+    mu->SetMesh(mesh);
+    return mu->GetPolyData();
 }
 
 void SurfaceMapper::ExecutePolyDistanceFilter(Mesh& mesh) {
@@ -108,7 +109,7 @@ void SurfaceMapper::RemapVertex(Mesh& mesh_, size_t vid, glm::dvec3 c) {
     for (auto fid: faces) {
         auto& f = mesh_.F.at(fid);
         if (f.N_Fids.empty() || f.Vids.empty()) continue;
-        mu.AddContents(vertices, std::vector<size_t>(f.Vids.begin(), f.Vids.end()));
+        mu->AddContents(vertices, std::vector<size_t>(f.Vids.begin(), f.Vids.end()));
         p->GetPointIds()->SetNumberOfIds(f.Vids.size());
         for (int i = 0; i < f.Vids.size(); i++) {
             p->GetPointIds()->SetId(i, f.Vids.at(i));
@@ -165,7 +166,7 @@ void SurfaceMapper::RemapVertex(Mesh& mesh_, size_t vid, glm::dvec3 c) {
 }
 
 void SurfaceMapper::SetLocator(Mesh& mesh_, std::vector<size_t> V) {
-    vtkSmartPointer<vtkPolyData> poly = mu.GetPolyData(mesh_, V);
+    vtkSmartPointer<vtkPolyData> poly = mu->GetPolyData(mesh_, V);
 
     auto tf = vtkSmartPointer<vtkTriangleFilter>::New();
     tf->PassVertsOff();

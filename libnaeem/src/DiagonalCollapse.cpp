@@ -10,8 +10,8 @@ DiagonalCollapse::DiagonalCollapse(Mesh& mesh_, MeshUtil& mu_, Smoother& smoothe
 DiagonalCollapse::~DiagonalCollapse() {}
 
 void DiagonalCollapse::SetFaceInfo() {
-    fId = GetIntersection(mesh.V.at(d_idx1).N_Fids, mesh.V.at(d_idx2).N_Fids)[0];
-    auto& f = mesh.F.at(fId);
+    fId = GetIntersection(mesh->V.at(d_idx1).N_Fids, mesh->V.at(d_idx2).N_Fids)[0];
+    auto& f = mesh->F.at(fId);
     d_idx1 = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), d_idx1));
     d_idx2 = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), d_idx2));
 }
@@ -19,25 +19,25 @@ void DiagonalCollapse::SetFaceInfo() {
 void DiagonalCollapse::SetRanking(glm::dvec3 d) {
     CheckValidity();
 
-    Face& f = mesh.F.at(fId);
+    Face& f = mesh->F.at(fId);
 
-    Vertex& diag_v1 = mesh.V.at(f.Vids.at(d_idx1));
-    Vertex& diag_v2 = mesh.V.at(f.Vids.at(d_idx2));
-    Vertex& v3 = mesh.V.at(f.Vids.at((d_idx1 + 1) % f.Vids.size()));
-    Vertex& v4 = mesh.V.at(f.Vids.at((d_idx2 + 1) % f.Vids.size()));
+    Vertex& diag_v1 = mesh->V.at(f.Vids.at(d_idx1));
+    Vertex& diag_v2 = mesh->V.at(f.Vids.at(d_idx2));
+    Vertex& v3 = mesh->V.at(f.Vids.at((d_idx1 + 1) % f.Vids.size()));
+    Vertex& v4 = mesh->V.at(f.Vids.at((d_idx2 + 1) % f.Vids.size()));
 
-    double min = mu.GetVertexEnergy(diag_v1.id) + mu.GetVertexEnergy(diag_v2.id);
-    double max = mu.GetVertexEnergy(v3.id) + mu.GetVertexEnergy(v4.id);
-    double normalized_area = mu.GetFaceArea(fId) / mu.GetMeshArea();
+    double min = mu->GetVertexEnergy(diag_v1.id) + mu->GetVertexEnergy(diag_v2.id);
+    double max = mu->GetVertexEnergy(v3.id) + mu->GetVertexEnergy(v4.id);
+    double normalized_area = mu->GetFaceArea(fId) / mu->GetMeshArea();
 
     ranking = min / (max * normalized_area);
 }
 
 bool DiagonalCollapse::IsOperationValid() {
     CheckValidity();
-    auto& f = mesh.F.at(fId);
+    auto& f = mesh->F.at(fId);
     if (f.N_Fids.size() == 0 || f.Vids.empty()) return false;
-    // if (mesh.V.at(f.Vids.at(d_idx1)).N_Fids.size() != 3 || mesh.V.at(f.Vids.at(d_idx2)).N_Fids.size() != 3) return false;
+    // if (mesh->V.at(f.Vids.at(d_idx1)).N_Fids.size() != 3 || mesh->V.at(f.Vids.at(d_idx2)).N_Fids.size() != 3) return false;
     return true;
 }
 
@@ -48,35 +48,35 @@ void DiagonalCollapse::PerformOperation() {
     } else {
         if (!IsOperationValid()) return;
     }
-    Face& f = mesh.F.at(fId);
+    Face& f = mesh->F.at(fId);
 
-    glm::dvec3 coords = (mesh.V.at(f.Vids.at(d_idx1)).xyz() + mesh.V.at(f.Vids.at(d_idx2)).xyz()) * 0.5;
-    if (mesh.V.at(f.Vids.at(d_idx1)).isBoundary && mesh.V.at(f.Vids.at(d_idx2)).isBoundary) {
+    glm::dvec3 coords = (mesh->V.at(f.Vids.at(d_idx1)).xyz() + mesh->V.at(f.Vids.at(d_idx2)).xyz()) * 0.5;
+    if (mesh->V.at(f.Vids.at(d_idx1)).isBoundary && mesh->V.at(f.Vids.at(d_idx2)).isBoundary) {
         int minIdx = 0;
         double minAngle = 0.0;
         for (int i = 0; i < f.Vids.size(); i++) {
-            auto& fv = mesh.V.at(f.Vids.at(i));
+            auto& fv = mesh->V.at(f.Vids.at(i));
             if (!fv.isBoundary) continue;
             std::vector<size_t> b;
-            for (auto nvid: fv.N_Vids) if (mesh.V.at(nvid).isBoundary) b.push_back(nvid);
-            double angle = mesh.GetAngle(fv.id, b.at(0), b.at(1));
+            for (auto nvid: fv.N_Vids) if (mesh->V.at(nvid).isBoundary) b.push_back(nvid);
+            double angle = mesh->GetAngle(fv.id, b.at(0), b.at(1));
             if (fabs(180.0-angle) > minAngle) {
                 minIdx = i;
                 minAngle = fabs(180.0-angle);
             }
         }
-        coords = mesh.V.at(f.Vids.at(minIdx)).xyz();
-    } else if (!mesh.V.at(f.Vids.at(d_idx1)).isBoundary && mesh.V.at(f.Vids.at(d_idx2)).isBoundary) {
+        coords = mesh->V.at(f.Vids.at(minIdx)).xyz();
+    } else if (!mesh->V.at(f.Vids.at(d_idx1)).isBoundary && mesh->V.at(f.Vids.at(d_idx2)).isBoundary) {
         int tmp = d_idx2;
         d_idx2 = d_idx1;
         d_idx1 = tmp;
-        coords = mesh.V.at(f.Vids.at(d_idx1)).xyz();
+        coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
     }
 
-    Vertex& target = mesh.V.at(f.Vids.at(d_idx1));
-    Vertex& source = mesh.V.at(f.Vids.at(d_idx2));
-    Vertex& v3 = mesh.V.at(f.Vids.at((d_idx1 + 1) % f.Vids.size()));
-    Vertex& v4 = mesh.V.at(f.Vids.at((d_idx2 + 1) % f.Vids.size()));
+    Vertex& target = mesh->V.at(f.Vids.at(d_idx1));
+    Vertex& source = mesh->V.at(f.Vids.at(d_idx2));
+    Vertex& v3 = mesh->V.at(f.Vids.at((d_idx1 + 1) % f.Vids.size()));
+    Vertex& v4 = mesh->V.at(f.Vids.at((d_idx2 + 1) % f.Vids.size()));
 
     // step 1: Set target location halfway between source and target
     // target = 0.5 * (target.xyz() + source.xyz());
@@ -86,9 +86,9 @@ void DiagonalCollapse::PerformOperation() {
     // UpdateNeighborInfo(target, source);
     // std::cout << "Updating neighbors" << std::endl;
     UpdateNeighborInfo(target, source, fId);
-    if (target.isBoundary) mesh.SetIdealValence(target.id);
+    if (target.isBoundary) mesh->SetIdealValence(target.id);
     for (auto nvid: target.N_Vids) {
-        if (mesh.V.at(nvid).isBoundary) mesh.SetIdealValence(target.id);
+        if (mesh->V.at(nvid).isBoundary) mesh->SetIdealValence(target.id);
     }
     // std::cout << "After updating neighbors" << std::endl;
     // ToSmooth.push_back(target.id);
@@ -98,13 +98,13 @@ void DiagonalCollapse::PerformOperation() {
 }
 
 /*void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {
-    Face& face = mesh.F.at(fId);
+    Face& face = mesh->F.at(fId);
     std::vector<size_t> verticesToRemove{source.id};
     std::vector<size_t> edgesToRemove;
     std::vector<size_t> edgesToKeep;
     std::vector<size_t> facesToRemove{(size_t) fId};
     for (auto eid: face.Eids) {
-        Edge& e = mesh.E.at(eid);
+        Edge& e = mesh->E.at(eid);
         if (std::find(e.Vids.begin(), e.Vids.end(), source.id) != e.Vids.end()) {
             edgesToRemove.push_back(eid);
         } else {
@@ -128,7 +128,7 @@ void DiagonalCollapse::PerformOperation() {
     // }
 
     // for (auto eid: face.Eids) {
-    //     Edge& e = mesh.E.at(eid);
+    //     Edge& e = mesh->E.at(eid);
     //     std::cout << "face e: " << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;
     // }
 
@@ -143,7 +143,7 @@ void DiagonalCollapse::PerformOperation() {
     // std::cout << "diffTargetFaces: " << diffTargetFaces.size() << std::endl;
     
     for (auto vid: source.N_Vids) {
-        Vertex& v = mesh.V.at(vid);
+        Vertex& v = mesh->V.at(vid);
         AddContents(v.N_Vids, std::vector<size_t>{target.id});
         UpdateContents(v.N_Vids, verticesToRemove);
         UpdateContents(v.N_Eids, edgesToRemove);
@@ -151,13 +151,13 @@ void DiagonalCollapse::PerformOperation() {
     }
 
     for (auto eid: diffSourceEdges) {
-        Edge& e = mesh.E.at(eid);
+        Edge& e = mesh->E.at(eid);
         if (e.Vids.at(0) == source.id) e.Vids.at(0) = target.id;
         if (e.Vids.at(1) == source.id) e.Vids.at(1) = target.id;
     }
 
     for (auto fid: diffSourceFaces) {
-        Face& f = mesh.F.at(fid);
+        Face& f = mesh->F.at(fid);
         for (size_t i = 0; i < f.Vids.size(); i++) {
             if (f.Vids.at(i) == source.id) {
                 f.Vids.at(i) = target.id;
@@ -174,17 +174,17 @@ void DiagonalCollapse::PerformOperation() {
     UpdateContents(target.N_Fids, facesToRemove);
     
     for (auto fid: diffTargetFaces) { 
-        Face& f = mesh.F.at(fid);
+        Face& f = mesh->F.at(fid);
         AddContents(f.N_Fids, diffSourceFaces);
         UpdateContents(f.N_Fids, facesToRemove);
     }
 
     for (auto vid: face.Vids) {
         if (vid == target.id || vid == source.id) continue;
-        Vertex& v = mesh.V.at(vid);
+        Vertex& v = mesh->V.at(vid);
         size_t e1, e2;
         for (auto eid: face.Eids) {
-            Edge& e = mesh.E.at(eid);
+            Edge& e = mesh->E.at(eid);
 
             if (std::find(e.Vids.begin(), e.Vids.end(), target.id) != e.Vids.end() &&
                 std::find(e.Vids.begin(), e.Vids.end(), v.id) != e.Vids.end()) {
@@ -194,10 +194,10 @@ void DiagonalCollapse::PerformOperation() {
                     e2 = e.id;
             }
         }
-        Edge& edgeToKeep = mesh.E.at(e1);
-        Edge& edgeToRemove = mesh.E.at(e2);
-        Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh.F.at(edgeToKeep.N_Fids.at(1)) : mesh.F.at(edgeToKeep.N_Fids.at(0));
-        Face& faceToChange = edgeToRemove.N_Fids.at(0) == face.id ? mesh.F.at(edgeToRemove.N_Fids.at(1)) : mesh.F.at(edgeToRemove.N_Fids.at(0));
+        Edge& edgeToKeep = mesh->E.at(e1);
+        Edge& edgeToRemove = mesh->E.at(e2);
+        Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh->F.at(edgeToKeep.N_Fids.at(1)) : mesh->F.at(edgeToKeep.N_Fids.at(0));
+        Face& faceToChange = edgeToRemove.N_Fids.at(0) == face.id ? mesh->F.at(edgeToRemove.N_Fids.at(1)) : mesh->F.at(edgeToRemove.N_Fids.at(0));
         for (int i = 0; i < faceToChange.Eids.size(); i++) {
             if (faceToChange.Eids.at(i) == edgeToRemove.id) {
                 faceToChange.Eids.at(i) = edgeToKeep.id;
@@ -214,7 +214,7 @@ void DiagonalCollapse::PerformOperation() {
         UpdateContents(v.N_Eids, edgesToRemove);
         UpdateContents(v.N_Fids, facesToRemove);
         for (auto nfid: v.N_Fids) {
-            Face& f = mesh.F.at(nfid);
+            Face& f = mesh->F.at(nfid);
             UpdateContents(f.N_Fids, facesToRemove);
         }
     }

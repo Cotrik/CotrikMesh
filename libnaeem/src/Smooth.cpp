@@ -5,7 +5,7 @@
 #define PI 3.14159265
 
 Smoother::Smoother() {}
-Smoother::Smoother(Mesh& mesh_, MeshUtil& mu_) : mesh(mesh_), sm(mesh), mu(mu_) {
+Smoother::Smoother(Mesh& mesh_, MeshUtil& mu_) : mesh(&mesh_), sm(mesh_), mu(&mu_) {
     // sm.SetTarget(mesh);
 }
 
@@ -16,83 +16,87 @@ Smoother::Smoother(const Smoother& r) {
 Smoother::~Smoother() {}
 
 void Smoother::CheckValidity() {
-    if (mesh.V.size() == 0 || mesh.F.size() == 0 || mesh.C.size() == 0) {
-        std::cout << "No mesh to use for MeshUtils." << std::endl;
+    if (mesh == NULL) {
+        std::cout << "No mesh to use for Smoother." << std::endl;
+        exit(0);
+    }
+    if (mesh->V.size() == 0 || mesh->F.size() == 0 || mesh->C.size() == 0) {
+        std::cout << "No mesh to use for Smoother." << std::endl;
         exit(0);
     }
 }
 
 void Smoother::SetMesh(Mesh& mesh_) {
-    mesh = mesh_;
-    sm.SetTarget(mesh);
+    mesh = &mesh_;
+    sm.SetTarget(*mesh);
 }
 
-void Smoother::Smooth(Mesh& mesh_, std::vector<size_t>& V) {
+void Smoother::Smooth(std::vector<size_t>& V) {
     CheckValidity();
     bool performMapping = V.empty() ? true : false;
     if (V.empty()) {
-        V.resize(mesh_.V.size());
+        V.resize(mesh->V.size());
         if (V.size() >= 2000) {
-            PARALLEL_FOR_BEGIN(mesh_.V.size()) {
-                GetVerticesToSmooth(i, mesh_, V);
+            PARALLEL_FOR_BEGIN(mesh->V.size()) {
+                GetVerticesToSmooth(i, V);
             } PARALLEL_FOR_END();    
         } else {
-            for (int i = 0; i < mesh_.V.size(); i++) {
-                GetVerticesToSmooth(i, mesh_, V);
+            for (int i = 0; i < mesh->V.size(); i++) {
+                GetVerticesToSmooth(i, V);
             }
         }
     }
     // std::cout << "vertices: " << V.size() << std::endl;
-    // sm.SetLocator(mesh_, V);
+    // sm.SetLocator(V);
     // smooth and project
 	int iters_ = 10;
     // std::cout << "Smoothing " << V.size() << " vertices" << std::endl;
 
-    // SurfaceMapper sm(mesh_, origMesh);
+    // SurfaceMapper sm(origMesh);
 	while (iters_--) {
         // centers.clear();
         // centers.resize(V.size());
         // std::vector<glm::dvec3> centers(V.size());
         // if (V.size() >= 2000) {
             // PARALLEL_FOR_BEGIN(V.size()) {
-                // GetOptimizedPositions(i, mesh_, V, centers);
+                // GetOptimizedPositions(i, V, centers);
             // } PARALLEL_FOR_END();
         
             // PARALLEL_FOR_BEGIN(V.size()) {
-        //         // mesh_.V.at(V.at(i)) = centers.at(i);
-                // SetCoords(mesh_, V.at(i), centers.at(i));
-                // sm.RemapVertex(mesh_, V.at(i), centers.at(i));
+        //         // mesh->V.at(V.at(i)) = centers.at(i);
+                // SetCoords(V.at(i), centers.at(i));
+                // sm.RemapVertex(V.at(i), centers.at(i));
             // } PARALLEL_FOR_END();
         
         // } else {
             // for (int i = 0; i < iters; i++) {
             for (int i = 0; i < V.size(); i++) {
-                // GetOptimizedPositions(i, mesh_, V, centers);
-                SetOptimizedPositions(i, mesh_, V);
+                // GetOptimizedPositions(i, V, centers);
+                SetOptimizedPositions(i, V);
             }
             // for (int i = 0; i < V.size(); i++) {
-                // mesh_.V.at(V.at(i)) = centers.at(i);
-                // SetCoords(mesh_, V.at(i), centers.at(i));
-                // SetCoords(mesh_, V.at(i), sm.GetClosestPoint(centers.at(i)));
+                // mesh->V.at(V.at(i)) = centers.at(i);
+                // SetCoords(V.at(i), centers.at(i));
+                // SetCoords(V.at(i), sm.GetClosestPoint(centers.at(i)));
                 // std::cout << "mapping vertex: " << V.at(i) << " from " << centers.at(i).x << " " << centers.at(i).y << " " << centers.at(i).z << std::endl;
-                // sm.RemapVertex(mesh_, V.at(i), centers.at(i));
+                // sm.RemapVertex(V.at(i), centers.at(i));
             // }
         // }
     }
     // if (!performMapping) return;
     // for (int i = 0; i < V.size(); i++) {
-    //     // mesh_.V.at(V.at(i)) = sm.GetClosestPoint(mesh_.V.at(V.at(i)).xyz());
-    //     SetCoords(mesh_, V.at(i), sm.GetClosestPoint(mesh_.V.at(V.at(i)).xyz()));
+    //     // mesh->V.at(V.at(i)) = sm.GetClosestPoint(mesh->V.at(V.at(i)).xyz());
+    //     SetCoords(V.at(i), sm.GetClosestPoint(mesh->V.at(V.at(i)).xyz()));
     // }
 }
 
-void Smoother::GetVerticesToSmooth(int iter, Mesh& mesh_, std::vector<size_t>& V) {
-    V.at(iter) = mesh_.V.at(iter).id;
+void Smoother::GetVerticesToSmooth(int iter, std::vector<size_t>& V) {
+    V.at(iter) = mesh->V.at(iter).id;
 }
 
-void Smoother::GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>& V, std::vector<glm::dvec3>& centers) {    
+void Smoother::GetOptimizedPositions(int iter, std::vector<size_t>& V, std::vector<glm::dvec3>& centers) {    
     // std::cout << "iter: " << iter << " " << V.at(iter) << std::endl;
-    auto& v = mesh_.V.at(V.at(iter));
+    auto& v = mesh->V.at(V.at(iter));
     // std::cout << "v: " << v.id << std::endl;
     centers.at(iter) = v.xyz();
     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty()) return;
@@ -102,13 +106,13 @@ void Smoother::GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>&
         // std::cout << "vertices neighbor edges access " << v.id << std::endl;
         for (int i = 0; i < v.N_Eids.size(); i++) {
             // std::cout << "getting vertex neighbor number: " << v.N_Eids.size() << std::endl;
-            auto& e = mesh_.E.at(v.N_Eids.at(i));
+            auto& e = mesh->E.at(v.N_Eids.at(i));
             size_t nvid = e.Vids[0] != v.id ? e.Vids[0] : e.Vids[1];
             // std::cout << "e: " << e.Vids[0] << " " << e.Vids[1] << std::endl;
             // std::cout << "nvid: " << nvid << std::endl;
             std::vector<size_t> nvids;
             for (auto fid: e.N_Fids) {
-                auto& f = mesh_.F.at(fid);
+                auto& f = mesh->F.at(fid);
                 // std::cout << "f: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
                 int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), nvid));
                 nvids.push_back(f.Vids.at((idx+2)%f.Vids.size()));
@@ -120,9 +124,9 @@ void Smoother::GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>&
                 // }
             }
             // std::cout << "neighbor vertices: " << nvids.size() << std::endl;
-            auto& v_a = mesh_.V.at(nvid);
-            auto& v_b = mesh_.V.at(nvids.at(0));
-            auto& v_c = mesh_.V.at(nvids.at(1));
+            auto& v_a = mesh->V.at(nvid);
+            auto& v_b = mesh->V.at(nvids.at(0));
+            auto& v_c = mesh->V.at(nvids.at(1));
             // std::cout << "got neighbor vertices to smooth" << std::endl;
             glm::dvec3 V_j = v.xyz() - v_a.xyz();
             // double r = glm::length(V_j);
@@ -165,45 +169,45 @@ void Smoother::GetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>&
     }
 }
 
-void Smoother::SetOptimizedPositions(int iter, Mesh& mesh_, std::vector<size_t>& V) {
-    auto& v = mesh_.V.at(V.at(iter));
+void Smoother::SetOptimizedPositions(int iter, std::vector<size_t>& V) {
+    auto& v = mesh->V.at(V.at(iter));
     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.N_Vids.size() < 3) return;
     if (v.type == FEATURE || v.isBoundary) {
         // std::cout << "Before setting boundary vertex" << std::endl;
-        SetPositionBoundary(mesh_, v);
+        SetPositionBoundary(v);
         // std::cout << "After setting boundary vertex" << std::endl;
     } else {
         // std::cout << "Before setting non-boundary vertex" << std::endl;
-        SetPosition(mesh_, v);
+        SetPosition(v);
         // std::cout << "After setting non-boundary vertex" << std::endl;
     }
 }
 
-void Smoother::SetPosition(Mesh& mesh_, Vertex& v) {
+void Smoother::SetPosition(Vertex& v) {
     double polyArea = 0.0;
     glm::dvec3 centroid(0.0, 0.0, 0.0);
     size_t startE = v.N_Eids.at(0);
     
     for (int i = 0; i < v.N_Eids.size(); i++) {
-        auto& edge = mesh_.E.at(startE);
+        auto& edge = mesh->E.at(startE);
         size_t ev = edge.Vids.at(0) == v.id ? edge.Vids.at(1) : edge.Vids.at(0);
         size_t ev_plus1;
         size_t ev_minus1;
         for (auto fid: edge.N_Fids) {
-            auto& f = mesh_.F.at(fid);
+            auto& f = mesh->F.at(fid);
             int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
             if (f.Vids.at((idx+1)%f.Vids.size()) == ev) {
                 ev_plus1 = f.Vids.at((idx+3)%f.Vids.size());
-                startE = mu.GetDifference(mu.GetIntersection(f.Eids, v.N_Eids), std::vector<size_t>{edge.id}).at(0);
+                startE = mu->GetDifference(mu->GetIntersection(f.Eids, v.N_Eids), std::vector<size_t>{edge.id}).at(0);
             }
             if (f.Vids.at((idx+3)%f.Vids.size()) == ev) {
                 ev_minus1 = f.Vids.at((idx+1)%f.Vids.size());
             }
         }
 
-        auto& v2 = mesh_.V.at(ev);
-        auto& v3 = mesh_.V.at(ev_plus1);
-        auto& v4 = mesh_.V.at(ev_minus1);
+        auto& v2 = mesh->V.at(ev);
+        auto& v3 = mesh->V.at(ev_plus1);
+        auto& v4 = mesh->V.at(ev_minus1);
 
  
         glm::dvec3 AB = v3.xyz() - v2.xyz();
@@ -223,11 +227,11 @@ void Smoother::SetPosition(Mesh& mesh_, Vertex& v) {
     if (polyArea == 0.0) return;
     centroid /= polyArea;
     for (auto fid: v.N_Fids) {
-        auto& f = mesh_.F.at(fid);
+        auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
         if (idx == -1) continue;
-        auto& v2 = mesh_.V.at(f.Vids.at((idx+1)%f.Vids.size()));
-        auto& v3 = mesh_.V.at(f.Vids.at((idx+3)%f.Vids.size()));
+        auto& v2 = mesh->V.at(f.Vids.at((idx+1)%f.Vids.size()));
+        auto& v3 = mesh->V.at(f.Vids.at((idx+3)%f.Vids.size()));
 
         glm::dvec3 AB = v2.xyz() - v.xyz();
         glm::dvec3 AC = v3.xyz() - v.xyz();
@@ -253,25 +257,25 @@ void Smoother::SetPosition(Mesh& mesh_, Vertex& v) {
     }
 }
 
-void Smoother::SetPositionBoundary(Mesh& mesh_, Vertex& v) {
+void Smoother::SetPositionBoundary(Vertex& v) {
     std::vector<size_t> boundaryVertices;
     // std::cout << v.N_Vids.size() << std::endl;
     for (auto vid: v.N_Vids) {
-        // std::cout << (mesh_.V.at(vid).type == FEATURE) << ", " << mesh_.V.at(vid).isBoundary << " ";
-        if (mesh_.V.at(vid).type == FEATURE || mesh_.V.at(vid).isBoundary) boundaryVertices.push_back(vid);
+        // std::cout << (mesh->V.at(vid).type == FEATURE) << ", " << mesh->V.at(vid).isBoundary << " ";
+        if (mesh->V.at(vid).type == FEATURE || mesh->V.at(vid).isBoundary) boundaryVertices.push_back(vid);
     }
     // std::cout << std::endl;
     // std::cout << boundaryVertices.size() << std::endl;
     if (boundaryVertices.size() < 2) {
         // std::cout << "Before setting non-boundary vertex" << std::endl;
-        SetPosition(mesh_, v);
+        SetPosition(v);
         // std::cout << "After setting non-boundary vertex" << std::endl;
         return;
     }
     if (boundaryVertices.size() > 2) return;
     // std::cout << "Before getting boundary vertices" << std::endl;
-    auto& b1 = mesh_.V.at(boundaryVertices.at(0));
-    auto& b2 = mesh_.V.at(boundaryVertices.at(1));
+    auto& b1 = mesh->V.at(boundaryVertices.at(0));
+    auto& b2 = mesh->V.at(boundaryVertices.at(1));
     // std::cout << "Two boundaries present" << std::endl;
     glm::dvec3 vb1 = glm::normalize(b1.xyz() - v.xyz());
     glm::dvec3 vb2 = glm::normalize(b2.xyz() - v.xyz());
@@ -282,7 +286,7 @@ void Smoother::SetPositionBoundary(Mesh& mesh_, Vertex& v) {
     glm::dvec3 centroid(0.0, 0.0, 0.0);
     int k = 0;
     for (auto vid: v.N_Vids) {
-        auto& nv = mesh_.V.at(vid);
+        auto& nv = mesh->V.at(vid);
         if (vid == b1.id || vid == b2.id) continue;
 
         k += 1;
@@ -323,10 +327,10 @@ void Smoother::SetPositionBoundary(Mesh& mesh_, Vertex& v) {
     }
 }
 
-void Smoother::SetCoords(Mesh& mesh_, size_t vid, glm::dvec3& c) {
-    mesh_.V.at(vid).x = c.x;
-    mesh_.V.at(vid).y = c.y;
-    mesh_.V.at(vid).z = c.z;
+void Smoother::SetCoords(size_t vid, glm::dvec3& c) {
+    mesh->V.at(vid).x = c.x;
+    mesh->V.at(vid).y = c.y;
+    mesh->V.at(vid).z = c.z;
 }
 
 

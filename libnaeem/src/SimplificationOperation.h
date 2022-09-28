@@ -22,7 +22,7 @@ class SimplificationOperation {
         ~SimplificationOperation();
 
         // setters and getters
-        void SetMesh(Mesh& mesh_);
+        void SetMembers(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_);
 
         virtual void SetRanking(glm::dvec3 d = glm::dvec3(0, 0, 0)) = 0;
         virtual bool IsOperationValid() = 0;
@@ -55,10 +55,9 @@ class SimplificationOperation {
 
         std::vector<size_t> ToSmooth = {};
 
-        Mesh& mesh = Mesh();
-        MeshUtil& mu = MeshUtil();
-    private:
-        Smoother& smoother = Smoother();
+        Mesh* mesh;
+        MeshUtil* mu;
+        Smoother* smoother;
 };
 
 #endif

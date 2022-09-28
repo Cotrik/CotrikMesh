@@ -13,12 +13,12 @@ void SeparatrixCollapse::BuildSeparatrix(std::vector<size_t> linkV, std::vector<
     for (size_t i = 0; i < linkV.size(); i++) {
         auto vid = linkV.at(i);
         auto eid = i == linkV.size()-1 ? linkE.back() : linkE.at(i);
-        // std::cout << eid << ": " << mesh.E.at(eid).N_Fids.size() << std::endl;
+        // std::cout << eid << ": " << mesh->E.at(eid).N_Fids.size() << std::endl;
         auto collapseVids = GetCollapseVids(vid, eid);
         // std::cout << "collapse vids: " << collapseVids.size() << std::endl;
-        auto& v0 = mesh.V.at(collapseVids[0]);
-        auto& v1 = mesh.V.at(collapseVids[1]);
-        auto& v = mesh.V.at(vid);
+        auto& v0 = mesh->V.at(collapseVids[0]);
+        auto& v1 = mesh->V.at(collapseVids[1]);
+        auto& v = mesh->V.at(vid);
         if (v0.type == FEATURE && v.type != FEATURE) {
             std::swap(collapseVids[0], vid);
         } else if (v1.type == FEATURE && v.type != FEATURE) {
@@ -39,9 +39,9 @@ bool SeparatrixCollapse::IsOperationValid() {
     // int count = 0;
     for (auto c: collapse) {
         if (target.at(i) == c.at(0) || target.at(i) == c.at(1) || c.at(0) == c.at(1)) isValid = false;
-        if (mesh.V.at(target.at(i)).N_Fids.empty()) isValid = false;
-        if (mesh.V.at(c.at(0)).N_Fids.empty()) isValid = false;
-        if (mesh.V.at(c.at(1)).N_Fids.empty()) isValid = false;
+        if (mesh->V.at(target.at(i)).N_Fids.empty()) isValid = false;
+        if (mesh->V.at(c.at(0)).N_Fids.empty()) isValid = false;
+        if (mesh->V.at(c.at(1)).N_Fids.empty()) isValid = false;
         if (!IsCollapsable(target.at(i), c.at(0)) || !IsCollapsable(target.at(i), c.at(1))) isValid = false;
         i += 1;
         if (!isValid) break;
@@ -63,15 +63,15 @@ double SeparatrixCollapse::GetRanking() {
     double max = 0.0;
     int i = 0;
     for (auto c: collapse) {
-        // min += mesh.V.at(c.at(0)).N_Vids.size() + mesh.V.at(c.at(1)).N_Vids.size();
+        // min += mesh->V.at(c.at(0)).N_Vids.size() + mesh->V.at(c.at(1)).N_Vids.size();
         size_t tId = target.at(i);
         i += 1;
 
-        std::vector<size_t> commonFs = GetIntersection(mesh.V.at(c.at(0)).N_Fids, mesh.V.at(c.at(1)).N_Fids);
+        std::vector<size_t> commonFs = GetIntersection(mesh->V.at(c.at(0)).N_Fids, mesh->V.at(c.at(1)).N_Fids);
         if (commonFs.empty()) continue;
-        Face& f = mesh.F.at(commonFs.at(0));
+        Face& f = mesh->F.at(commonFs.at(0));
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tId));
-        auto& v = mesh.V.at(f.Vids.at((idx+2)%f.Vids.size()));
+        auto& v = mesh->V.at(f.Vids.at((idx+2)%f.Vids.size()));
         min += v.N_Vids.size() > 4 ? v.N_Vids.size() : v.N_Vids.size() * 4;
 
     }
@@ -84,18 +84,18 @@ void SeparatrixCollapse::PerformOperation() {
     std::cout << "Performing Separatrix Collapse: " << ranking << std::endl;
     std::vector<size_t> linkFaces;
     for (int i = 0; i < target.size(); i++) {
-        auto& v = mesh.V.at(target.at(i));
-        auto& v1 = mesh.V.at(collapse.at(i)[0]);
-        auto& v2 = mesh.V.at(collapse.at(i)[1]);
+        auto& v = mesh->V.at(target.at(i));
+        auto& v1 = mesh->V.at(collapse.at(i)[0]);
+        auto& v2 = mesh->V.at(collapse.at(i)[1]);
         // AddContents(linkFaces, v.N_Fids);
         AddContents(linkFaces, GetIntersection(v.N_Fids, v1.N_Fids));
         AddContents(linkFaces, GetIntersection(v.N_Fids, v2.N_Fids));
         AddContents(linkFaces, GetIntersection(v1.N_Fids, v2.N_Fids));
     }
     for (int i = 0; i < target.size(); i++) {
-        auto& v = mesh.V.at(target.at(i));
-        auto& v1 = mesh.V.at(collapse.at(i)[0]);
-        auto& v2 = mesh.V.at(collapse.at(i)[1]);
+        auto& v = mesh->V.at(target.at(i));
+        auto& v1 = mesh->V.at(collapse.at(i)[0]);
+        auto& v2 = mesh->V.at(collapse.at(i)[1]);
         if (v.type != FEATURE) {
             v = 0.5 * (v1.xyz() + v2.xyz());
         }
@@ -113,17 +113,17 @@ void SeparatrixCollapse::PerformOperation() {
         }
     }
     for (auto fid: linkFaces) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         f.N_Fids.clear();
         for (auto vid: f.Vids) {
-            UpdateContents(mesh.V.at(vid).N_Fids, linkFaces);
+            UpdateContents(mesh->V.at(vid).N_Fids, linkFaces);
             SetSingularity(vid);
         }
         f.Vids.clear();
         f.Eids.clear();
     }
     for (auto tid: target) {
-        auto& v = mesh.V.at(tid);
+        auto& v = mesh->V.at(tid);
         SetSingularity(v.id);
     }
     // std::cout << "Finished Separatrix Collapse Operation" << std::endl;
@@ -131,11 +131,11 @@ void SeparatrixCollapse::PerformOperation() {
 
 void SeparatrixCollapse::Collapse(size_t targetId, size_t collapseId) {
 
-    auto& targetV = mesh.V.at(targetId);
-    auto& collapseV = mesh.V.at(collapseId);
+    auto& targetV = mesh->V.at(targetId);
+    auto& collapseV = mesh->V.at(collapseId);
     std::vector<size_t> vDiff = GetDifference(collapseV.N_Vids, std::vector<size_t>{targetV.id});
     for (auto vid: vDiff) {
-        auto& v = mesh.V.at(vid);
+        auto& v = mesh->V.at(vid);
         UpdateContents(v.N_Vids, std::vector<size_t>{collapseV.id});
         AddContents(v.N_Vids, std::vector<size_t>{targetV.id});
     }
@@ -146,18 +146,18 @@ void SeparatrixCollapse::Collapse(size_t targetId, size_t collapseId) {
     std::vector<size_t> eComm = GetIntersection(collapseV.N_Eids, targetV.N_Eids);
     std::vector<size_t> edgesToRemove;
     for (auto eid: eDiff) {
-        auto& e = mesh.E.at(eid);
+        auto& e = mesh->E.at(eid);
         int idx = std::distance(e.Vids.begin(), std::find(e.Vids.begin(), e.Vids.end(), collapseId));
         e.Vids.at(idx) = targetV.id;
         for (auto t_eid: targetV.N_Eids) {
-            auto& t_e = mesh.E.at(t_eid);
+            auto& t_e = mesh->E.at(t_eid);
             if (std::find(e.Vids.begin(), e.Vids.end(), t_e.Vids.at(0)) != e.Vids.end() &&
                 std::find(e.Vids.begin(), e.Vids.end(), t_e.Vids.at(1)) != e.Vids.end()) {
-                    auto& edgeV = mesh.V.at(e.Vids.at((idx+1)%e.Vids.size()));
+                    auto& edgeV = mesh->V.at(e.Vids.at((idx+1)%e.Vids.size()));
                     if (GetIntersection(e.N_Fids, t_e.N_Fids).empty()) continue;
                     UpdateContents(edgeV.N_Eids, std::vector<size_t>{e.id});
-                    auto& faceToRemove = mesh.F.at(GetIntersection(e.N_Fids, t_e.N_Fids).at(0));
-                    auto& faceToKeep = mesh.F.at(GetDifference(e.N_Fids, t_e.N_Fids).at(0));
+                    auto& faceToRemove = mesh->F.at(GetIntersection(e.N_Fids, t_e.N_Fids).at(0));
+                    auto& faceToKeep = mesh->F.at(GetDifference(e.N_Fids, t_e.N_Fids).at(0));
                     UpdateContents(t_e.N_Fids, std::vector<size_t>{faceToRemove.id});
                     AddContents(t_e.N_Fids, std::vector<size_t>{faceToKeep.id});
                     UpdateContents(faceToKeep.Eids, std::vector<size_t>{e.id});
@@ -176,7 +176,7 @@ void SeparatrixCollapse::Collapse(size_t targetId, size_t collapseId) {
     std::vector<size_t> fDiff = GetDifference(collapseV.N_Fids, targetV.N_Fids);
     std::vector<size_t> fComm = GetIntersection(targetV.N_Fids, collapseV.N_Fids);
     for (auto fid: fDiff) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), collapseId));
         f.Vids.at(idx) = targetV.id;
         UpdateContents(f.N_Fids, targetV.N_Fids);
@@ -185,8 +185,8 @@ void SeparatrixCollapse::Collapse(size_t targetId, size_t collapseId) {
     AddContents(targetV.N_Fids, fDiff);
 
     for (auto eid: eComm) {
-        mesh.E.at(eid).Vids.clear();
-        mesh.E.at(eid).N_Fids.clear();
+        mesh->E.at(eid).Vids.clear();
+        mesh->E.at(eid).N_Fids.clear();
     }
     collapseV.N_Vids.clear();
     collapseV.N_Eids.clear();
@@ -196,33 +196,33 @@ void SeparatrixCollapse::Collapse(size_t targetId, size_t collapseId) {
 void SeparatrixCollapse::SetUpdateElements() {
     std::vector<size_t> outerFaces;
     for (int i = 0; i < collapse.size(); i++) {
-        AddContents(outerFaces, GetDifference(mesh.V.at(collapse.at(i).at(0)).N_Fids, mesh.V.at(target.at(i)).N_Fids));
-        AddContents(outerFaces, GetDifference(mesh.V.at(collapse.at(i).at(1)).N_Fids, mesh.V.at(target.at(i)).N_Fids));
+        AddContents(outerFaces, GetDifference(mesh->V.at(collapse.at(i).at(0)).N_Fids, mesh->V.at(target.at(i)).N_Fids));
+        AddContents(outerFaces, GetDifference(mesh->V.at(collapse.at(i).at(1)).N_Fids, mesh->V.at(target.at(i)).N_Fids));
         size_t tId = target.at(i);
-        for (auto fid: GetIntersection(mesh.V.at(collapse.at(i).at(0)).N_Fids, mesh.V.at(collapse.at(i).at(1)).N_Fids)) {
-            auto& f = mesh.F.at(fid);
+        for (auto fid: GetIntersection(mesh->V.at(collapse.at(i).at(0)).N_Fids, mesh->V.at(collapse.at(i).at(1)).N_Fids)) {
+            auto& f = mesh->F.at(fid);
             int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tId));
-            auto& v = mesh.V.at(f.Vids.at((idx+2)%f.Vids.size()));
-            AddContents(outerFaces, GetDifference(v.N_Fids, mesh.V.at(target.at(i)).N_Fids));
+            auto& v = mesh->V.at(f.Vids.at((idx+2)%f.Vids.size()));
+            AddContents(outerFaces, GetDifference(v.N_Fids, mesh->V.at(target.at(i)).N_Fids));
         }
     }
     for (auto fid: outerFaces) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         for (auto vid: f.Vids) {
-            if (mesh.V.at(vid).N_Vids.size() == 3) AddContents(toUpdate, std::vector<size_t>{vid});
+            if (mesh->V.at(vid).N_Vids.size() == 3) AddContents(toUpdate, std::vector<size_t>{vid});
         }
     }
 }
 
 std::vector<size_t> SeparatrixCollapse::GetCollapseVids(size_t vid, size_t eid) {
     std::vector<size_t> res;
-	auto& v = mesh.V.at(vid);
-	auto& e = mesh.E.at(eid);
+	auto& v = mesh->V.at(vid);
+	auto& e = mesh->E.at(eid);
 	for (auto fid : e.N_Fids) {
-		auto& f = mesh.F.at(fid);
+		auto& f = mesh->F.at(fid);
         // std::cout << "f eids: " << f.Eids.size() << std::endl;
 		for (auto feid : f.Eids) {
-			auto& fe = mesh.E.at(feid);
+			auto& fe = mesh->E.at(feid);
 			std::set<int> vids(fe.Vids.begin(), fe.Vids.end());
 			vids.insert(e.Vids.begin(), e.Vids.end());
             // std::cout << "e vids: " << e.id << " " << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;

@@ -5,20 +5,36 @@
 #define PI 3.14159265
 
 FeatureExtractor::FeatureExtractor() {}
-FeatureExtractor::FeatureExtractor(Mesh& mesh_, double angle_threshold_, MeshUtil& mu_) : mesh(mesh_), mu(mu_) {
+FeatureExtractor::FeatureExtractor(Mesh& mesh_, double angle_threshold_, MeshUtil& mu_) : mesh(&mesh_), mu(&mu_) {
     angle_threshold = angle_threshold_;
     mesh_polyData = GetPolyDataFromMesh();
 }
 FeatureExtractor::~FeatureExtractor() {}
 
-void FeatureExtractor::SetMesh(Mesh& mesh_) {
-    mesh = mesh_;
+void FeatureExtractor::SetMembers(Mesh& mesh_, MeshUtil& mu_) {
+    mesh = &mesh_;
+    mu = &mu_;
     mesh_polyData = GetPolyDataFromMesh();
 }
 
+void FeatureExtractor::CheckValidity() {
+    if (mesh == NULL) {
+        std::cout << "No mesh to use for Feature Extractor." << std::endl;
+        exit(0);
+    }
+    if (mu == NULL) {
+        std::cout << "MeshUtil is not initialized for Feature Extractor." << std::endl;
+        exit(0);
+    }
+    if (mesh->V.size() == 0 || mesh->F.size() == 0 || mesh->C.size() == 0) {
+        std::cout << "No mesh to use for Feature Extractor." << std::endl;
+        exit(0);
+    }
+}
+
 vtkSmartPointer<vtkPolyData> FeatureExtractor::GetPolyDataFromMesh() {
-    mu.SetMesh(mesh);
-    return mu.GetPolyData();
+    mu->SetMesh(*mesh);
+    return mu->GetPolyData();
 }
 
 void FeatureExtractor::Extract() {
@@ -54,7 +70,7 @@ void FeatureExtractor::Extract() {
 
     vtkSmartPointer<vtkPoints> res = fe->GetOutput()->GetPoints();
     int n = res->GetNumberOfPoints();
-    // mesh.isPlanar = setPlanar && n > 0 ? true : false;
+    // mesh->isPlanar = setPlanar && n > 0 ? true : false;
     if (n > 0) {
         std::cout << "Boundary Points: " << n << std::endl;
         PARALLEL_FOR_BEGIN(n) {
@@ -64,16 +80,16 @@ void FeatureExtractor::Extract() {
         } PARALLEL_FOR_END();
     }
 
-    PARALLEL_FOR_BEGIN(mesh.V.size()) {
-        if (mesh.V.at(i).type == FEATURE || mesh.V.at(i).isBoundary) {
-            mesh.SetIdealValence(mesh.V.at(i).id);
+    PARALLEL_FOR_BEGIN(mesh->V.size()) {
+        if (mesh->V.at(i).type == FEATURE || mesh->V.at(i).isBoundary) {
+            mesh->SetIdealValence(mesh->V.at(i).id);
         }
     } PARALLEL_FOR_END();
     
-    // for (int i = 0; i < mesh.V.size(); i++) {
-    //     if (mesh.V.at(i).N_Vids.size() != 4) continue;
-    //     if (mesh.V.at(i).type == FEATURE || mesh.V.at(i).isBoundary) {
-    //         SetIdealValence(mesh.V.at(i).id);
+    // for (int i = 0; i < mesh->V.size(); i++) {
+    //     if (mesh->V.at(i).N_Vids.size() != 4) continue;
+    //     if (mesh->V.at(i).type == FEATURE || mesh->V.at(i).isBoundary) {
+    //         SetIdealValence(mesh->V.at(i).id);
     //         break;
     //     }
     // }
@@ -84,8 +100,8 @@ void FeatureExtractor::SetFeatures(int i, vtkSmartPointer<vtkPoints> res, vtkSma
     res->GetPoint(i, point);
     vtkIdType id = pl->FindClosestPoint(point);
     if (boundary) {
-        mesh.V.at(id).isBoundary = true;
+        mesh->V.at(id).isBoundary = true;
     } else {
-        mesh.V.at(id).type = FEATURE;
+        mesh->V.at(id).type = FEATURE;
     }
 }

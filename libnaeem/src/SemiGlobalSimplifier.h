@@ -79,7 +79,7 @@ class SemiGlobalSimplifier {
         ~SemiGlobalSimplifier();
 
         // MeshUtil setters and getters
-        void SetMesh(Mesh& mesh_);
+        void SetMembers(Mesh& mesh_, MeshUtil& mu_, Smoother& Smoother_);
         void SetIters(int iters_);
 
         // Simplification Operations
@@ -152,12 +152,12 @@ class SemiGlobalSimplifier {
         int PrototypeCancelSingularityPair(SingularityLink& l, BaseComplexQuad& bc);
         SingularityLink PrototypeGetLink(size_t vid, BaseComplexQuad& bc, size_t vertexToSkip = 0, std::vector<size_t> edgesToCheck = {}, bool checkValence = true, bool boundary = true);
 
-        MeshUtil& mu = MeshUtil();
+        MeshUtil* mu;
         int iters = 0;
         
     private:
-        Mesh& mesh = Mesh();
-        Smoother& smoother = Smoother();
+        Mesh* mesh;
+        Smoother* smoother;
 
         void CheckValidity();
         size_t GetFaceId(size_t vid, size_t exclude_vid);

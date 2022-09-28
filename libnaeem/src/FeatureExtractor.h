@@ -30,14 +30,15 @@ class FeatureExtractor {
         FeatureExtractor(Mesh& mesh_, double angle_threshold_, MeshUtil& mu_);
         ~FeatureExtractor();
 
-        void SetMesh(Mesh& mesh_);
+        void SetMembers(Mesh& mesh_, MeshUtil& mu_);
         void Extract();
     private:
         void SetFeatures(int i, vtkSmartPointer<vtkPoints> res, vtkSmartPointer<vtkPointLocator> pl, bool boundary);
+        void CheckValidity();
         // void SetFeatures(int i, vtkSmartPointer<vtkPoints> points, bool boundary);
 
-        Mesh& mesh = Mesh();
-        MeshUtil& mu = MeshUtil();
+        Mesh* mesh;
+        MeshUtil* mu;
         vtkSmartPointer<vtkPolyData> mesh_polyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> GetPolyDataFromMesh();
         double angle_threshold = 15.0;

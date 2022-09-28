@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
     
     FeatureExtractor fe(source, 20.0, mu);
     fe.Extract();
-    std::cout << "Writing output file" << std::endl;
+    /*std::cout << "Writing output file" << std::endl;
     std::ofstream ofs("FeaturePoints.vtk");
     ofs << "# vtk DataFile Version 3.0\n"
         << "FeaturePoints.vtk.vtk\n"
@@ -101,7 +101,7 @@ int main(int argc, char* argv[]) {
     for (size_t i = 0; i < c_indices.size(); i++) {
         ofs << "3" << std::endl;
     }
-    return 0;
+    return 0;*/
     // for (auto& v: source.V) {
     //     if ((v.isBoundary || v.type == FEATURE) && v.idealValence != 2) std::cout << v.idealValence << " ";
     // }

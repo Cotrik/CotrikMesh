@@ -9,12 +9,12 @@ EdgeRotation::~EdgeRotation() {}
 
 bool EdgeRotation::IsOperationValid() {
     CheckValidity();
-    Edge& e = mesh.E.at(eid);
+    Edge& e = mesh->E.at(eid);
     if (e.Vids.empty() || e.N_Fids.empty()) return false;
     for (auto fid: e.N_Fids) {
-        Face& f = mesh.F.at(fid);
+        Face& f = mesh->F.at(fid);
         for (auto vid: f.Vids) {
-            if (mesh.V.at(vid).N_Vids.size() == 2) return false;
+            if (mesh->V.at(vid).N_Vids.size() == 2) return false;
         }
     }
     return true;
@@ -30,7 +30,7 @@ void EdgeRotation::PerformOperation() {
 
     // std::cout << "Performing Edge Rotation for " << eid << std::endl;
 
-    Edge& e = mesh.E.at(eid);
+    Edge& e = mesh->E.at(eid);
     size_t v1 = e.Vids.at(0);
     size_t v2 = e.Vids.at(1);
     std::vector<size_t> vertices = GetVertices(e, v1, v2);
@@ -51,9 +51,9 @@ void EdgeRotation::PerformOperation() {
     size_t edgeToUpdate1;
     size_t edgeToUpdate2;
     for (auto fid: e.N_Fids) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         for (auto feid: f.Eids) {
-            Edge& fe = mesh.E.at(feid);
+            Edge& fe = mesh->E.at(feid);
             size_t v_a = v1;
             size_t v_b = v2;
             if (clockwise) {
@@ -69,48 +69,48 @@ void EdgeRotation::PerformOperation() {
         }    
     }
     for (auto fid: e.N_Fids) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v1));
         if (f.Vids.at((idx+1)%f.Vids.size()) == v2) {
-            UpdateContents(mesh.V.at(f.Vids.at((idx+offset_b)%f.Vids.size())).N_Fids, std::vector<size_t>{fid});
-            AddContents(mesh.V.at(newV_1).N_Fids, std::vector<size_t>{fid});
+            UpdateContents(mesh->V.at(f.Vids.at((idx+offset_b)%f.Vids.size())).N_Fids, std::vector<size_t>{fid});
+            AddContents(mesh->V.at(newV_1).N_Fids, std::vector<size_t>{fid});
             f.Vids.at((idx+offset_b)%f.Vids.size()) = newV_1;
-            for (auto nfid: mesh.V.at(newV_1).N_Fids) {
-                AddContents(mesh.F.at(nfid).N_Fids, std::vector<size_t>{fid});
+            for (auto nfid: mesh->V.at(newV_1).N_Fids) {
+                AddContents(mesh->F.at(nfid).N_Fids, std::vector<size_t>{fid});
             }
             UpdateContents(f.Eids, std::vector<size_t>{edgeToUpdate2});
-            UpdateContents(mesh.E.at(edgeToUpdate2).N_Fids, std::vector<size_t>{f.id});
+            UpdateContents(mesh->E.at(edgeToUpdate2).N_Fids, std::vector<size_t>{f.id});
             AddContents(f.Eids, std::vector<size_t>{edgeToUpdate1});
-            AddContents(mesh.E.at(edgeToUpdate1).N_Fids, std::vector<size_t>{f.id});
+            AddContents(mesh->E.at(edgeToUpdate1).N_Fids, std::vector<size_t>{f.id});
         } else if (f.Vids.at((idx+3)%f.Vids.size()) == v2) {
-            UpdateContents(mesh.V.at(f.Vids.at((idx+offset_c)%f.Vids.size())).N_Fids, std::vector<size_t>{fid});
-            AddContents(mesh.V.at(newV_2).N_Fids, std::vector<size_t>{fid});
+            UpdateContents(mesh->V.at(f.Vids.at((idx+offset_c)%f.Vids.size())).N_Fids, std::vector<size_t>{fid});
+            AddContents(mesh->V.at(newV_2).N_Fids, std::vector<size_t>{fid});
             f.Vids.at((idx+offset_c)%f.Vids.size()) = newV_2;
-            for (auto nfid: mesh.V.at(newV_2).N_Fids) {
-                AddContents(mesh.F.at(nfid).N_Fids, std::vector<size_t>{fid});
+            for (auto nfid: mesh->V.at(newV_2).N_Fids) {
+                AddContents(mesh->F.at(nfid).N_Fids, std::vector<size_t>{fid});
             }
             UpdateContents(f.Eids, std::vector<size_t>{edgeToUpdate1});
-            UpdateContents(mesh.E.at(edgeToUpdate1).N_Fids, std::vector<size_t>{f.id});
+            UpdateContents(mesh->E.at(edgeToUpdate1).N_Fids, std::vector<size_t>{f.id});
             AddContents(f.Eids, std::vector<size_t>{edgeToUpdate2});
-            AddContents(mesh.E.at(edgeToUpdate2).N_Fids, std::vector<size_t>{f.id});
+            AddContents(mesh->E.at(edgeToUpdate2).N_Fids, std::vector<size_t>{f.id});
         }
     }
-    UpdateContents(mesh.V.at(e.Vids.at(0)).N_Vids, std::vector<size_t>{e.Vids.at(1)});
-    UpdateContents(mesh.V.at(e.Vids.at(1)).N_Vids, std::vector<size_t>{e.Vids.at(0)});
-    UpdateContents(mesh.V.at(e.Vids.at(0)).N_Eids, std::vector<size_t>{e.id});
-    UpdateContents(mesh.V.at(e.Vids.at(1)).N_Eids, std::vector<size_t>{e.id});
-    AddContents(mesh.V.at(newV_1).N_Vids, std::vector<size_t>{newV_2});
-    AddContents(mesh.V.at(newV_2).N_Vids, std::vector<size_t>{newV_1});
-    AddContents(mesh.V.at(newV_1).N_Eids, std::vector<size_t>{e.id});
-    AddContents(mesh.V.at(newV_2).N_Eids, std::vector<size_t>{e.id});
+    UpdateContents(mesh->V.at(e.Vids.at(0)).N_Vids, std::vector<size_t>{e.Vids.at(1)});
+    UpdateContents(mesh->V.at(e.Vids.at(1)).N_Vids, std::vector<size_t>{e.Vids.at(0)});
+    UpdateContents(mesh->V.at(e.Vids.at(0)).N_Eids, std::vector<size_t>{e.id});
+    UpdateContents(mesh->V.at(e.Vids.at(1)).N_Eids, std::vector<size_t>{e.id});
+    AddContents(mesh->V.at(newV_1).N_Vids, std::vector<size_t>{newV_2});
+    AddContents(mesh->V.at(newV_2).N_Vids, std::vector<size_t>{newV_1});
+    AddContents(mesh->V.at(newV_1).N_Eids, std::vector<size_t>{e.id});
+    AddContents(mesh->V.at(newV_2).N_Eids, std::vector<size_t>{e.id});
     e.Vids.at(0) = newV_1;
     e.Vids.at(1) = newV_2;
     // std::cout << "Setting Singularities" << std::endl;
     for (auto fid: e.N_Fids) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         for (auto fvid: f.Vids) {
             SetSingularity(fvid);
-            auto& fv = mesh.V.at(fvid);
+            auto& fv = mesh->V.at(fvid);
             // ToSmooth.push_back(fvid);
             AddContents(ToSmooth, std::vector<size_t>{fvid});
             AddContents(ToSmooth, fv.N_Vids);
@@ -118,7 +118,7 @@ void EdgeRotation::PerformOperation() {
         }
     }
     for (auto fid: e.N_Fids) {
-        Face& f = mesh.F.at(fid);
+        Face& f = mesh->F.at(fid);
         for (auto fvid: f.Vids) {
             FixDoublet(fvid);
         }
@@ -130,7 +130,7 @@ void EdgeRotation::PerformOperation() {
 std::vector<size_t> EdgeRotation::GetVertices(Edge& e, size_t v1, size_t v2) {
     std::vector<size_t> vertices;
     for (auto fid: e.N_Fids) {
-        auto& f = mesh.F.at(fid);
+        auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v1));
         if (f.Vids.at((idx+1)%f.Vids.size()) == v2) {
             vertices.push_back(f.Vids.at((idx+1)%f.Vids.size()));
