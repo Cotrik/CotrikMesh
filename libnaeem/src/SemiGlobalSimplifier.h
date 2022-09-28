@@ -10,6 +10,7 @@
 
 #include <glm/glm.hpp>
 #include <queue>
+#include <memory>
 
 #include "Mesh.h"
 #include "BaseComplexQuad.h"

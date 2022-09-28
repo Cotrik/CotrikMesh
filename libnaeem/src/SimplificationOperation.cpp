@@ -43,11 +43,11 @@ std::vector<size_t> SimplificationOperation::GetIntersection(std::vector<size_t>
     return mu->GetIntersection(a, b);
 }
 
-void SimplificationOperation::AddContents(std::vector<size_t> a, std::vector<size_t> b) {
+void SimplificationOperation::AddContents(std::vector<size_t>& a, std::vector<size_t> b) {
     mu->AddContents(a, b);
 }
 
-void SimplificationOperation::UpdateContents(std::vector<size_t> a, std::vector<size_t> b) {
+void SimplificationOperation::UpdateContents(std::vector<size_t>& a, std::vector<size_t> b) {
     mu->UpdateContents(a, b);
 }
 
