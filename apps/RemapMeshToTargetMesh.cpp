@@ -61,9 +61,17 @@ int main(int argc, char* argv[]) {
     
 
     MeshUtil mu(source);
-    
+    std::cout << "Initialized MeshUtil" << std::endl;
     FeatureExtractor fe(source, 20.0, mu);
     fe.Extract();
+    std::cout << "Initialized Feature Extractor" << std::endl;
+
+    Smoother s(source, mu);
+    std::cout << "Initialized Smoother" << std::endl;
+    s.Smooth();
+    std::cout << "Smoothed" << std::endl;
+
+    // return 0;
     /*std::cout << "Writing output file" << std::endl;
     std::ofstream ofs("FeaturePoints.vtk");
     ofs << "# vtk DataFile Version 3.0\n"
@@ -106,9 +114,9 @@ int main(int argc, char* argv[]) {
     //     if ((v.isBoundary || v.type == FEATURE) && v.idealValence != 2) std::cout << v.idealValence << " ";
     // }
     // return 0;
-    Smoother sm(source, mu);
-    SemiGlobalSimplifier sg(source, mu, sm);
-    sg.SetIters(iters);
+    // Smoother sm(source, mu);
+    // SemiGlobalSimplifier sg(source, mu, sm);
+    // sg.SetIters(iters);
     // sg.SetVertexSplitOperations();
     // sg.SetQuadSplitOperations();
     // sg.FixBoundary();
@@ -119,18 +127,18 @@ int main(int argc, char* argv[]) {
     // std::cout << "Input mesh V: " << source.V.size() << std::endl; 
     // std::cout << "Input mesh F: " << source.F.size() << std::endl;
     // return 0;
-    bool res = true;
-    sg.SetBoundaryDirectSeparatrixOperations(true);
-    sg.SetBoundaryDirectSeparatrixOperations(true);
+    // bool res = true;
+    // sg.SetBoundaryDirectSeparatrixOperations(true);
+    // sg.SetBoundaryDirectSeparatrixOperations(true);
     // res = true;
-    while (res) {
-        res = sg.FixBoundary();
-        // res = sg.FixValences();
-    }
-    sg.SetDirectSeparatrixOperations(false);
-    sg.SetDirectSeparatrixOperations(false);
-    sg.SetDirectSeparatrixOperations(true);
-    sg.SetDirectSeparatrixOperations(true);
+    // while (res) {
+    //     res = sg.FixBoundary();
+    //     // res = sg.FixValences();
+    // }
+    // sg.SetDirectSeparatrixOperations(false);
+    // sg.SetDirectSeparatrixOperations(false);
+    // sg.SetDirectSeparatrixOperations(true);
+    // sg.SetDirectSeparatrixOperations(true);
     // sg.SetHalfSeparatrixOperations();
     // sg.SetHalfSeparatrixOperations();
     // sg.SetHalfSeparatrixOperations();
@@ -138,36 +146,36 @@ int main(int argc, char* argv[]) {
     // sg.SetHalfSeparatrixOperations();
     // sg.SetHalfSeparatrixOperations();
     // sg.SetHalfSeparatrixOperations();
-    res = true;
-    while (res) {
+    // res = true;
+    // while (res) {
         // res = sg.FixBoundary();
-        res = sg.FixValences();
-    }
+        // res = sg.FixValences();
+    // }
     // res = true;
     // while (res) {
     // }
 
-    int n = 0;
-    std::vector<bool> isVisited(source.V.size(), false);
-    for (auto& v: source.V) {
-        if (!isVisited.at(v.id) && v.type != FEATURE && !v.isBoundary && (v.N_Vids.size() == 5 || v.N_Vids.size() == 3)) {
-            int valenceToCheck = v.N_Vids.size() == 5 ? 3 : 5;
-            for (auto fid: v.N_Fids) {
-                auto& f = source.F.at(fid);
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
-                auto& fv = source.V.at(f.Vids.at((idx+2)%f.Vids.size()));
-                if (!isVisited.at(fv.id) && fv.type != FEATURE && !fv.isBoundary && fv.N_Vids.size() == valenceToCheck) {
-                    n += 1;
-                    isVisited.at(v.id) = true;
-                    isVisited.at(fv.id) = true;
-                    break;
-                }
-            }
-        }
-    }
-    std::cout << "Diagonal 3-5 pairs: " << n << std::endl;
-    sg.Smooth();
-    sg.PrototypeE();
+    // int n = 0;
+    // std::vector<bool> isVisited(source.V.size(), false);
+    // for (auto& v: source.V) {
+    //     if (!isVisited.at(v.id) && v.type != FEATURE && !v.isBoundary && (v.N_Vids.size() == 5 || v.N_Vids.size() == 3)) {
+    //         int valenceToCheck = v.N_Vids.size() == 5 ? 3 : 5;
+    //         for (auto fid: v.N_Fids) {
+    //             auto& f = source.F.at(fid);
+    //             int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+    //             auto& fv = source.V.at(f.Vids.at((idx+2)%f.Vids.size()));
+    //             if (!isVisited.at(fv.id) && fv.type != FEATURE && !fv.isBoundary && fv.N_Vids.size() == valenceToCheck) {
+    //                 n += 1;
+    //                 isVisited.at(v.id) = true;
+    //                 isVisited.at(fv.id) = true;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    // std::cout << "Diagonal 3-5 pairs: " << n << std::endl;
+    // sg.Smooth();
+    // sg.PrototypeE();
     // sg.PrototypeD();
     // sg.PrototypeB();
     // sg.PrototypeB();

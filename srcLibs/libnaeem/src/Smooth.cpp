@@ -177,7 +177,7 @@ void Smoother::SetOptimizedPositions(int iter, std::vector<size_t>& V) {
     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.N_Vids.size() < 3) return;
     if (v.type == FEATURE || v.isBoundary) {
         // std::cout << "Before setting boundary vertex" << std::endl;
-        SetPositionBoundary(v);
+        // SetPositionBoundary(v);
         // std::cout << "After setting boundary vertex" << std::endl;
     } else {
         // std::cout << "Before setting non-boundary vertex" << std::endl;

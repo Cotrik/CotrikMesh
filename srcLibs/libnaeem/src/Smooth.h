@@ -21,7 +21,7 @@ class Smoother {
 
         void SetMembers(Mesh& mesh_, MeshUtil& mu_);
 
-        void Smooth(std::vector<size_t> V);
+        void Smooth(std::vector<size_t> V = {});
         void SetIters(int iters_) {iters = iters_;}
     private:
         Mesh* mesh;

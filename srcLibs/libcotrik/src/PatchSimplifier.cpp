@@ -399,9 +399,9 @@ bool PatchSimplifier::Simplify(int& iter) {
         SmoothMesh();
     }
     else {
-        // smoothGlobal = false;
+        smoothGlobal = false;
         // std::cout << "Before smoothing local" << std::endl;
-        // SmoothMesh();
+        SmoothMesh();
         // std::cout << "After smoothing local" << std::endl;
         // for (auto& v: mesh.V) {
         //     std::cout << v.x << " " << v.y << " " << v.z << std::endl; 
@@ -446,8 +446,8 @@ bool PatchSimplifier::Simplify(int& iter) {
     // Step 1 -- doublet removal
     if (canceledFids.empty() && Simplifier::REMOVE_DOUBLET) {
         DoubletSimplifier doubletSimplifier(mesh);
-        doubletSimplifier.Run(canceledFids);
-        // doubletSimplifier.RunCollective(canceledFids);
+        // doubletSimplifier.Run(canceledFids);
+        doubletSimplifier.RunCollective(canceledFids);
         if (!canceledFids.empty()) std::cout << "remove_doublet" << std::endl;
     }
 
@@ -468,8 +468,8 @@ bool PatchSimplifier::Simplify(int& iter) {
     // Step 3 -- edge rotation
     if (canceledFids.empty() && Simplifier::ROTATE) {
         EdgeRotateSimplifier edgeRotateSimplifier(mesh);
-        edgeRotateSimplifier.Run(canceledFids);
-        // edgeRotateSimplifier.RunCollective(canceledFids);
+        // edgeRotateSimplifier.Run(canceledFids);
+        edgeRotateSimplifier.RunCollective(canceledFids);
         if (!canceledFids.empty()) std::cout << "rotate_edge" << std::endl;
     }
     
@@ -487,11 +487,11 @@ bool PatchSimplifier::Simplify(int& iter) {
         BaseComplexQuad baseComplex(mesh);
         baseComplex.ExtractSingularVandE();
         baseComplex.BuildE();
-        strict_simplify(baseComplex, canceledFids);
-        // three_connections_collapse(baseComplex, canceledFids, false);
+        // strict_simplify(baseComplex, canceledFids);
+        three_connections_collapse(baseComplex, canceledFids, false);
         if (canceledFids.empty()) {
-            loose_simplify(baseComplex, canceledFids);
-            // three_connections_collapse(baseComplex, canceledFids, true);
+            // loose_simplify(baseComplex, canceledFids);
+            three_connections_collapse(baseComplex, canceledFids, true);
             // loose_simplify_random(baseComplex, canceledFids);
             if (!canceledFids.empty()) std::cout << "loose_simplify\n";
 //            else if (canceledFids.empty() && Simplifier::HALF) {
@@ -501,39 +501,40 @@ bool PatchSimplifier::Simplify(int& iter) {
         } else std::cout << "strict_simplify\n";
     }
 
- // Step 8 -- diagonal collapsing
-    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
-        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
-        diagnalCollapseSimplifier.Run(canceledFids);
-        // diagnalCollapseSimplifier.RunCollective(canceledFids);
-        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
+    
+    if (canceledFids.empty() && Simplifier::HALF) {
+       BaseComplexQuad baseComplex(mesh);
+       baseComplex.ExtractSingularVandE();
+       baseComplex.BuildE();
+    //    half_simplify(baseComplex, canceledFids);
+        half_separatrix_collapse(baseComplex, canceledFids);
+
+        if (!canceledFids.empty()) std::cout << "half_simplify\n";
     }
     
     if (canceledFids.empty() && Simplifier::GLOBAL) {
         // global_simplify(canceledFids);
        SheetSimplifier sheetSimplifier(mesh);
-       sheetSimplifier.Run(canceledFids);
-    //    sheetSimplifier.ExtractAndCollapse(canceledFids);
+    //    sheetSimplifier.Run(canceledFids);
+       sheetSimplifier.ExtractAndCollapse(canceledFids);
         if (!canceledFids.empty()) std::cout << "chord_collapse" << std::endl;
 
     }
 
-    // if (canceledFids.empty() && Simplifier::GLOBAL) {
-    //     SingleSheetSimplifier sheetSimplifier(mesh);
+    if (canceledFids.empty() && Simplifier::GLOBAL) {
+        SingleSheetSimplifier sheetSimplifier(mesh);
     //    sheetSimplifier.Run(canceledFids);
-    //     // sheetSimplifier.ExtractAndCollapse(canceledFids);
-    // }
-
-    if (canceledFids.empty() && Simplifier::HALF) {
-       BaseComplexQuad baseComplex(mesh);
-       baseComplex.ExtractSingularVandE();
-       baseComplex.BuildE();
-       half_simplify(baseComplex, canceledFids);
-        // half_separatrix_collapse(baseComplex, canceledFids);
-
-        if (!canceledFids.empty()) std::cout << "half_simplify\n";
+        sheetSimplifier.ExtractAndCollapse(canceledFids);
     }
 
+
+    // Step 8 -- diagonal collapsing
+    if (canceledFids.empty() && Simplifier::COLLAPSE_DIAGNAL) {
+        DiagnalCollapseSimplifier diagnalCollapseSimplifier(mesh);
+        // diagnalCollapseSimplifier.Run(canceledFids);
+        diagnalCollapseSimplifier.RunCollective(canceledFids);
+        if (!canceledFids.empty()) std::cout << "collapse_diagnal" << std::endl;
+    }
    
 
     if (canceledFids.empty()) {

@@ -279,7 +279,7 @@ void SingleSheetSimplifier::CollapseSelectedSheets(std::set<size_t>& canceledFid
         collapse_with_feature_preserved(key_edgeId, key_faceId, canceledFaceIds, canceledEdgeIds);
         for (auto& item : canceledFaceIds)
             canceledFids.insert(item.first);
-        break;
+        // break;
     }
 }
 
