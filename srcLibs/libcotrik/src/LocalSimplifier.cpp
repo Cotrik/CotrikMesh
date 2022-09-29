@@ -27,7 +27,7 @@ LocalSimplifier::LocalSimplifier(Mesh& mesh) : Simplifier(mesh) {}
 LocalSimplifier::~LocalSimplifier() {}
 
 void LocalSimplifier::Simplify() {
-    SmoothingAlgorithm smooth_algo(mesh, mesh, 1000, 1, true, false);
+    SmoothAlgorithm smooth_algo(mesh, mesh, 1000, 1, true, false);
     init();
     // get_feature();
     // std::vector<int> valence_histogram(10, 0);
@@ -413,19 +413,19 @@ void LocalSimplifier::getOperationsPriorities(std::multiset<LocalOperation, bool
             Face& f = mesh.F.at(fid);
             // bool hasBoundaryVertexNeighbor = false;
             // bool hasRegularVertex = true;
-            // std::vector<size_t> diag;
-            // for (auto vid: f.Vids) {
-            //     if (mesh.V.at(vid).isBoundary) {
-            //         hasBoundaryVertexNeighbor = true;
-            //     }
-            //     if (mesh.V.at(vid).N_Vids.size() != 4) {
-            //         hasRegularVertex = false;
-            //     }
-            //     if (vid != v.id && std::find(v.N_Vids.begin(), v.N_Vids.end(), vid) == v.N_Vids.end()) {
-            //         diag.push_back(v.id);
-            //         diag.push_back(vid);
-            //     }
-            // }
+            std::vector<size_t> diag;
+            for (auto vid: f.Vids) {
+                // if (mesh.V.at(vid).isBoundary) {
+                //     hasBoundaryVertexNeighbor = true;
+                // }
+                // if (mesh.V.at(vid).N_Vids.size() != 4) {
+                //     hasRegularVertex = false;
+                // }
+                if (vid != v.id && std::find(v.N_Vids.begin(), v.N_Vids.end(), vid) == v.N_Vids.end()) {
+                    diag.push_back(v.id);
+                    diag.push_back(vid);
+                }
+            }
             // for (auto fid: f.N_Fids) {
             //     for (auto vid: mesh.F.at(fid).Vids)  {       
             //         if (mesh.V.at(vid).isBoundary) {
