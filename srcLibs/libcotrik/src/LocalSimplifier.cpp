@@ -398,12 +398,12 @@ void LocalSimplifier::getOperationsPriorities(std::multiset<LocalOperation, bool
                     break;
                 }
             }
-            for (auto vid: e.N_Vids) {
-                if (mesh.V.at(vid).isBoundary) {
-                    hasBoundaryVertexNeighbor = true;
-                    break;
-                }
-            }
+            // for (auto vid: e.N_Vids) {
+            //     if (mesh.V.at(vid).isBoundary) {
+            //         hasBoundaryVertexNeighbor = true;
+            //         break;
+            //     }
+            // }
             if (hasBoundaryVertexNeighbor) continue;
             EdgeCollapse(v, e, CollapseOps);
             EdgeRotate(v, e, OptimizationOps);
@@ -426,13 +426,13 @@ void LocalSimplifier::getOperationsPriorities(std::multiset<LocalOperation, bool
                     diag.push_back(vid);
                 }
             }
-            for (auto fid: f.N_Fids) {
-                for (auto vid: mesh.F.at(fid).Vids)  {       
-                    if (mesh.V.at(vid).isBoundary) {
-                        hasBoundaryVertexNeighbor = true;
-                    }
-                }
-            }
+            // for (auto fid: f.N_Fids) {
+            //     for (auto vid: mesh.F.at(fid).Vids)  {       
+            //         if (mesh.V.at(vid).isBoundary) {
+            //             hasBoundaryVertexNeighbor = true;
+            //         }
+            //     }
+            // }
             if (hasBoundaryVertexNeighbor) continue;
             DiagonalCollapse(v, diag, CollapseOps);
         }
