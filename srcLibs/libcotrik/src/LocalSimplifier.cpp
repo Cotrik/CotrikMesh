@@ -379,61 +379,61 @@ double LocalSimplifier::getMeshEnergy() {
 void LocalSimplifier::getOperationsPriorities(std::multiset<LocalOperation, bool(*)(LocalOperation, LocalOperation)>& OptimizationOps, std::multiset<LocalOperation, bool(*)(LocalOperation, LocalOperation)>& CollapseOps) {
     for (auto& v: mesh.V) {
         v.smoothLocal = false;
-        // if (v.isBoundary) continue;
-        // bool hasBoundaryNeighbor = false;
-        // for (auto vid: v.N_Vids) {
-        //     if (mesh.V.at(vid).isBoundary) {
-        //         hasBoundaryNeighbor = true;
-        //     }
-        // }
-        // if (hasBoundaryNeighbor) continue;
-        // if (v.N_Vids.size() == 4) continue;
+        if (v.isBoundary) continue;
+        bool hasBoundaryNeighbor = false;
+        for (auto vid: v.N_Vids) {
+            if (mesh.V.at(vid).isBoundary) {
+                hasBoundaryNeighbor = true;
+            }
+        }
+        if (hasBoundaryNeighbor) continue;
+        if (v.N_Vids.size() == 4) continue;
         VertexRotate(v, OptimizationOps);
         for (auto eid: v.N_Eids) {
             Edge& e = mesh.E.at(eid);
-            // bool hasBoundaryVertexNeighbor = false;
-            // for (auto vid: e.Vids) {
-            //     if (mesh.V.at(vid).isBoundary) {
-            //         hasBoundaryVertexNeighbor = true;
-            //         break;
-            //     }
-            // }
-            // for (auto vid: e.N_Vids) {
-            //     if (mesh.V.at(vid).isBoundary) {
-            //         hasBoundaryVertexNeighbor = true;
-            //         break;
-            //     }
-            // }
-            // if (hasBoundaryVertexNeighbor) continue;
+            bool hasBoundaryVertexNeighbor = false;
+            for (auto vid: e.Vids) {
+                if (mesh.V.at(vid).isBoundary) {
+                    hasBoundaryVertexNeighbor = true;
+                    break;
+                }
+            }
+            for (auto vid: e.N_Vids) {
+                if (mesh.V.at(vid).isBoundary) {
+                    hasBoundaryVertexNeighbor = true;
+                    break;
+                }
+            }
+            if (hasBoundaryVertexNeighbor) continue;
             EdgeCollapse(v, e, CollapseOps);
             EdgeRotate(v, e, OptimizationOps);
         }
 
         for (auto fid: v.N_Fids) {
             Face& f = mesh.F.at(fid);
-            // bool hasBoundaryVertexNeighbor = false;
-            // bool hasRegularVertex = true;
+            bool hasBoundaryVertexNeighbor = false;
+            bool hasRegularVertex = true;
             std::vector<size_t> diag;
             for (auto vid: f.Vids) {
-                // if (mesh.V.at(vid).isBoundary) {
-                //     hasBoundaryVertexNeighbor = true;
-                // }
-                // if (mesh.V.at(vid).N_Vids.size() != 4) {
-                //     hasRegularVertex = false;
-                // }
+                if (mesh.V.at(vid).isBoundary) {
+                    hasBoundaryVertexNeighbor = true;
+                }
+                if (mesh.V.at(vid).N_Vids.size() != 4) {
+                    hasRegularVertex = false;
+                }
                 if (vid != v.id && std::find(v.N_Vids.begin(), v.N_Vids.end(), vid) == v.N_Vids.end()) {
                     diag.push_back(v.id);
                     diag.push_back(vid);
                 }
             }
-            // for (auto fid: f.N_Fids) {
-            //     for (auto vid: mesh.F.at(fid).Vids)  {       
-            //         if (mesh.V.at(vid).isBoundary) {
-            //             hasBoundaryVertexNeighbor = true;
-            //         }
-            //     }
-            // }
-            // if (hasBoundaryVertexNeighbor) continue;
+            for (auto fid: f.N_Fids) {
+                for (auto vid: mesh.F.at(fid).Vids)  {       
+                    if (mesh.V.at(vid).isBoundary) {
+                        hasBoundaryVertexNeighbor = true;
+                    }
+                }
+            }
+            if (hasBoundaryVertexNeighbor) continue;
             DiagonalCollapse(v, diag, CollapseOps);
         }
     }

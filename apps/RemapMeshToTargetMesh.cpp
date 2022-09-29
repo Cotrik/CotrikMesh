@@ -61,15 +61,9 @@ int main(int argc, char* argv[]) {
     
 
     MeshUtil mu(source);
-    std::cout << "Initialized MeshUtil" << std::endl;
     FeatureExtractor fe(source, 20.0, mu);
     fe.Extract();
-    std::cout << "Initialized Feature Extractor" << std::endl;
-
     Smoother s(source, mu);
-    std::cout << "Initialized Smoother" << std::endl;
-    s.Smooth();
-    std::cout << "Smoothed" << std::endl;
 
     // return 0;
     /*std::cout << "Writing output file" << std::endl;
@@ -115,8 +109,8 @@ int main(int argc, char* argv[]) {
     // }
     // return 0;
     // Smoother sm(source, mu);
-    // SemiGlobalSimplifier sg(source, mu, sm);
-    // sg.SetIters(iters);
+    SemiGlobalSimplifier sg(source, mu, s);
+    sg.SetIters(iters);
     // sg.SetVertexSplitOperations();
     // sg.SetQuadSplitOperations();
     // sg.FixBoundary();
@@ -127,14 +121,14 @@ int main(int argc, char* argv[]) {
     // std::cout << "Input mesh V: " << source.V.size() << std::endl; 
     // std::cout << "Input mesh F: " << source.F.size() << std::endl;
     // return 0;
-    // bool res = true;
+    bool res = true;
     // sg.SetBoundaryDirectSeparatrixOperations(true);
     // sg.SetBoundaryDirectSeparatrixOperations(true);
     // res = true;
-    // while (res) {
-    //     res = sg.FixBoundary();
+    while (res) {
+        res = sg.FixBoundary();
     //     // res = sg.FixValences();
-    // }
+    }
     // sg.SetDirectSeparatrixOperations(false);
     // sg.SetDirectSeparatrixOperations(false);
     // sg.SetDirectSeparatrixOperations(true);

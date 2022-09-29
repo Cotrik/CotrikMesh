@@ -332,7 +332,7 @@ void SimplificationOperation::SetSingularity(size_t vid) {
 }
 
 void SimplificationOperation::Smooth() {
-    // return;
+    return;
     int n = ToSmooth.size();
     for (int i = 0; i < n; i++) {
         auto& v = mesh->V.at(ToSmooth.at(i));
