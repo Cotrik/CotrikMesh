@@ -27,7 +27,7 @@ LocalSimplifier::LocalSimplifier(Mesh& mesh) : Simplifier(mesh) {}
 LocalSimplifier::~LocalSimplifier() {}
 
 void LocalSimplifier::Simplify() {
-    SmoothAlgorithm smooth_algo(mesh, mesh, 1000, 1, true, false);
+    SmoothingAlgorithm smooth_algo(mesh, mesh, 1000, 1, true, false);
     init();
     // get_feature();
     // std::vector<int> valence_histogram(10, 0);
