@@ -262,13 +262,15 @@ int main(int argc, char *argv[]) {
         // std::cout << "value " << i << " : " << val << std::endl;
     }
     avgValue /= qualityArray->GetNumberOfTuples();
-    std::cout << "min value = " << minValue << std::endl;
-    std::cout << "max value = " << maxValue << std::endl;
-    std::cout << "avg value = " << avgValue << std::endl;
-    std::cout << "#InvertedElements = " << numOfInvertedElements << std::endl;
-
+    
     MeshFileReader meshReader(inputFilename.c_str());
     Mesh& mesh = (Mesh&)meshReader.GetMesh();
+    mesh.RemoveUselessVertices();
+    mesh.BuildAllConnectivities();
+    mesh.ExtractBoundary();
+    mesh.ExtractSingularities();
+    int n = 0;
+    std::cout << mesh.C.size() << std::endl;
     for (size_t i = 0; i < mesh.C.size(); i++) {
         Cell& c = mesh.C.at(i);
         // if (qualityValues.at(i) < 0 ) {
@@ -276,8 +278,38 @@ int main(int argc, char *argv[]) {
         // } else {
         //     c.qualityValue = 1;
         // }
+        // bool skip = false;
+        // for (auto vid: c.Vids) {
+        //     if (mesh.V.at(vid).isBoundary || mesh.V.at(vid).type != REGULAR) {
+        //         skip = true;
+        //         break;
+        //     }
+        // }
+        // if (skip) continue;
+        n += 1;
         c.qualityValue = qualityValues.at(i);
+        double val = c.qualityValue;
+        if (minValue > val) minValue = val;
+        if (maxValue < val) maxValue = val;
+        avgValue += val;
+
+        if (val < 0) numOfInvertedElements++;
+        else if (val > 1) numOfInvertedElements++;
     }
+    avgValue /= n;
+    std::cout << n << std::endl;
+    int nSingularities = 0;
+    for (auto& v: mesh.V) {
+        // if (v.isBoundary || v.type != REGULAR) continue;
+        if (v.isSingularity) nSingularities += 1;
+    }
+
+    std::cout << "min value = " << minValue << std::endl;
+    std::cout << "max value = " << maxValue << std::endl;
+    std::cout << "avg value = " << avgValue << std::endl;
+    std::cout << "#InvertedElements = " << numOfInvertedElements << std::endl;
+    std::cout << "#Singularities = " << nSingularities << std::endl;
+
 
     const size_t vnum = mesh.V.size();
     const size_t cnum = mesh.C.size();

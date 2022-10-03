@@ -65,49 +65,6 @@ int main(int argc, char* argv[]) {
     fe.Extract();
     Smoother s(source, mu);
 
-    // return 0;
-    /*std::cout << "Writing output file" << std::endl;
-    std::ofstream ofs("FeaturePoints.vtk");
-    ofs << "# vtk DataFile Version 3.0\n"
-        << "FeaturePoints.vtk.vtk\n"
-        << "ASCII\n\n"
-        << "DATASET UNSTRUCTURED_GRID\n";
-    ofs << "POINTS " << source.V.size() << " double\n";
-    std::vector<size_t> c_indices;
-    // for (auto& v: source.V) {
-        // if (v.type == FEATURE || v.isBoundary) c_indices.push_back(v.id);
-        // if ((v.isBoundary) && v.N_Fids.size() != v.idealValence) {
-        //     c_indices.push_back(v.id);
-        //     std::cout << "vertices: " << v.N_Vids.size() << " edges: " << v.N_Eids.size() << " faces: "  << v.N_Fids.size() << " ideal valence: " << v.idealValence << std::endl;
-        // } 
-    // }
-    // std::vector<size_t> c_indices = {12, 296};
-    // std::cout << c_indices.size() << std::endl;
-    std::set<size_t> eSet;
-    for (auto& e: source.E) {
-        auto& v1 = source.V.at(e.Vids.at(0));
-        auto& v2 = source.V.at(e.Vids.at(1));
-        if ((v1.type == FEATURE || v1.isBoundary) && (v2.type == FEATURE || v2.isBoundary)) eSet.insert(e.id);
-    }
-    c_indices.insert(c_indices.begin(), eSet.begin(), eSet.end());
-    for (size_t i = 0; i < source.V.size(); i++) {
-        ofs << std::fixed << std::setprecision(7) <<  source.V.at(i).x << " " <<  source.V.at(i).y << " " <<  source.V.at(i).z << "\n";
-    }
-    ofs << "CELLS " << c_indices.size() << " " << 3 * c_indices.size() << std::endl;
-    for (size_t i = 0; i < c_indices.size(); i++) {
-        auto& e = source.E.at(c_indices.at(i));
-        ofs << "2 " << e.Vids.at(0) << " " << e.Vids.at(1) << std::endl;
-        // ofs << "1 " << c_indices.at(i) << std::endl;
-    }
-    ofs << "CELL_TYPES " << c_indices.size() << "\n";
-    for (size_t i = 0; i < c_indices.size(); i++) {
-        ofs << "3" << std::endl;
-    }
-    return 0;*/
-    // for (auto& v: source.V) {
-    //     if ((v.isBoundary || v.type == FEATURE) && v.idealValence != 2) std::cout << v.idealValence << " ";
-    // }
-    // return 0;
     // Smoother sm(source, mu);
     SemiGlobalSimplifier sg(source, mu, s);
     sg.SetIters(iters);
@@ -122,29 +79,46 @@ int main(int argc, char* argv[]) {
     // std::cout << "Input mesh F: " << source.F.size() << std::endl;
     // return 0;
     bool res = true;
-    // sg.SetBoundaryDirectSeparatrixOperations(true);
-    // sg.SetBoundaryDirectSeparatrixOperations(true);
+    sg.SetBoundaryDirectSeparatrixOperations(false);
+    sg.SetBoundaryDirectSeparatrixOperations(false);
+    sg.SetBoundaryDirectSeparatrixOperations(true);
+    sg.SetBoundaryDirectSeparatrixOperations(true);
+    
     // res = true;
     while (res) {
+    //     res = sg.RemoveDoublets();
         res = sg.FixBoundary();
-    //     // res = sg.FixValences();
-    }
-    // sg.SetDirectSeparatrixOperations(false);
-    // sg.SetDirectSeparatrixOperations(false);
-    // sg.SetDirectSeparatrixOperations(true);
-    // sg.SetDirectSeparatrixOperations(true);
-    // sg.SetHalfSeparatrixOperations();
-    // sg.SetHalfSeparatrixOperations();
-    // sg.SetHalfSeparatrixOperations();
-    // sg.SetHalfSeparatrixOperations();
-    // sg.SetHalfSeparatrixOperations();
-    // sg.SetHalfSeparatrixOperations();
-    // sg.SetHalfSeparatrixOperations();
-    // res = true;
-    // while (res) {
-        // res = sg.FixBoundary();
         // res = sg.FixValences();
+    }
+    // for (int i = 0; i < iters; i++) {
+    //     bool res = true;
+    //     while (res) {
+    //         res = sg.RemoveDoublets();
+    //     }
+    //     res = true;
+    //     while (res) {
+    //         res = sg.FixBoundary();
+    //     }
+    //     // sg.SetSeparatrixOperations();
+    //     // sg.SetChordCollapseOperations();
+    //     sg.SetDiagonalCollapseOperations();
     // }
+    sg.SetDirectSeparatrixOperations(false);
+    sg.SetDirectSeparatrixOperations(false);
+    sg.SetDirectSeparatrixOperations(true);
+    sg.SetDirectSeparatrixOperations(true);
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    // sg.SetHalfSeparatrixOperations();
+    res = true;
+    while (res) {
+        // res = sg.FixBoundary();
+        res = sg.FixValences();
+    }
     // res = true;
     // while (res) {
     // }
@@ -168,7 +142,7 @@ int main(int argc, char* argv[]) {
     //     }
     // }
     // std::cout << "Diagonal 3-5 pairs: " << n << std::endl;
-    // sg.Smooth();
+    sg.Smooth();
     // sg.PrototypeE();
     // sg.PrototypeD();
     // sg.PrototypeB();
@@ -447,4 +421,9 @@ if (breakLoop) break;*/
 // Different rotation both links: invalid
 // Different rotation one link: a must be greater than other link's a
 
+// Different rotations both: invalid
+// Same rotations both: invalid
+// One same one different: valid (if same's a > different's a)
+
 // 5-singularity movements
+// Same rotations: invalid

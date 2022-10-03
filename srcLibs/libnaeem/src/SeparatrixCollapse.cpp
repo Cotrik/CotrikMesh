@@ -37,12 +37,20 @@ bool SeparatrixCollapse::IsOperationValid() {
     bool isValid = true;
     int i = 0;
     // int count = 0;
+    // for (auto vid: target) {
+    //     auto& v = mesh->V.at(vid);
+    //     if (v.isBoundary || v.type == FEATURE) {
+    //         isValid = false;
+    //         break;
+    //     }
+    // }
     for (auto c: collapse) {
         if (target.at(i) == c.at(0) || target.at(i) == c.at(1) || c.at(0) == c.at(1)) isValid = false;
         if (mesh->V.at(target.at(i)).N_Fids.empty()) isValid = false;
         if (mesh->V.at(c.at(0)).N_Fids.empty()) isValid = false;
         if (mesh->V.at(c.at(1)).N_Fids.empty()) isValid = false;
-        if (!IsCollapsable(target.at(i), c.at(0)) || !IsCollapsable(target.at(i), c.at(1))) isValid = false;
+        if(!IsCollapsable(c.at(0), c.at(1))) isValid = false;
+        // if (!IsCollapsable(target.at(i), c.at(0)) || !IsCollapsable(target.at(i), c.at(1))) isValid = false;
         i += 1;
         if (!isValid) break;
     }

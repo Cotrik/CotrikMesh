@@ -58,23 +58,26 @@ bool SimplificationOperation::IsCollapsable(size_t vid1, size_t vid2) {
 
     auto& v0 = mesh->V.at(vid1);
     auto& v1 = mesh->V.at(vid2);
-    int count = 0;
-    if (v0.isCorner) ++count;
-    if (v1.isCorner) ++count;
-    if (count > 1) res = false;
-    std::set<size_t> labels;
-    if (!v0.isCorner && v0.label != MAXID) labels.insert(v0.label);
-    if (!v1.isCorner && v1.label != MAXID) labels.insert(v1.label);
-    if (!v0.isBoundary && !v1.isBoundary && v0.N_Fids.size() + v1.N_Fids.size() - 4 > 6)
-        res = false;
-    if (!v0.isBoundary && !v1.isBoundary && v0.N_Fids.size() + v1.N_Fids.size() - 4 < 2/*Simplifier::minValence*/)
-        res = false;
-    if (v0.type == FEATURE && v1.type == FEATURE && v0.N_Fids.size() + v1.N_Fids.size() != 8/*Simplifier::minValence*/)
-        res = false;
-    if (v0.type == CORNER && v1.type == FEATURE && v0.N_Fids.size() + v1.N_Fids.size() != 2 + v0.idealValence/*Simplifier::minValence*/)
-        res = false;
-    if (v1.type == CORNER && v0.type == FEATURE && v0.N_Fids.size() + v1.N_Fids.size() != 2 + v1.idealValence/*Simplifier::minValence*/)
-        res = false;
+    if (v0.N_Vids.empty() || v0.N_Fids.empty() || v1.N_Vids.empty() || v1.N_Fids.empty()) res = false;
+    // if (v0.isBoundary || v1.isBoundary || v0.type == FEATURE || v1.type == FEATURE) res = false; 
+    if (v0.N_Fids.size() + v1.N_Fids.size() - 4 > 8) res = false;
+    // int count = 0;
+    // if (v0.isCorner) ++count;
+    // if (v1.isCorner) ++count;
+    // if (count > 1) res = false;
+    // std::set<size_t> labels;
+    // if (!v0.isCorner && v0.label != MAXID) labels.insert(v0.label);
+    // if (!v1.isCorner && v1.label != MAXID) labels.insert(v1.label);
+    // if (!v0.isBoundary && v0.type != FEATURE && !v1.isBoundary && v1.type != FEATURE && v0.N_Fids.size() + v1.N_Fids.size() - 4 > 8)
+    //     res = false;
+    // if (!v0.isBoundary && !v1.isBoundary && v0.N_Fids.size() + v1.N_Fids.size() - 4 < 2/*Simplifier::minValence*/)
+    //     res = false;
+    // if (v0.type == FEATURE && v1.type == FEATURE && v0.N_Fids.size() + v1.N_Fids.size() != 8/*Simplifier::minValence*/)
+    //     res = false;
+    // if (v0.type == CORNER && v1.type == FEATURE && v0.N_Fids.size() + v1.N_Fids.size() != 2 + v0.idealValence/*Simplifier::minValence*/)
+    //     res = false;
+    // if (v1.type == CORNER && v0.type == FEATURE && v0.N_Fids.size() + v1.N_Fids.size() != 2 + v1.idealValence/*Simplifier::minValence*/)
+    //     res = false;
 
     // if (v0.isBoundary && !v1.isBoundary && v0.N_Fids.size() + v1.N_Fids.size() - 4 > 5)
     //     res = false;
@@ -89,14 +92,14 @@ bool SimplificationOperation::IsCollapsable(size_t vid1, size_t vid2) {
     //         v0.N_Fids.size() + v1.N_Fids.size() - 2 < 3)
     //     res = false;
 
-    if (labels.size() == 1 && v0.type == CORNER && v1.type == FEATURE && v0.labels.find(v1.label) == v0.labels.end())
-        res = false;
-    if (labels.size() == 1 && v0.type == FEATURE && v1.type == CORNER && v1.labels.find(v0.label) == v1.labels.end())
-        res = false;
-    if (labels.size() > 2)
-        res = false;
-    if (labels.size() == 2 && (v0.isCorner || v1.isCorner))
-        res = false;
+    // if (labels.size() == 1 && v0.type == CORNER && v1.type == FEATURE && v0.labels.find(v1.label) == v0.labels.end())
+    //     res = false;
+    // if (labels.size() == 1 && v0.type == FEATURE && v1.type == CORNER && v1.labels.find(v0.label) == v1.labels.end())
+    //     res = false;
+    // if (labels.size() > 2)
+    //     res = false;
+    // if (labels.size() == 2 && (v0.isCorner || v1.isCorner))
+    //     res = false;
 
     return res;
 }
@@ -332,7 +335,7 @@ void SimplificationOperation::SetSingularity(size_t vid) {
 }
 
 void SimplificationOperation::Smooth() {
-    return;
+    // return;
     int n = ToSmooth.size();
     for (int i = 0; i < n; i++) {
         auto& v = mesh->V.at(ToSmooth.at(i));

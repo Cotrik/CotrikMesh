@@ -214,13 +214,14 @@ void SemiGlobalSimplifier::SetDiagonalCollapseOperations() {
     CheckValidity();
 
     for (auto& f: mesh->F) {
-        if (f.N_Fids.size() == 0 || f.Vids.empty()) continue;
+        if (f.N_Fids.empty() || f.Vids.empty()) continue;
         for (int i = 0; i < f.Vids.size(); i++) {
-            if (mesh->V.at(f.Vids.at(i)).N_Fids.size() == 3 && mesh->V.at(f.Vids.at((i+2)%f.Vids.size())).N_Fids.size() == 3) {
+            // if (mesh->V.at(f.Vids.at(i)).N_Fids.size() == 3 && mesh->V.at(f.Vids.at((i+2)%f.Vids.size())).N_Fids.size() == 3) {
+            if (mesh->V.at(f.Vids.at((i+1)%f.Vids.size())).N_Fids.size() >= 4 || mesh->V.at(f.Vids.at((i+3)%f.Vids.size())).N_Fids.size() >= 4) {
                     std::shared_ptr<SimplificationOperation> dc1 = std::make_shared<DiagonalCollapse>(*mesh, *mu, *smoother, f.id, i, (i+2)%f.Vids.size());
-                    dc1->SetRanking();
+                    // dc1->SetRanking();
                     Ops.push_back(dc1);
-                break;
+                // break;
             }
         }
         
@@ -233,7 +234,7 @@ void SemiGlobalSimplifier::SetDiagonalCollapseOperations() {
     for (auto op: Ops) {
         op->PerformOperation();
         i += 1;
-        if (i >= iters) break;        
+        // if (i >= iters) break;        
     }
 }
 
@@ -364,7 +365,8 @@ void SemiGlobalSimplifier::SetSeparatrixOperations() {
             auto& linkE = links.at(i).linkEids;
             auto& v_front = mesh->V.at(linkV.front());
             auto& v_back = mesh->V.at(linkV.back());
-            if (v_front.isBoundary || v_back.isBoundary) continue;
+            if (v_front.isBoundary || v_back.isBoundary || v_front.type == FEATURE || v_back.type == FEATURE) continue;
+            if (v_front.id == v_back.id) continue;
             if (v_front.N_Fids.size() != 3 || v_back.N_Fids.size() != 3) continue;
             if (mesh->V.at(GetDiagonalV(v_front.id, GetFaceId(v_front.id, linkV.at(1)))).N_Fids.size() <= 4 || mesh->V.at(GetDiagonalV(v_back.id, GetFaceId(v_back.id, linkV.at(linkV.size()-2)))).N_Fids.size() <= 4) continue;
 
@@ -389,7 +391,8 @@ void SemiGlobalSimplifier::SetSeparatrixOperations() {
                 auto& linkE = links.at(i).linkEids;
                 auto& v_front = mesh->V.at(linkV.front());
                 auto& v_back = mesh->V.at(linkV.back());
-                if (v_front.isBoundary || v_back.isBoundary) continue;
+                if (v_front.isBoundary || v_back.isBoundary || v_front.type == FEATURE || v_back.type == FEATURE) continue;
+                if (v_front.id == v_back.id) continue;
                 if (v_front.N_Fids.size() != 3 || v_back.N_Fids.size() != 3) continue;
                 if (mesh->V.at(GetDiagonalV(v_front.id, GetFaceId(v_front.id, linkV.at(1)))).N_Fids.size() <= 4 || mesh->V.at(GetDiagonalV(v_back.id, GetFaceId(v_back.id, linkV.at(linkV.size()-2)))).N_Fids.size() <= 4) continue;
 
@@ -566,7 +569,7 @@ void SemiGlobalSimplifier::SetChordCollapseOperations() {
         // std::shared_ptr<SimplificationOperation> s = std::make_shared<ChordCollapse>(*mesh, *mu, *smoother, ce, chord.id);
         std::shared_ptr<SimplificationOperation> s = std::make_shared<ChordCollapse>(*mesh, *mu, *smoother, ce, chordId);
         s->CalculateRanking();
-        // s->PerformOperation();
+        s->PerformOperation();
         // break;
     }
     // for (auto& chord: ce.Chords) {
@@ -4223,6 +4226,16 @@ void SemiGlobalSimplifier::Smooth() {
     smoother->Smooth(std::vector<size_t>{});
 }
 
+bool SemiGlobalSimplifier::RemoveDoublets() {
+    bool res = false;
+    for (auto& v: mesh->V) {
+        if (v.N_Vids.size() == 2) res = true;
+        VertexSplit s(*mesh, *mu, *smoother, v.id);
+        s.FixDoublet(v.id);
+    }
+    return res;
+}
+
 bool SemiGlobalSimplifier::FixValences() {
     bool res = false;
     for (auto& v: mesh->V) {
@@ -4230,6 +4243,7 @@ bool SemiGlobalSimplifier::FixValences() {
         s.FixDoublet(v.id);
     }
 
+    res = RemoveDoublets();
     ResolveSingularityPairs();
     for (auto& v: mesh->V) {
         if ((v.type == FEATURE || v.isBoundary) && !v.N_Fids.empty()) mesh->SetIdealValence(v.id);

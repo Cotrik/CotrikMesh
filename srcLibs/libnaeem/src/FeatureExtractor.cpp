@@ -47,28 +47,28 @@ void FeatureExtractor::Extract() {
     pl->BuildLocator();
 
     
-    // fe->FeatureEdgesOn();
-    // fe->BoundaryEdgesOff();
-    // fe->Update();
+    fe->FeatureEdgesOn();
+    fe->BoundaryEdgesOff();
+    fe->Update();
     
-    // vtkSmartPointer<vtkPoints> res = fe->GetOutput()->GetPoints();
-    // int n = res->GetNumberOfPoints();
-    // bool setPlanar = n > 0 ? false : true;
-    // if (n > 0) {
-    //     std::cout << "Feature points: " << n << std::endl;
-    //     PARALLEL_FOR_BEGIN(n) {
-    //     // for (int i = 0; i < n; i++) {
-    //         SetFeatures(i, res, pl, false);
-    //     // }
-    //     } PARALLEL_FOR_END();
-    // }
+    vtkSmartPointer<vtkPoints> res = fe->GetOutput()->GetPoints();
+    int n = res->GetNumberOfPoints();
+    bool setPlanar = n > 0 ? false : true;
+    if (n > 0) {
+        std::cout << "Feature points: " << n << std::endl;
+        PARALLEL_FOR_BEGIN(n) {
+        // for (int i = 0; i < n; i++) {
+            SetFeatures(i, res, pl, false);
+        // }
+        } PARALLEL_FOR_END();
+    }
 
     fe->BoundaryEdgesOn();
     fe->FeatureEdgesOff();
     fe->Update();
 
-    vtkSmartPointer<vtkPoints> res = fe->GetOutput()->GetPoints();
-    int n = res->GetNumberOfPoints();
+    res = fe->GetOutput()->GetPoints();
+    n = res->GetNumberOfPoints();
     // mesh->isPlanar = setPlanar && n > 0 ? true : false;
     if (n > 0) {
         std::cout << "Boundary Points: " << n << std::endl;

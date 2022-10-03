@@ -165,9 +165,9 @@ void resetMesh(Mesh& mesh) {
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 6) {
-        std::cout << "Usage: SmoothMesh <input_vtk_file> <boundary_file.vtk> <output_vtk_file> smoothing_algorithm=<LAPLACIAN,ANGLE_BASED> ";
-        std::cout << "iterations=<number_of_iterations> lambda=<value>" << std::endl;
+    if (argc < 4) {
+        std::cout << "Usage: SmoothMesh <input_vtk_file> <boundary_file.vtk> <output_vtk_file> ";
+        std::cout << "iterations=<number_of_iterations>" << std::endl;
         return -1;
     }
 
@@ -186,10 +186,10 @@ int main(int argc, char* argv[]) {
     std::cout << "---------------------------------------" << std::endl;
     std::cout << "filename = " << filename << std::endl;
     std::cout << "output_filename = " << output_filename << std::endl;
-    std::cout << "smoothing_algorithm = " << smoothing_algorithm << std::endl;
+    // std::cout << "smoothing_algorithm = " << smoothing_algorithm << std::endl;
     std::cout << "iterations = " << iterations << std::endl;
-    std::cout << "lambda = " << lambda << std::endl;
-    std::cout << "tau = " << tau << std::endl;
+    // std::cout << "lambda = " << lambda << std::endl;
+    // std::cout << "tau = " << tau << std::endl;
     std::cout << "---------------------------------------" << std::endl;
 
     MeshFileReader reader(filename.c_str());
@@ -213,63 +213,10 @@ int main(int argc, char* argv[]) {
     boundary_mesh.ExtractBoundary();
     boundary_mesh.ExtractSingularities();
 
-    std::vector<size_t> v_;
-    if (smoothing_algorithm.compare("LAPLACIAN") == 0) {
+    // if (smoothing_algorithm.compare("LAPLACIAN") == 0) {
         SmoothingAlgorithm algorithm(mesh, boundary_mesh, iterations, lambda, true, true);
-        // algorithm.smoothLaplacianSimple();
-        // algorithm.smoothLaplacianScaleBased();
-        // algorithm.smoothLaplacianCotangentBased();
         std::cout << "Smoothing" << std::endl;
-        // algorithm.setOriginalVertices();
-        // algorithm.extractBoundary();
-        // algorithm.findNegativeElements();
-        // mesh.SetOneRingNeighborhood();
-        // algorithm.remapToOriginalBoundary();
         algorithm.smoothMesh();
-        // for (auto& f: mesh.F) {
-        //     if (f.isNegative) {
-        //         v_.push_back(f.id);
-        //     }
-        // }
-        for (auto& v: mesh.V) {
-            if (v.isBoundary && v.N_Fids.size() != 2) {
-                // v_ = v.oneRingNeighborVertices;
-                v_.push_back(v.id);
-                // break;
-            }
-        }
-    }
-
-    std::cout << "Writing output file" << std::endl;
-    std::ofstream ofs("output.vtk");
-    ofs << "# vtk DataFile Version 3.0\n"
-        << "output.vtk\n"
-        << "ASCII\n\n"
-        << "DATASET UNSTRUCTURED_GRID\n";
-    ofs << "POINTS " << mesh.V.size() << " double\n";
-    std::vector<size_t> c_indices = v_;
-    // std::vector<size_t> c_indices = {12, 296};
-    // std::cout << c_indices.size() << std::endl;
-    for (size_t i = 0; i < mesh.V.size(); i++) {
-        ofs << std::fixed << std::setprecision(7) <<  mesh.V.at(i).x << " " <<  mesh.V.at(i).y << " " <<  mesh.V.at(i).z << "\n";
-    }
-    ofs << "CELLS " << c_indices.size() << " " << 2 * c_indices.size() << std::endl;
-    for (size_t i = 0; i < c_indices.size(); i++) {
-        ofs << "1 " << c_indices.at(i) << std::endl;
-    }
-    ofs << "CELL_TYPES " << c_indices.size() << "\n";
-    for (size_t i = 0; i < c_indices.size(); i++) {
-        ofs << "1" << std::endl;
-    }
-
-    // ofs << "CELLS " << c_indices.size() << " " << 5 * c_indices.size() << std::endl;
-    // for (size_t i = 0; i < c_indices.size(); i++) {
-    //     Face& f = mesh.F.at(c_indices.at(i));
-    //     ofs << "4 " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
-    // }
-    // ofs << "CELL_TYPES " << c_indices.size() << "\n";
-    // for (size_t i = 0; i < c_indices.size(); i++) {
-    //     ofs << "9" << std::endl;
     // }
 
     MeshFileWriter writer(mesh, output_filename.c_str());

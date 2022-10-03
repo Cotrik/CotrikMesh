@@ -82,6 +82,7 @@ class SemiGlobalSimplifier {
 
         // Simplification Operations
         bool FixBoundary();
+        bool RemoveDoublets();
         bool FixValences();
         void SetSimplificationOperations();
         void SetDiagonalCollapseOperations();

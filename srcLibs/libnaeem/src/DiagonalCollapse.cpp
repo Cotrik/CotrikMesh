@@ -36,8 +36,14 @@ void DiagonalCollapse::SetRanking(glm::dvec3 d) {
 bool DiagonalCollapse::IsOperationValid() {
     CheckValidity();
     auto& f = mesh->F.at(fId);
-    if (f.N_Fids.size() == 0 || f.Vids.empty()) return false;
-    // if (mesh->V.at(f.Vids.at(d_idx1)).N_Fids.size() != 3 || mesh->V.at(f.Vids.at(d_idx2)).N_Fids.size() != 3) return false;
+    if (f.N_Fids.empty() || f.Vids.empty()) return false;
+    // for (auto vid: f.Vids) {
+    //     auto& v = mesh->V.at(vid);
+    //     if (v.N_Vids.empty() || v.N_Fids.empty()) return false;
+    //     if (v.isBoundary || v.type == FEATURE) return false;
+    // }
+    // if (mesh->V.at(f.Vids.at(d_idx1)).N_Fids.size() != 3 && mesh->V.at(f.Vids.at(d_idx2)).N_Fids.size() != 3) return false;
+    // if (mesh->V.at(f.Vids.at(d_idx1)).N_Fids.size() + mesh->V.at(f.Vids.at(d_idx2)).N_Fids.size() - 2 > 6) return false;
     return true;
 }
 
