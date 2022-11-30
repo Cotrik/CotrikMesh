@@ -100,7 +100,9 @@ void DiagonalCollapse::PerformOperation() {
     // ToSmooth.push_back(target.id);
     AddContents(ToSmooth, std::vector<size_t>{target.id});
     AddContents(ToSmooth, target.N_Vids);
+    // std::cout << "Before smoothing" << std::endl;
     Smooth();
+    // std::cout << "After smoothing" << std::endl;
 }
 
 /*void DiagonalCollapse::UpdateNeighborInfo(Vertex& target, Vertex& source) {

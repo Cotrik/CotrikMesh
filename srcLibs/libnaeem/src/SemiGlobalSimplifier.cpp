@@ -939,8 +939,29 @@ bool SemiGlobalSimplifier::ResolveHighValences() {
     bool res = false;
     for (int vid = 0; vid < mesh->V.size(); vid++) {
         auto& v = mesh->V.at(vid);
+        std::vector<size_t> edgesToCheck;
         if (v.N_Vids.size() == 6 && v.type != FEATURE && !v.isBoundary) {
-            size_t startE = v.N_Eids.at(0);
+            // std::cout << "vid: " << v.id << " " << v.N_Vids.size() << " " << v.N_Eids.size() << " " << v.N_Fids.size() << std::endl;
+            bool split = false;
+            for (auto fid: v.N_Fids) {
+                auto& f = mesh->F.at(fid);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                if (mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).N_Vids.size() == 3) {
+                    split= true;
+                    std::vector<size_t> edgesToSplit;
+                    for (auto eid: mu->GetIntersection(f.Eids, v.N_Eids)) {
+                        auto& e = mesh->E.at(eid);
+                        mu->AddContents(edgesToSplit, mu->GetDifference(mu->GetIntersection(mesh->F.at(mu->GetDifference(e.N_Fids, std::vector<size_t>{fid})[0]).Eids, v.N_Eids), std::vector<size_t>{eid}));
+                    }
+                    // std::cout << "Fixing six singularity with 3 singularity" << std::endl;
+                    std::shared_ptr<SimplificationOperation> s = std::make_shared<VertexSplit>(*mesh, *mu, *smoother, v.id, edgesToSplit);
+                    s->PerformOperation();
+                    res = true;
+                    break;
+                }
+            }
+            if (split) continue;
+            /*size_t startE = v.N_Eids.at(0);
             size_t secE;
             bool foundCandidate = false;
             std::vector<size_t> avoidableE;
@@ -992,9 +1013,10 @@ bool SemiGlobalSimplifier::ResolveHighValences() {
                 s->PerformOperation();
                 res = true;
                 continue;
-            }
+            }*/
         }
         if (v.N_Vids.size() > 5 && v.type != FEATURE && !v.isBoundary) {
+            // std::cout << "vid: " << v.id << " " << v.N_Vids.size() << " " << v.N_Eids.size() << " " << v.N_Fids.size() << std::endl;
             int d = (v.N_Vids.size() / 2) + 1;
             size_t mainV;
             bool foundThree = false;
@@ -1038,6 +1060,7 @@ bool SemiGlobalSimplifier::ResolveHighValences() {
                     }
                 }
             }
+            // std::cout << "Fixing six singularity with quad split" << std::endl;
             std::shared_ptr<SimplificationOperation> qs = std::make_shared<QuadSplit>(*mesh, *mu, *smoother, v.id, verticesToSplit, verticesToChange);
             qs->PerformOperation();
             res = true;
@@ -1054,6 +1077,7 @@ SingularityLink SemiGlobalSimplifier::PrototypeGetLink(size_t vid, BaseComplexQu
     for (auto& l: links) {
         // if (PrototypeCheckBoundarySingularity(l.frontId)) continue;
         // if (PrototypeCheckBoundarySingularity(l.frontId) || PrototypeCheckBoundarySingularity(l.backId)) continue;
+        if (l.backId == vertexToSkip) continue;
         if (!edgesToCheck.empty() && (l.backId == vertexToSkip || !IsExclusive(l.frontId, l.linkEids, edgesToCheck))) continue;
         if (!checkValence) {
             if (PrototypeCheckBoundarySingularity(l.backId)) continue;
@@ -1101,10 +1125,32 @@ void SemiGlobalSimplifier::PrototypeE() {
         SingularityLink l1 = s.l1;
         SingularityLink l2 = s.l2;
         if (i >= iters && ((l1.a+l1.b > 2 && l1.b > 0) || (l2.a+l2.b > 2 && l2.b > 0))) {
-            std::cout << "l1: " << l1.a+l1.b << " l1 rots: " << l1.rot << std::endl;
-            std::cout << "l2: " << l2.a+l2.b << " l2 rots: " << l2.rot << std::endl;
-            std::cout << "link rotation from l2 to l1: " << PrototypeGetRotations(l1.frontId, l2.linkEids.front(), l1.linkEids.front()) << std::endl;
-            std::cout << "link rotation from l1 to l2: " << PrototypeGetRotations(l1.frontId, l1.linkEids.front(), l2.linkEids.front()) << std::endl;
+            l1.volt = l1.rots > 1 ? 1 : 0;
+            l2.volt = l2.rots > 1 ? 1 : 0;
+            s.l1l2Rots = PrototypeGetRotations(l1.frontId, l1.linkEids.front(), l2.linkEids.front());
+            s.l2l1Rots = PrototypeGetRotations(l1.frontId, l2.linkEids.front(), l1.linkEids.front());
+            if (mesh->V.at(l1.frontId).N_Vids.size() == 3) {
+                s.l1l2Volt = s.l1l2Rots > 1 ? 1 : 0;
+                s.l2l1Volt = s.l2l1Rots > 1 ? 1 : 0;
+            } else if (mesh->V.at(l1.frontId).N_Vids.size() == 5) {
+                s.l1l2Volt = s.l1l2Rots <= 2 ? 0 : 1;
+                s.l2l1Volt = s.l2l1Rots <= 2 ? 0 : 1;
+                // s.l1l2Volt = (s.l1l2Rots == 2 && s.l2l1Rots == 3) || (s.l1l2Rots > 2) ? 1 : 0;
+                // s.l2l1Volt = (s.l1l2Rots == 3 && s.l2l1Rots == 2) || (s.l2l1Rots > 1) ? 1 : 0;
+            }
+            std::string link1Volt = l1.volt == 1 ? "High" : "Low";
+            std::string link2Volt = l2.volt == 1 ? "High" : "Low";
+            std::string l1l2Volt = s.l1l2Volt == 1 ? "High" : "Low";
+            std::string l2l1Volt = s.l2l1Volt == 1 ? "High" : "Low";
+            
+            std::cout << "l1: " << l1.a+l1.b << " l1 volt: " << link1Volt << std::endl;
+            std::cout << "l2: " << l2.a+l2.b << " l2 volt: " << link2Volt << std::endl;
+            std::cout << "link volt from l1 to l2: " << l1l2Volt << std::endl;
+            std::cout << "link volt from l2 to l1: " << l2l1Volt << std::endl;
+            std::string valid = PrototypeIsLinkValid(s) == true ? "Yes" : "No";
+            std::cout << "Is link Valid? " << valid << std::endl;
+            if (PrototypeIsLinkValid(s)) std::cout << "Element change: " << PrototypeGetElementPrediction(s) << std::endl;
+
             PrototypeSaveMesh(l1, l2, "test");
             break;
         }
@@ -1120,6 +1166,96 @@ void SemiGlobalSimplifier::PrototypeE() {
         // }
     }
     // while (FixValences());
+}
+
+void SemiGlobalSimplifier::PrototypeF(int idxOffset) {
+    std::cout << "Prototype F" << std::endl;
+    BaseComplexQuad bc(*mesh);
+    int n = mesh->V.size();
+    for (int vid = 0; vid < n; vid++) {
+        auto& v = mesh->V.at(vid);
+        if (v.type == FEATURE || v.isBoundary || (v.N_Vids.size() != 3 && v.N_Vids.size() != 5)) continue;
+        int valenceToCheck = v.N_Vids.size() == 5 ? 3 : 5;
+        bool breakLoop = false;
+        for (auto fid: v.N_Fids) {
+            auto& f = mesh->F.at(fid);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            auto& fv = mesh->V.at(f.Vids.at((idx+idxOffset)%f.Vids.size()));
+            if (fv.type != FEATURE && !fv.isBoundary && fv.N_Vids.size() == valenceToCheck) {
+                std::vector<size_t> threeFiveIds = valenceToCheck == 5 ? std::vector<size_t>{v.id, fv.id} : std::vector<size_t>{fv.id, v.id};
+                SingularityLink l1 = PrototypeGetLink(v.id, bc, fv.id, std::vector<size_t>{}, false, false);
+                SingularityLink l2 = PrototypeGetLink(fv.id, bc, v.id, std::vector<size_t>{}, false, false);
+                if (l1.linkVids.empty() || l2.linkVids.empty()) continue;
+                std::vector<size_t> toMove = l1.a+l1.b <= l2.a+l2.b ? l1.linkVids : l2.linkVids;
+                if (idxOffset == 2) {
+                    std::shared_ptr<DiagonalThreeFivePair> tfp = std::make_shared<DiagonalThreeFivePair>(*mesh, *mu, *smoother, threeFiveIds.at(0), threeFiveIds.at(1));
+                    for (int i = 1; i < toMove.size(); i++) {
+                        tfp->Move(toMove.at(i));
+                    }
+                } else {
+                    std::shared_ptr<ThreeFivePair> tfp = std::make_shared<ThreeFivePair>(*mesh, *mu, *smoother, threeFiveIds.at(0), threeFiveIds.at(1));
+                    for (int i = 1; i < toMove.size(); i++) {
+                        tfp->Move(toMove.at(i));
+                    }
+                }
+                break;
+            }
+        }
+    }
+    while (FixValences());
+}
+
+bool SemiGlobalSimplifier::PrototypeIsLinkValid(SingularityGroup& s) {
+    bool res = true;
+
+    auto& l1 = s.l1;
+    auto& l2 = s.l2;
+    if (mesh->V.at(l1.frontId).N_Vids.size() == 3) {
+        if (l1.b > 0 && l2.b > 0) {
+            if (s.l1l2Volt == l1.volt && s.l2l1Volt == l2.volt) res = false;
+            if (s.l1l2Volt != l1.volt && s.l2l1Volt != l2.volt) res = false;
+            if (s.l1l2Volt == l1.volt && s.l2l1Volt != l2.volt && l1.a <= l2.a) res = false;
+            if (s.l1l2Volt != l1.volt && s.l2l1Volt == l2.volt && l2.a <= l1.a) res = false;
+        }
+        else if (l1.b > 0 && l2.b == 0 && s.l1l2Volt == l1.volt && l1.a <= l2.a) res = false;
+        else if (l1.b == 0 && l2.b > 0 && s.l2l1Volt == l2.volt && l2.a <= l1.a) res = false; 
+    } else if (mesh->V.at(l1.frontId).N_Vids.size() == 5) {
+        if (l1.b > 0 && l2.b > 0) {
+            if (s.l1l2Volt == l1.volt && s.l2l1Volt == l2.volt) res = false;
+            if (s.l1l2Volt == l1.volt && s.l2l1Volt != l2.volt && (l1.rots == 1 || l1.rots == 4) && l1.a <= l2.a) res = false;
+        }
+        else if (l1.b > 0 && l2.b == 0 && s.l1l2Volt == l1.volt && (l1.rots == 1 || l1.rots == 4) && l1.a <= l2.a) res = false;
+        else if (l1.b == 0 && l2.b > 0 && s.l2l1Volt == l2.volt && (l1.rots == 1 || l1.rots == 4) && l2.a <= l1.a) res = false;
+    }
+    return res;
+}
+
+int SemiGlobalSimplifier::PrototypeGetElementPrediction(SingularityGroup& s) {
+    int n = 0;
+    
+    auto& l1 = s.l1;
+    auto& l2 = s.l2;
+    if (mesh->V.at(l1.frontId).N_Vids.size() == 3) {
+        n += l1.a + l1.b + l2.a + l2.b + (0.5 * (l1.a * (l1.a + 1))) + (0.5 * (l2.a * (l2.a + 1)));
+        n *= -1;
+        if (l1.volt == s.l1l2Volt && l1.b > 0) n += ((l1.a * l1.b) - (0.5 * (l1.b * (l1.b + 1))));
+        if (l1.volt != s.l1l2Volt && l1.b > 0) n -= ((l1.a * l1.b) + (0.5 * (l1.b * (l1.b + 1))));
+        if (l2.volt == s.l2l1Volt && l2.b > 0) n += ((l2.a * l2.b) - (0.5 * (l1.b * (l1.b + 1))));
+        if (l2.volt != s.l2l1Volt && l2.b > 0) n -= ((l2.a * l2.b) + (0.5 * (l1.b * (l1.b + 1))));
+    } else if (mesh->V.at(l1.frontId).N_Vids.size() == 5) {
+        n += l1.a + l1.b + l2.a + l2.b;
+        if (s.l1l2Rots == 1 || s.l1l2Rots == 4) {
+            n -= (0.5 * (l1.a * (l1.a + 1)));
+        } else {
+            n += (0.5 * (l1.a * (l1.a + 1)));
+        }
+        if (l1.volt == s.l1l2Volt && l1.b > 0) n += ((l1.a * l1.b) - (0.5 * (l1.b * (l1.b + 1))));
+        if (l1.volt != s.l1l2Volt && l1.b > 0) n += ((l1.a * l1.b) + (0.5 * (l1.b * (l1.b + 1))));
+        if (l2.volt == s.l2l1Volt && l2.b > 0) n += ((l2.a * l2.b) - (0.5 * (l1.b * (l1.b + 1))));
+        if (l2.volt != s.l2l1Volt && l2.b > 0) n += ((l2.a * l2.b) + (0.5 * (l1.b * (l1.b + 1))));
+    }
+
+    return n;
 }
 
 int SemiGlobalSimplifier::PrototypeGetRotations(size_t vid, size_t start, size_t end) {
@@ -1443,6 +1579,7 @@ int SemiGlobalSimplifier::PrototypeCancelSingularityPair(SingularityLink& l, Bas
         size_t secondaryDir = secondaryPath.at(1);
         std::vector<size_t> threeFiveIds = GetThreeFivePairIds(toMove, sourceDir, secondaryDir);
         if (threeFiveIds.size() < 2) return -1;
+        // std::cout << "Moving Pair" << std::endl;
         MovePair(threeFiveIds, secondaryPath);
         // break;
         // if (MovePair(threeFiveIds, secondaryPath, true) == -1) return;
@@ -1537,6 +1674,7 @@ void SemiGlobalSimplifier::PrototypeA(size_t vid, BaseComplexQuad& bc, bool chec
         threeFiveIds.push_back(l1.frontId);
     }
     std::vector<size_t> secondaryPath = l2.linkVids;
+    // std::cout << "three: " << mesh->V.at(threeFiveIds.at(0)).N_Vids.size() << " " << mesh->V.at(threeFiveIds.at(1)).N_Vids.size() << std::endl;
     MovePair(threeFiveIds, secondaryPath);
 }
 
@@ -2232,7 +2370,7 @@ void SemiGlobalSimplifier::ResolveSingularities() {
 
     std::cout << "SINGULARITIES: " << nSingularities << " DETECTED SINGULARITIES: " << Singularities.size() << std::endl;
     std::cout << "THREE SINGULARITIES: " << nThreeSingularities << " FIVE SINGULARITIES: " << nFiveSingularities << std::endl;
-    return;
+    // return;
     GetSingularityGroups(Singularities, bc);
 
     std::cout << "END OF SIMPLIFICATION LOOP" << std::endl;
@@ -2342,7 +2480,7 @@ void SemiGlobalSimplifier::GetSingularityGroups(std::vector<size_t> Singularitie
 
     // std::cout << q.size() << std::endl;
 
-    /*int it = 0;
+    int it = 0;
     while (!q.empty()) {
         // std::cout << q.size() << std::endl; 
         auto& l = q.top();
@@ -2385,9 +2523,9 @@ void SemiGlobalSimplifier::GetSingularityGroups(std::vector<size_t> Singularitie
         // if (it == iters) {
         //     break;
         // }
-    }*/
+    }
     
-    int colorValue = 0;
+    /*int colorValue = 0;
     int ncolors = 15;
     std::vector<size_t> c_indices;
     std::vector<int> colors;
@@ -2431,7 +2569,7 @@ void SemiGlobalSimplifier::GetSingularityGroups(std::vector<size_t> Singularitie
     ofs << "LOOKUP_TABLE default\n";
     for (auto c: colors) {
         ofs << c << "\n";
-    }
+    }*/
 }
 
 std::vector<size_t> SemiGlobalSimplifier::GetSecondaryPath(int offset, std::vector<size_t>& mainPath, BaseComplexQuad& bc) {
@@ -2502,7 +2640,7 @@ std::vector<SingularityLink> SemiGlobalSimplifier::GetCrossLinks(SingularityLink
             newL.backId = newL.linkVids.back();
             newL.a = b.size();
             newL.b = tempL.linkEids.size();
-            newL.rot = PrototypeGetRotations(tempL.linkVids.front(), tempL.linkEids.front(), b.back());
+            newL.rots = PrototypeGetRotations(tempL.linkVids.front(), tempL.linkEids.front(), b.back());
             {
                 std::lock_guard<std::mutex> lock(mtx);
                 newLinks.push_back(newL);
@@ -4062,9 +4200,11 @@ std::vector<size_t> SemiGlobalSimplifier::GetThreeFivePairIds(size_t vid, size_t
                 } else {
                     res.insert(res.begin(), secondary.id);
                 }
+                // std::cout << "Collapsing 3-singularity for 3-5 pair generation" << std::endl;
+                res.push_back(f.Vids.at((idx+2)%f.Vids.size()));
                 std::shared_ptr<SimplificationOperation> dc = std::make_shared<DiagonalCollapse>(*mesh, *mu, *smoother, f.id, (idx+2)%f.Vids.size(), idx);
                 dc->PerformOperation();
-                res.push_back(f.Vids.at((idx+2)%f.Vids.size()));
+                // std::cout << "After collapsing" << std::endl;
                 // for (auto nvid: mesh->V.at(res.at(0)).N_Vids) {
                 //     if (nvid == main.id) continue;
                 //     if (mesh->V.at(nvid).N_Vids.size() == 3) res.insert(res.begin(), nvid);
@@ -4229,7 +4369,7 @@ void SemiGlobalSimplifier::Smooth() {
 bool SemiGlobalSimplifier::RemoveDoublets() {
     bool res = false;
     for (auto& v: mesh->V) {
-        if (v.N_Vids.size() == 2) res = true;
+        if (!v.isBoundary && v.type != FEATURE && v.N_Vids.size() == 2) res = true;
         VertexSplit s(*mesh, *mu, *smoother, v.id);
         s.FixDoublet(v.id);
     }
@@ -4238,18 +4378,67 @@ bool SemiGlobalSimplifier::RemoveDoublets() {
 
 bool SemiGlobalSimplifier::FixValences() {
     bool res = false;
-    for (auto& v: mesh->V) {
-        VertexSplit s(*mesh, *mu, *smoother, v.id);
-        s.FixDoublet(v.id);
-    }
 
     res = RemoveDoublets();
-    ResolveSingularityPairs();
+    // ResolveSingularityPairs();
     for (auto& v: mesh->V) {
         if ((v.type == FEATURE || v.isBoundary) && !v.N_Fids.empty()) mesh->SetIdealValence(v.id);
     }
     res = FixBoundary();
     res = ResolveHighValences();
+    return res;
+}
+
+bool SemiGlobalSimplifier::CheckMeshValidity() {
+    bool res = true;
+    for (auto& f: mesh->F) {
+        if (f.Vids.empty() || f.N_Fids.empty()) continue;
+        for (auto eid: f.Eids) {
+            auto& e = mesh->E.at(eid);
+            if (e.Vids.size() != 2) {
+                res = false;
+                std::cout << f.id << " face vertices: " << f.Vids.size() << std::endl;
+                std::cout << f.id << " face edges: " << f.Eids.size() << std::endl;
+                std::cout << e.id << " vertices: " << e.Vids.size() << std::endl;
+            }
+        }
+    }
+    for (auto& e: mesh->E) {
+        if (e.Vids.empty()) continue;
+        for (auto fid: e.N_Fids) {
+            auto& f = mesh->F.at(fid);
+            // if (f.Vids.empty()) {
+            //     std::cout << "edge face is empty" << std::endl;
+            // }
+            for (auto feid: f.Eids) {
+                auto& fe = mesh->E.at(feid);
+                if (fe.Vids.size() != 2) {
+                    res = false;
+                    std::cout << f.id << " face vertices: " << f.Vids.size() << std::endl;
+                    std::cout << f.id << " face edges: " << f.Eids.size() << std::endl;
+                    std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
+                }
+            }
+        }
+    }
+    for (auto& v: mesh->V) {
+        for (auto eid: v.N_Eids) {
+            auto& e = mesh->E.at(eid);
+            // if (e.N_Fids.size() != 2) std::cout << "edge faces are not 2" << std::endl;
+            for (auto fid: e.N_Fids) {
+                auto& f = mesh->F.at(fid);
+                for (auto feid: f.Eids) {
+                    auto& fe = mesh->E.at(feid);
+                    if (fe.Vids.size() != 2) {
+                        res = false;
+                        std::cout << f.id << " face vertices: " << f.Vids.size() << std::endl;
+                        std::cout << f.id << " face edges: " << f.Eids.size() << std::endl;
+                        std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
+                    }
+                }
+            }    
+        }
+    }
     return res;
 }
 

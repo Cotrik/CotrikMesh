@@ -7,6 +7,7 @@
 // #include "ParallelFor.h"
 #include "FeatureExtractor.h"
 #include "Smooth.h"
+#include <ctime>
 
 int main(int argc, char* argv[]) {
 
@@ -78,6 +79,18 @@ int main(int argc, char* argv[]) {
     // std::cout << "Input mesh V: " << source.V.size() << std::endl; 
     // std::cout << "Input mesh F: " << source.F.size() << std::endl;
     // return 0;
+    std::clock_t start;
+    double duration;
+    double startSingularities;
+    double nSingularities;
+    
+    startSingularities = 0.0;
+    for (auto& v: source.V) {
+        if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+        if (v.N_Vids.size() != 4) startSingularities += 1;
+    }
+    start = std::clock();
+
     bool res = true;
     sg.SetBoundaryDirectSeparatrixOperations(false);
     sg.SetBoundaryDirectSeparatrixOperations(false);
@@ -119,6 +132,15 @@ int main(int argc, char* argv[]) {
         // res = sg.FixBoundary();
         res = sg.FixValences();
     }
+    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    std::cout << "Direct Separatrix simplification time: " << duration << " seconds" << std::endl;
+    
+    nSingularities = 0.0;
+    for (auto& v: source.V) {
+        if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+        if (v.N_Vids.size() != 4) nSingularities += 1;
+    }
+    std::cout << "Initial Singularities: " << startSingularities << " Reduced Singularities: " << startSingularities - nSingularities << " ratio: " << ((startSingularities - nSingularities) / startSingularities) * 100.0 << "%" << std::endl;
     // res = true;
     // while (res) {
     // }
@@ -143,9 +165,38 @@ int main(int argc, char* argv[]) {
     // }
     // std::cout << "Diagonal 3-5 pairs: " << n << std::endl;
     sg.Smooth();
-    // sg.PrototypeE();
+    startSingularities = 0.0;
+    for (auto& v: source.V) {
+        if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+        if (v.N_Vids.size() != 4) startSingularities += 1;
+    }
+    start = std::clock();
+    sg.PrototypeF();
+    // sg.CheckMeshValidity();
+    sg.PrototypeF();
+    // sg.CheckMeshValidity();
+    sg.PrototypeF();
+    sg.PrototypeF(1);
+    sg.PrototypeF(1);
+    sg.PrototypeF(1);
+    sg.PrototypeF(3);
+    sg.PrototypeF(3);
+    sg.PrototypeF(3);
     // sg.PrototypeD();
-    // sg.PrototypeB();
+    sg.PrototypeBoundary(true);
+    // sg.CheckMeshValidity();
+    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    std::cout << "Direct pairs simplification time: " << duration << " seconds" << std::endl;
+    
+    nSingularities = 0.0;
+    for (auto& v: source.V) {
+        if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+        if (v.N_Vids.size() != 4) nSingularities += 1;
+    }
+    std::cout << "Initial Singularities: " << startSingularities << " Reduced Singularities: " << startSingularities - nSingularities << " ratio: " << ((startSingularities - nSingularities) / startSingularities) * 100.0 << "%" << std::endl;
+    sg.Smooth();
+    // sg.PrototypeD();
+    // sg.PrototypeC();
     // sg.PrototypeB();
     // sg.PrototypeB();
     // sg.PrototypeB();
@@ -170,6 +221,7 @@ int main(int argc, char* argv[]) {
     // sg.AlignAndResolveSingularities(false);
     
     // sg.ResolveSingularities();
+    // sg.Smooth();
     
     // sg.GetSingularityPairs();
     // sg.AlignSingularities();
@@ -235,48 +287,48 @@ int main(int argc, char* argv[]) {
     //     std::cout << mu.GetVertexEnergy(v.id) << std::endl;
     // }
 
-    for (auto& f: source.F) {
-        if (f.Vids.empty()) continue;
-        for (auto eid: f.Eids) {
-            auto& e = source.E.at(eid);
-            if (e.Vids.size() != 2) {
-                std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
-                std::cout << e.id << " vertices: " << e.Vids.size() << std::endl;
-            }
-        }
-    }
-    for (auto& e: source.E) {
-        if (e.Vids.empty()) continue;
-        for (auto fid: e.N_Fids) {
-            auto& f = source.F.at(fid);
-            if (f.Vids.empty()) {
-                std::cout << "edge face is empty" << std::endl;
-            }
-            for (auto feid: f.Eids) {
-                auto& fe = source.E.at(feid);
-                if (fe.Vids.size() != 2) {
-                    std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
-                    std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
-                }
-            }
-        }
-    }
-    for (auto& v: source.V) {
-        for (auto eid: v.N_Eids) {
-            auto& e = source.E.at(eid);
-            // if (e.N_Fids.size() != 2) std::cout << "edge faces are not 2" << std::endl;
-            for (auto fid: e.N_Fids) {
-                auto& f = source.F.at(fid);
-                for (auto feid: f.Eids) {
-                    auto& fe = source.E.at(feid);
-                    if (fe.Vids.size() != 2) {
-                        std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
-                        std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
-                    }
-                }
-            }    
-        }
-    }
+    // for (auto& f: source.F) {
+    //     if (f.Vids.empty() || f.N_Fids.empty()) continue;
+    //     for (auto eid: f.Eids) {
+    //         auto& e = source.E.at(eid);
+    //         if (e.Vids.size() != 2) {
+    //             std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+    //             std::cout << e.id << " vertices: " << e.Vids.size() << std::endl;
+    //         }
+    //     }
+    // }
+    // for (auto& e: source.E) {
+    //     if (e.Vids.empty()) continue;
+    //     for (auto fid: e.N_Fids) {
+    //         auto& f = source.F.at(fid);
+    //         if (f.Vids.empty()) {
+    //             std::cout << "edge face is empty" << std::endl;
+    //         }
+    //         for (auto feid: f.Eids) {
+    //             auto& fe = source.E.at(feid);
+    //             if (fe.Vids.size() != 2) {
+    //                 std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+    //                 std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
+    //             }
+    //         }
+    //     }
+    // }
+    // for (auto& v: source.V) {
+    //     for (auto eid: v.N_Eids) {
+    //         auto& e = source.E.at(eid);
+    //         // if (e.N_Fids.size() != 2) std::cout << "edge faces are not 2" << std::endl;
+    //         for (auto fid: e.N_Fids) {
+    //             auto& f = source.F.at(fid);
+    //             for (auto feid: f.Eids) {
+    //                 auto& fe = source.E.at(feid);
+    //                 if (fe.Vids.size() != 2) {
+    //                     std::cout << f.id << " edges: " << f.Eids.size() << std::endl;
+    //                     std::cout << fe.id << " vertices: " << fe.Vids.size() << std::endl;
+    //                 }
+    //             }
+    //         }    
+    //     }
+    // }
     
     // for (auto& v: source.V) {
     //     if ((v.type == FEATURE || v.isBoundary) && v.idealValence != 2) {
@@ -427,3 +479,9 @@ if (breakLoop) break;*/
 
 // 5-singularity movements
 // Same rotations: invalid
+
+
+// why quad and hexes mesh over tri and tet mesh
+// why start with tri or tet mesh
+// include qudriflow reference
+// 2021 paper comparison

@@ -137,6 +137,8 @@ add_library(srcLibs SHARED STATIC
     libnaeem/src/ChordExtractor.cpp
     libnaeem/src/DiagonalCollapse.h
     libnaeem/src/DiagonalCollapse.cpp
+    libnaeem/src/DiagonalThreeFivePair.h
+    libnaeem/src/DiagonalThreeFivePair.cpp
     libnaeem/src/DirectSeparatrixCollapse.h
     libnaeem/src/DirectSeparatrixCollapse.cpp
     libnaeem/src/EdgeCollapse.h

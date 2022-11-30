@@ -100,7 +100,7 @@ int ThreeFivePair::Move(size_t dest, bool skipCheck) {
     if (!skipCheck && !IsOperationValid()) return -1;
 
     size_t vn = mesh->V.at(dest).N_Vids.size();
-    // std::cout << "three: " << three.id << " " << three.N_Vids.size() << std::endl;
+    // std::cout << "three: " << three.id << " " << three.N_Vids.size() << std::endl; 
     // std::cout << "five: " << five.id << " " << five.N_Vids.size() << std::endl;
     auto& pairEdge = mesh->E.at(edgeId);
     // std::cout << "three nvids: " << std::endl;
@@ -117,83 +117,47 @@ int ThreeFivePair::Move(size_t dest, bool skipCheck) {
     if (std::find(three.N_Vids.begin(), three.N_Vids.end(), dest) == three.N_Vids.end()
     && std::find(five.N_Vids.begin(), five.N_Vids.end(), dest) == five.N_Vids.end()) return -1;
     for (auto eid: three.N_Eids) {
+        // std::cout << "Collapsing three five pair" << std::endl;
         if (eid == edgeId) continue;
         auto& e = mesh->E.at(eid);
         if (std::find(e.Vids.begin(), e.Vids.end(), dest) == e.Vids.end()) continue;
         size_t fid = GetIntersection(pairEdge.N_Fids, e.N_Fids).at(0);
         size_t vid = e.Vids.at(0) == dest ? e.Vids.at(0) : e.Vids.at(1);
-        // size_t vid = dest;
         auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), threeId));
-        if (f.Vids.at((idx+1)%f.Vids.size()) == vid && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary) {
-            // std::cout << "Moving Upper Left" << std::endl;
-            // SetResolvedSingularity(dest, refMap["Upper"+std::to_string(mesh->V.at(dest).N_Vids.size())]);
-            // if (vn == 3) {
-            //     SetResolvedSingularity(dest, refMap["Upper3"]);
-            // } else if (vn == 5) {
-            //     SetResolvedSingularity(dest, refMap["Upper5"]);
-            // }
-            // std::cout << "Upper left: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
-            // std::cout << "threeId: " << threeId << " vid: " << vid << std::endl;
-            MoveUpperLeft();
-            // std::cout << "Moved Upper Left" << std::endl;
-            return 0;
-        } else if (f.Vids.at((idx+3)%f.Vids.size()) == vid  && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary) {
-            // std::cout << "Moving Upper Right" << std::endl;
-            // SetResolvedSingularity(dest, refMap["Upper"+std::to_string(mesh->V.at(dest).N_Vids.size())]);
-            // if (vn == 3) {
-            //     SetResolvedSingularity(dest, refMap["Upper3"]);
-            // } else if (vn == 5) {
-            //     SetResolvedSingularity(dest, refMap["Upper5"]);
-            // }
-            // std::cout << "Upper right: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
-            // std::cout << "threeId: " << threeId << " vid: " << vid << std::endl;
-            MoveUpperRight();
-            // std::cout << "Moved Upper Right" << std::endl;
+        if ((f.Vids.at((idx+1)%f.Vids.size()) == vid || f.Vids.at((idx+3)%f.Vids.size()) == vid) && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary) {
+            fiveId = threeId;
+            std::shared_ptr<SimplificationOperation> dc = std::make_shared<DiagonalCollapse>(*mesh, *mu, *smoother, f.id, idx, (idx+2)%f.Vids.size());
+            dc->PerformOperation();
+            threeId = vid;
+            SetEdgeId();
             return 0;
         }
     }
     
     for (auto eid: five.N_Eids) {
+        // std::cout << "Rotating three five pair" << std::endl;
         if (eid == edgeId) continue;
         auto& e = mesh->E.at(eid);
         if (std::find(e.Vids.begin(), e.Vids.end(), dest) == e.Vids.end()) continue;
         if (GetIntersection(pairEdge.N_Fids, e.N_Fids).size() == 0) continue;
         size_t fid = GetDifference(e.N_Fids, pairEdge.N_Fids).at(0);
         size_t vid = e.Vids.at(0) == dest ? e.Vids.at(0) : e.Vids.at(1);
-        // size_t vid = dest;
         auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), fiveId));
-        if (f.Vids.at((idx+1)%f.Vids.size()) == vid && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary) {
-            // std::cout << "Moving Left" << std::endl;
-            // if (vn == 3) {
-            //     SetResolvedSingularity(dest, refMap["Middle3"]);
-            // }
-            // std::cout << "left: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
-            // std::cout << "fiveId: " << fiveId << " vid: " << vid << std::endl;
-            MoveLeft();
-            // std::cout << "Moved Left" << std::endl;
-            // if (vn == 5) {
-            //     SetResolvedSingularity(dest, refMap["Middle5"]);
-            // }
-            return 0;
-        } else if (f.Vids.at((idx+3)%f.Vids.size()) == vid && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary) {
-            // std::cout << "Moving Right" << std::endl;
-            // if (vn == 3) {
-            //     SetResolvedSingularity(dest, refMap["Middle3"]);
-            // }
-            // std::cout << "right: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
-            // std::cout << "fiveId: " << fiveId << " vid: " << vid << std::endl;
-            MoveRight();
-            // std::cout << "Moved Right" << std::endl;
-            // if (vn == 5) {
-            //     SetResolvedSingularity(dest, refMap["Middle5"]);
-            // }
+        if ((f.Vids.at((idx+1)%f.Vids.size()) == vid || f.Vids.at((idx+3)%f.Vids.size()) == vid) && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary) {
+            bool rotClockwise = f.Vids.at((idx+1)%f.Vids.size()) == vid ? false : true;
+            threeId = vid;
+            fiveId = f.Vids.at((idx+2)%f.Vids.size());
+            std::shared_ptr<SimplificationOperation> s = std::make_shared<EdgeRotation>(*mesh, *mu, *smoother, e.id, rotClockwise);
+            s->PerformOperation();
+            SetEdgeId();
             return 0;
         }
     }
 
     for (auto eid: five.N_Eids) {
+        // std::cout << "Splitting three five pair" << std::endl;
         if (eid == edgeId) continue;
         auto& e = mesh->E.at(eid);
         if (GetIntersection(pairEdge.N_Fids, e.N_Fids).size() == 0) continue;
@@ -203,33 +167,21 @@ int ThreeFivePair::Move(size_t dest, bool skipCheck) {
         auto& e2 = mesh->E.at(eid2);
         if (std::find(e2.Vids.begin(), e2.Vids.end(), dest) == e2.Vids.end()) continue;
         size_t vid = e2.Vids.at(0) == dest ? e2.Vids.at(0) : e2.Vids.at(1);
-        // size_t vid = dest;
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), fiveId));
-        if (f.Vids.at((idx+3)%f.Vids.size()) == vid && mesh->V.at(f.Vids.at((idx+1)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+1)%f.Vids.size())).isBoundary) {
-            // std::cout << "Moving Lower Left" << std::endl;
-            // std::cout << "Lower left: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
-            // std::cout << "fiveId: " << fiveId << " vid: " << vid << std::endl;
-            MoveLowerLeft();
-            // std::cout << "Moved Lower Left" << std::endl;
-            // if (vn == 3) {
-            //     SetResolvedSingularity(dest, refMap["Lower3"]);
-            // } else if (vn == 5) {
-            //     SetResolvedSingularity(dest, refMap["Lower5"]);
-            // }
-            // SetResolvedSingularity(dest, refMap["Lower"+std::to_string(mesh->V.at(dest).N_Vids.size())]);
-            return 0;
-        } else if (f.Vids.at((idx+1)%f.Vids.size()) == vid && mesh->V.at(f.Vids.at((idx+1)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+1)%f.Vids.size())).isBoundary) {
-            // std::cout << "Moving Lower Right" << std::endl;
-            // std::cout << "Lower right: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
-            // std::cout << "fiveId: " << fiveId << " vid: " << vid << std::endl;
-            MoveLowerRight();
-            // std::cout << "Moved Lower Right" << std::endl;
-            // if (vn == 3) {
-            //     SetResolvedSingularity(dest, refMap["Lower3"]);
-            // } else if (vn == 5) {
-            //     SetResolvedSingularity(dest, refMap["Lower5"]);
-            // }
-            // SetResolvedSingularity(dest, refMap["Lower"+std::to_string(mesh->V.at(dest).N_Vids.size())]);
+        if ((f.Vids.at((idx+3)%f.Vids.size()) == vid || f.Vids.at((idx+1)%f.Vids.size()) == vid) && mesh->V.at(f.Vids.at((idx+1)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+1)%f.Vids.size())).isBoundary) {
+            std::vector<size_t> verticesTosplit;
+            std::vector<size_t> verticesToChange;
+            verticesTosplit.push_back(vid);
+            pairEdge.Vids.at(0) == fiveId ? verticesTosplit.push_back(pairEdge.Vids.at(1)) : verticesTosplit.push_back(pairEdge.Vids.at(0));
+            e.Vids.at(0) == fiveId ? verticesToChange.push_back(e.Vids.at(1)) : verticesToChange.push_back(e.Vids.at(0));
+            std::shared_ptr<SimplificationOperation> qs = std::make_shared<QuadSplit>(*mesh, *mu, *smoother, fiveId, verticesTosplit, verticesToChange);
+            qs->PerformOperation();
+            threeId = mesh->V.size() - 1;
+            fiveId = vid;
+            SetEdgeId();
+            if (mesh->V.at(fiveId).N_Vids.size() == 6) {
+                SplitSixSingularity();
+            }
             return 0;
         }
     }
@@ -300,12 +252,7 @@ void ThreeFivePair::MoveUpperLeft() {
             dc->PerformOperation();
             threeId = vid;
             // fiveId = f.Vids.at((idx+2)%f.Vids.size());
-            for (auto veid: mesh->V.at(threeId).N_Eids) {
-                auto& ve = mesh->E.at(veid);
-                if ((ve.Vids.at(0) == threeId && ve.Vids.at(1) == fiveId) || (ve.Vids.at(1) == threeId && ve.Vids.at(0) == fiveId)) {
-                    edgeId = veid;
-                }
-            }
+            SetEdgeId();
             break;
         }
     }
@@ -338,12 +285,7 @@ void ThreeFivePair::MoveUpperRight() {
             // fiveId = f.Vids.at((idx+2)%f.Vids.size());
             // fiveId = newFiveId;
             // std::cout << "three: " << mesh->V.at(threeId).N_Vids.size() << " five: " << mesh->V.at(fiveId).N_Vids.size() << std::endl;
-            for (auto veid: mesh->V.at(threeId).N_Eids) {
-                auto& ve = mesh->E.at(veid);
-                if ((ve.Vids.at(0) == threeId && ve.Vids.at(1) == fiveId) || (ve.Vids.at(1) == threeId && ve.Vids.at(0) == fiveId)) {
-                    edgeId = veid;
-                }
-            }
+            SetEdgeId();
             break;
         }
     }
@@ -370,12 +312,7 @@ void ThreeFivePair::MoveLeft() {
             s->PerformOperation();
             // threeId = vid;
             // fiveId = f.Vids.at((idx+2)%f.Vids.size());
-            for (auto veid: mesh->V.at(threeId).N_Eids) {
-                auto& ve = mesh->E.at(veid);
-                if ((ve.Vids.at(0) == threeId && ve.Vids.at(1) == fiveId) || (ve.Vids.at(1) == threeId && ve.Vids.at(0) == fiveId)) {
-                    edgeId = veid;
-                }
-            }
+            SetEdgeId();
             break;
         }
     }
@@ -400,12 +337,7 @@ void ThreeFivePair::MoveRight() {
             fiveId = f.Vids.at((idx+2)%f.Vids.size());
             std::shared_ptr<SimplificationOperation> s = std::make_shared<EdgeRotation>(*mesh, *mu, *smoother, e.id, true);
             s->PerformOperation();
-            for (auto veid: mesh->V.at(threeId).N_Eids) {
-                auto& ve = mesh->E.at(veid);
-                if ((ve.Vids.at(0) == threeId && ve.Vids.at(1) == fiveId) || (ve.Vids.at(1) == threeId && ve.Vids.at(0) == fiveId)) {
-                    edgeId = veid;
-                }
-            }
+            SetEdgeId();
             break;
         }
     }
@@ -437,12 +369,7 @@ void ThreeFivePair::MoveLowerLeft() {
             qs->PerformOperation();
             threeId = mesh->V.size() - 1;
             fiveId = vid;
-            for (auto veid: mesh->V.at(threeId).N_Eids) {
-                auto& ve = mesh->E.at(veid);
-                if ((ve.Vids.at(0) == threeId && ve.Vids.at(1) == fiveId) || (ve.Vids.at(1) == threeId && ve.Vids.at(0) == fiveId)) {
-                    edgeId = veid;
-                }
-            }
+            SetEdgeId();
             if (mesh->V.at(fiveId).N_Vids.size() == 6) {
                 SplitSixSingularity();
             }
@@ -477,12 +404,7 @@ void ThreeFivePair::MoveLowerRight() {
             qs->PerformOperation();
             threeId = mesh->V.size() - 1;
             fiveId = vid;
-            for (auto veid: mesh->V.at(threeId).N_Eids) {
-                auto& ve = mesh->E.at(veid);
-                if ((ve.Vids.at(0) == threeId && ve.Vids.at(1) == fiveId) || (ve.Vids.at(1) == threeId && ve.Vids.at(0) == fiveId)) {
-                    edgeId = veid;
-                }
-            }
+            SetEdgeId();
             if (mesh->V.at(fiveId).N_Vids.size() == 6) {
                 SplitSixSingularity();
             }
@@ -490,6 +412,16 @@ void ThreeFivePair::MoveLowerRight() {
         }
     }
 }
+
+void ThreeFivePair::SetEdgeId() {
+    for (auto veid: mesh->V.at(threeId).N_Eids) {
+        auto& ve = mesh->E.at(veid);
+        if ((ve.Vids.at(0) == threeId && ve.Vids.at(1) == fiveId) || (ve.Vids.at(1) == threeId && ve.Vids.at(0) == fiveId)) {
+            edgeId = veid;
+        }
+    }
+}
+
 
 void ThreeFivePair::SplitSixSingularity() {
     std::cout << "Fixing six singularity" << std::endl;

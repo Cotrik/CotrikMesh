@@ -18,6 +18,7 @@
 #include "ChordCollapse.h"
 // #include "SimplificationOperation.h"
 #include "DiagonalCollapse.h"
+#include "DiagonalThreeFivePair.h"
 #include "DirectSeparatrixCollapse.h"
 #include "SeparatrixCollapse.h"
 #include "EdgeRotation.h"
@@ -40,7 +41,8 @@ struct SingularityLink {
     int a = 0;
     int b = 0;
     double rank = 1.0;
-    int rot = 0;
+    int rots = 0;
+    int volt = 0;
 };
 
 struct LinkComparator {
@@ -59,6 +61,10 @@ struct SingularityGroup {
     SingularityLink l1;
     SingularityLink l2;
     double rank = 0.0;
+    int l1l2Rots = 0;
+    int l2l1Rots = 0;
+    int l1l2Volt = 0;
+    int l2l1Volt = 0;
 };
 
 struct GroupComparator {
@@ -142,6 +148,7 @@ class SemiGlobalSimplifier {
         void PrototypeC();
         void PrototypeD();
         void PrototypeE();
+        void PrototypeF(int idxOffset = 2);
         int PrototypeGetRotations(size_t vid, size_t start, size_t end);
         void PrototypeSaveMesh(SingularityLink& l1, SingularityLink& l2, std::string in);
         void PrototypeResolveGroup(SingularityLink& l1, SingularityLink& l2);
@@ -150,6 +157,10 @@ class SemiGlobalSimplifier {
         bool PrototypeCheckBoundarySingularity(size_t vid);
         int PrototypeCancelSingularityPair(SingularityLink& l, BaseComplexQuad& bc);
         SingularityLink PrototypeGetLink(size_t vid, BaseComplexQuad& bc, size_t vertexToSkip = 0, std::vector<size_t> edgesToCheck = {}, bool checkValence = true, bool boundary = true);
+        bool PrototypeIsLinkValid(SingularityGroup& s);
+        int PrototypeGetElementPrediction(SingularityGroup& s);
+
+        bool CheckMeshValidity();
 
         MeshUtil* mu;
         int iters = 0;
@@ -166,6 +177,7 @@ class SemiGlobalSimplifier {
         void SetSecondaryPath(size_t& secondaryId, size_t& toMoveId, size_t& sourceId, std::vector<size_t>& mainPath, std::vector<size_t>& secondaryPath, BaseComplexQuad& bc);
         std::vector<std::shared_ptr<SimplificationOperation>> Ops;
         PQueue<std::shared_ptr<SimplificationOperation>> Op_Q;
+
 };
 
 #endif

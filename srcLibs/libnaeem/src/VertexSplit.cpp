@@ -36,6 +36,10 @@ void VertexSplit::PerformOperation() {
     CheckValidity();
     if (!IsOperationValid()) return;
 
+    if (mesh->V.at(vid).type != FEATURE && !mesh->V.at(vid).isBoundary && mesh->V.at(vid).N_Vids.size() == 5) {
+        FiveVertexSplit();
+        return;
+    }
 
     if (splitEdges.empty()) {
        splitEdges = SelectEdgesToSplit();
@@ -413,6 +417,284 @@ void VertexSplit::PerformOperation() {
     }
     Smooth();   
 }
+
+void VertexSplit::FiveVertexSplit() {
+    if (splitEdges.empty()) {
+       splitEdges = SelectEdgesToSplit();
+    }
+    Edge& e1 = mesh->E.at(splitEdges.at(0));
+    Edge& e2 = mesh->E.at(splitEdges.at(1));
+    
+    Vertex new_V1(0.5 * (mesh->V.at(e1.Vids.at(0)).xyz() + mesh->V.at(e1.Vids.at(1)).xyz()));
+    Vertex new_V2(0.5 * (mesh->V.at(e2.Vids.at(0)).xyz() + mesh->V.at(e2.Vids.at(1)).xyz()));
+    new_V1.id = mesh->V.size();
+    mesh->V.push_back(new_V1);
+    new_V2.id = mesh->V.size();
+    mesh->V.push_back(new_V2);
+
+    auto& v = mesh->V.at(vid);
+    auto& newV1 = mesh->V.at(new_V1.id);
+    auto& newV2 = mesh->V.at(new_V2.id);
+    newV1.type = v.type;
+    newV2.type = v.type;
+    newV1.isBoundary = v.isBoundary;
+    newV2.isBoundary = v.isBoundary;
+    newV1.idealValence = v.idealValence;
+    newV2.idealValence = v.idealValence;
+
+    std::vector<size_t> temp_a = GetIntersection(v.N_Eids, mesh->F.at(e1.N_Fids.at(0)).Eids);
+    AddContents(temp_a, GetIntersection(v.N_Eids, mesh->F.at(e1.N_Fids.at(1)).Eids));
+    
+    std::vector<size_t> temp_b = GetIntersection(v.N_Eids, mesh->F.at(e2.N_Fids.at(0)).Eids);
+    AddContents(temp_b, GetIntersection(v.N_Eids, mesh->F.at(e2.N_Fids.at(1)).Eids));
+
+    std::vector<size_t> diffFaces = e1.N_Fids;
+    AddContents(diffFaces, e2.N_Fids);
+
+    auto& edgeToRemove = mesh->E.at(GetIntersection(temp_a, temp_b).at(0));
+    auto& faceToRemove = mesh->F.at(GetDifference(v.N_Fids, diffFaces).at(0));
+
+    Edge newEdge_1;
+    newEdge_1.Vids = std::vector<size_t>{newV1.id, GetDifference(edgeToRemove.Vids, std::vector<size_t>{v.id}).at(0)};
+    Edge newEdge_2;
+    newEdge_2.Vids = std::vector<size_t>{newV2.id, GetDifference(edgeToRemove.Vids, std::vector<size_t>{v.id}).at(0)};
+    Edge newEdge_3;
+    newEdge_3.Vids = std::vector<size_t>{faceToRemove.Vids.at((std::distance(faceToRemove.Vids.begin(), std::find(faceToRemove.Vids.begin(), faceToRemove.Vids.end(), v.id))+2)%faceToRemove.Vids.size()), v.id};
+    Edge newEdge_4;
+    newEdge_4.Vids = std::vector<size_t>{v.id, newV1.id};
+    Edge newEdge_5;
+    newEdge_5.Vids = std::vector<size_t>{v.id, newV2.id};
+
+    newEdge_1.id = mesh->E.size();
+    mesh->E.push_back(newEdge_1);
+    newEdge_2.id = mesh->E.size();
+    mesh->E.push_back(newEdge_2);
+    newEdge_3.id = mesh->E.size();
+    mesh->E.push_back(newEdge_3);
+    newEdge_4.id = mesh->E.size();
+    mesh->E.push_back(newEdge_4);
+    newEdge_5.id = mesh->E.size();
+    mesh->E.push_back(newEdge_5);
+
+    auto& newEdge1 = mesh->E.at(newEdge_1.id);
+    auto& newEdge2 = mesh->E.at(newEdge_2.id);
+    auto& newEdge3 = mesh->E.at(newEdge_3.id);
+    auto& newEdge4 = mesh->E.at(newEdge_4.id);
+    auto& newEdge5 = mesh->E.at(newEdge_5.id);
+
+    Face newF_1;
+    size_t evid = edgeToRemove.Vids.at(0) == v.id ? edgeToRemove.Vids.at(1) : edgeToRemove.Vids.at(0);
+    newF_1.Vids.push_back(evid);
+    for (auto fid: edgeToRemove.N_Fids) {
+        auto& f = mesh->F.at(fid);
+        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+        if (f.Vids.at((idx+1)%f.Vids.size()) == evid && std::find(f.Eids.begin(), f.Eids.end(), e1.id) != f.Eids.end()) {
+            newF_1.Vids.push_back(newV1.id);
+            newF_1.Vids.push_back(v.id);
+            newF_1.Vids.push_back(newV2.id);
+            break;
+        } else if (f.Vids.at((idx+1)%f.Vids.size()) == evid && std::find(f.Eids.begin(), f.Eids.end(), e2.id) != f.Eids.end()) {
+            newF_1.Vids.push_back(newV2.id);
+            newF_1.Vids.push_back(v.id);
+            newF_1.Vids.push_back(newV1.id);
+            break;
+        }    
+    }
+
+    Face newF_2;
+    Face newF_3;
+    int idx = std::distance(newF_1.Vids.begin(), std::find(newF_1.Vids.begin(), newF_1.Vids.end(), v.id));
+    int idx2 = std::distance(faceToRemove.Vids.begin(), std::find(faceToRemove.Vids.begin(), faceToRemove.Vids.end(), v.id));
+    if (newF_1.Vids.at((idx+1)%newF_1.Vids.size()) == newV1.id) {
+        newF_2.Vids = {newV1.id, v.id, faceToRemove.Vids.at((idx2+2)%faceToRemove.Vids.size()), faceToRemove.Vids.at((idx2+3)%faceToRemove.Vids.size())};
+        newF_3.Vids = {v.id, newV2.id, faceToRemove.Vids.at((idx2+1)%faceToRemove.Vids.size()), faceToRemove.Vids.at((idx2+2)%faceToRemove.Vids.size())};
+    } else if (newF_1.Vids.at((idx+1)%newF_1.Vids.size()) == newV2.id) {
+        newF_2.Vids = {newV2.id, v.id, faceToRemove.Vids.at((idx2+2)%faceToRemove.Vids.size()), faceToRemove.Vids.at((idx2+3)%faceToRemove.Vids.size())};
+        newF_3.Vids = {v.id, newV1.id, faceToRemove.Vids.at((idx2+1)%faceToRemove.Vids.size()), faceToRemove.Vids.at((idx2+2)%faceToRemove.Vids.size())};
+    }
+
+    newF_1.id = mesh->F.size();
+    mesh->F.push_back(newF_1);
+    newF_2.id = mesh->F.size();
+    mesh->F.push_back(newF_2);
+    newF_3.id = mesh->F.size();
+    mesh->F.push_back(newF_3);
+
+    auto& newF1 = mesh->F.at(newF_1.id);
+    auto& newF2 = mesh->F.at(newF_2.id);
+    auto& newF3 = mesh->F.at(newF_3.id);
+    // std::cout << "newV1: " << newV1.id << " newV2: " << newV2.id << std::endl; 
+    // std::cout << "edgeToRemove: " << edgeToRemove.id << " " << edgeToRemove.Vids.at(0) << " " << edgeToRemove.Vids.at(1) << std::endl;
+    // std::cout << "e1: " << e1.id << " " << e1.Vids.at(0) << " " << e1.Vids.at(1) << std::endl;
+    // std::cout << "e2: " << e2.id << " " << e2.Vids.at(0) << " " << e2.Vids.at(1) << std::endl;
+    // std::cout << "newEdge1: " << newEdge1.id << " " << newEdge1.Vids.at(0) << " " << newEdge1.Vids.at(1) << std::endl;
+    // std::cout << "newEdge2: " << newEdge2.id << " " << newEdge2.Vids.at(0) << " " << newEdge2.Vids.at(1) << std::endl;
+    // std::cout << "newEdge3: " << newEdge3.id << " " << newEdge3.Vids.at(0) << " " << newEdge3.Vids.at(1) << std::endl;
+    // std::cout << "newEdge4: " << newEdge4.id << " " << newEdge4.Vids.at(0) << " " << newEdge4.Vids.at(1) << std::endl;
+    // std::cout << "newEdge5: " << newEdge5.id << " " << newEdge5.Vids.at(0) << " " << newEdge5.Vids.at(1) << std::endl;
+
+    // std::cout << "faceToRemove Vids: ";
+    // for (auto id: faceToRemove.Vids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    // std::cout << "faceToRemove Eids: ";
+    // for (auto id: faceToRemove.Eids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    // std::cout << "edgeToRemove NFids: " << edgeToRemove.N_Fids.at(0) << " " << edgeToRemove.N_Fids.at(1) << std::endl;
+    // std::cout << "e1 NFids: " << e1.N_Fids.at(0) << " " << e1.N_Fids.at(1) << std::endl;
+    // std::cout << "e2 NFids: " << e2.N_Fids.at(0) << " " << e2.N_Fids.at(1) << std::endl;
+    // std::cout << "faceToRemove: " << faceToRemove.id << std::endl;
+    // std::cout << "newF1 Vids: " << newF1.Vids.size() << " " << newF1.Vids.at(0) << " " << newF1.Vids.at(1) << " " << newF1.Vids.at(2) << " " << newF1.Vids.at(3) << " " << std::endl;
+    // std::cout << "newF2: Vids: " << newF2.Vids.size() << " " << newF2.Vids.at(0) << " " << newF2.Vids.at(1) << " " << newF2.Vids.at(2) << " " << newF2.Vids.at(3) << " " <<  std::endl;
+    // std::cout << "newF3: Vids: " << newF3.Vids.size() << " " << newF3.Vids.at(0) << " " << newF3.Vids.at(1) << " " << newF3.Vids.at(2) << " " << newF3.Vids.at(3) << " " <<  std::endl;
+
+    // e1.Vids.at(0) == v.id ? newV1.N_Vids.push_back(e1.Vids.at(1)) : newV1.N_Vids.push_back(e1.Vids.at(0));
+    // newV1.N_Eids.push_back(e1.id);
+    e1.Vids.at(0) == v.id ? mesh->V.at(e1.Vids.at(1)).N_Vids = GetDifference(mesh->V.at(e1.Vids.at(1)).N_Vids, std::vector<size_t>{v.id}) : mesh->V.at(e1.Vids.at(0)).N_Vids = GetDifference(mesh->V.at(e1.Vids.at(0)).N_Vids, std::vector<size_t>{v.id});
+    e1.Vids.at(std::distance(e1.Vids.begin(), std::find(e1.Vids.begin(), e1.Vids.end(), v.id))) = newV1.id;
+    
+    // e2.Vids.at(0) == v.id ? newV2.N_Vids.push_back(e2.Vids.at(1)) : newV2.N_Vids.push_back(e2.Vids.at(0));
+    // newV2.N_Eids.push_back(e2.id);
+    e2.Vids.at(0) == v.id ? mesh->V.at(e2.Vids.at(1)).N_Vids = GetDifference(mesh->V.at(e2.Vids.at(1)).N_Vids, std::vector<size_t>{v.id}) : mesh->V.at(e2.Vids.at(0)).N_Vids = GetDifference(mesh->V.at(e2.Vids.at(0)).N_Vids, std::vector<size_t>{v.id});
+    e2.Vids.at(std::distance(e2.Vids.begin(), std::find(e2.Vids.begin(), e2.Vids.end(), v.id))) = newV2.id;
+    for (auto fid: e1.N_Fids) {
+        auto& f = mesh->F.at(fid);
+        for (auto eid: f.Eids) {
+            auto& e = mesh->E.at(eid);
+            if (eid == edgeToRemove.id || eid == e1.id || (e.Vids.at(0) != v.id && e.Vids.at(1) != v.id)) continue;
+            e.Vids.at(0) == v.id ? newV1.N_Vids.push_back(e.Vids.at(1)) : newV1.N_Vids.push_back(e.Vids.at(0));
+            newV1.N_Eids.push_back(e.id);
+            e.Vids.at(std::distance(e.Vids.begin(), std::find(e.Vids.begin(), e.Vids.end(), v.id))) = newV1.id;
+        }
+    }
+    for (auto fid: e2.N_Fids) {
+        auto& f = mesh->F.at(fid);
+        for (auto eid: f.Eids) {
+            auto& e = mesh->E.at(eid);
+            if (eid == edgeToRemove.id || eid == e2.id || (e.Vids.at(0) != v.id && e.Vids.at(1) != v.id)) continue;
+            e.Vids.at(0) == v.id ? newV2.N_Vids.push_back(e.Vids.at(1)) : newV2.N_Vids.push_back(e.Vids.at(0));
+            newV2.N_Eids.push_back(e.id);
+            e.Vids.at(std::distance(e.Vids.begin(), std::find(e.Vids.begin(), e.Vids.end(), v.id))) = newV2.id;
+        }
+    }
+    mesh->F.at(e1.N_Fids.at(0)).Vids.at(std::distance(mesh->F.at(e1.N_Fids.at(0)).Vids.begin(), std::find(mesh->F.at(e1.N_Fids.at(0)).Vids.begin(), mesh->F.at(e1.N_Fids.at(0)).Vids.end(), v.id))) = newV1.id;
+    mesh->F.at(e1.N_Fids.at(1)).Vids.at(std::distance(mesh->F.at(e1.N_Fids.at(1)).Vids.begin(), std::find(mesh->F.at(e1.N_Fids.at(1)).Vids.begin(), mesh->F.at(e1.N_Fids.at(1)).Vids.end(), v.id))) = newV1.id;
+    mesh->F.at(e2.N_Fids.at(0)).Vids.at(std::distance(mesh->F.at(e2.N_Fids.at(0)).Vids.begin(), std::find(mesh->F.at(e2.N_Fids.at(0)).Vids.begin(), mesh->F.at(e2.N_Fids.at(0)).Vids.end(), v.id))) = newV2.id;
+    mesh->F.at(e2.N_Fids.at(1)).Vids.at(std::distance(mesh->F.at(e2.N_Fids.at(1)).Vids.begin(), std::find(mesh->F.at(e2.N_Fids.at(1)).Vids.begin(), mesh->F.at(e2.N_Fids.at(1)).Vids.end(), v.id))) = newV2.id;
+
+    newEdge1.N_Fids.push_back(newF1.id);
+    newEdge2.N_Fids.push_back(newF1.id);
+    newEdge3.N_Fids = std::vector<size_t>{newF2.id, newF3.id};
+    newEdge4.N_Fids.push_back(newF1.id);
+    newEdge5.N_Fids.push_back(newF1.id);
+    for (auto fid: edgeToRemove.N_Fids) {
+        auto& f = mesh->F.at(fid);
+        if (std::find(f.Vids.begin(), f.Vids.end(), newV1.id) != f.Vids.end()) {
+            f.Eids.at(std::distance(f.Eids.begin(), std::find(f.Eids.begin(), f.Eids.end(), edgeToRemove.id))) = newEdge1.id;
+            newEdge1.N_Fids.push_back(f.id); 
+        }
+        if (std::find(f.Vids.begin(), f.Vids.end(), newV2.id) != f.Vids.end()) {
+            f.Eids.at(std::distance(f.Eids.begin(), std::find(f.Eids.begin(), f.Eids.end(), edgeToRemove.id))) = newEdge2.id;
+            newEdge2.N_Fids.push_back(f.id);
+        }
+    }
+    AddContents(newF1.Eids, std::vector<size_t>{newEdge1.id, newEdge2.id, newEdge4.id, newEdge5.id});
+    newF2.Eids.push_back(newEdge3.id);
+    newF3.Eids.push_back(newEdge3.id);
+    if (std::find(newF2.Vids.begin(), newF2.Vids.end(), new_V1.id) != newF2.Vids.end()) {
+        newF2.Eids.push_back(newEdge4.id);
+        newEdge4.N_Fids.push_back(newF2.id);
+        newF3.Eids.push_back(newEdge5.id);
+        newEdge5.N_Fids.push_back(newF3.id);
+    } else {
+        newF2.Eids.push_back(newEdge5.id);
+        newEdge5.N_Fids.push_back(newF2.id);
+        newF3.Eids.push_back(newEdge4.id);
+        newEdge4.N_Fids.push_back(newF3.id);
+    }
+    for (auto eid: faceToRemove.Eids) {
+        auto& e = mesh->E.at(eid);
+        if (std::find(newF2.Vids.begin(), newF2.Vids.end(), e.Vids.at(0)) != newF2.Vids.end() && std::find(newF2.Vids.begin(), newF2.Vids.end(), e.Vids.at(1)) != newF2.Vids.end()) {
+            newF2.Eids.push_back(e.id);
+            e.N_Fids.at(0) == faceToRemove.id ? e.N_Fids.at(0) = newF2.id : e.N_Fids.at(1) = newF2.id;
+        } else if (std::find(newF3.Vids.begin(), newF3.Vids.end(), e.Vids.at(0)) != newF3.Vids.end() && std::find(newF3.Vids.begin(), newF3.Vids.end(), e.Vids.at(1)) != newF3.Vids.end()) {
+            newF3.Eids.push_back(e.id);
+            e.N_Fids.at(0) == faceToRemove.id ? e.N_Fids.at(0) = newF3.id : e.N_Fids.at(1) = newF3.id;
+        }
+    }
+    std::vector<size_t> v_nvids = v.N_Vids;
+    std::vector<size_t> v_neids = v.N_Eids;
+    std::vector<size_t> v_nfids = v.N_Fids;
+    for (auto eid: std::vector<size_t>{e1.id, e2.id, newEdge1.id, newEdge2.id, newEdge3.id, newEdge4.id, newEdge5.id}) {
+        auto& e = mesh->E.at(eid);
+        AddContents(mesh->V.at(e.Vids.at(0)).N_Vids, std::vector<size_t>{e.Vids.at(1)});
+        AddContents(mesh->V.at(e.Vids.at(1)).N_Vids, std::vector<size_t>{e.Vids.at(0)});
+        AddContents(mesh->V.at(e.Vids.at(0)).N_Eids, std::vector<size_t>{e.id});
+        AddContents(mesh->V.at(e.Vids.at(1)).N_Eids, std::vector<size_t>{e.id});
+        AddContents(mesh->V.at(e.Vids.at(0)).N_Fids, e.N_Fids);
+        AddContents(mesh->V.at(e.Vids.at(1)).N_Fids, e.N_Fids);
+    }
+    if (edgeToRemove.Vids.at(0) == v.id) {
+        mesh->V.at(edgeToRemove.Vids.at(1)).N_Eids = GetDifference(mesh->V.at(edgeToRemove.Vids.at(1)).N_Eids, std::vector<size_t>{edgeToRemove.id});
+        mesh->V.at(edgeToRemove.Vids.at(1)).N_Vids = GetDifference(mesh->V.at(edgeToRemove.Vids.at(1)).N_Vids, std::vector<size_t>{v.id});
+    } else {
+        mesh->V.at(edgeToRemove.Vids.at(0)).N_Eids = GetDifference(mesh->V.at(edgeToRemove.Vids.at(0)).N_Eids, std::vector<size_t>{edgeToRemove.id});
+        mesh->V.at(edgeToRemove.Vids.at(0)).N_Vids = GetDifference(mesh->V.at(edgeToRemove.Vids.at(0)).N_Vids, std::vector<size_t>{v.id});
+    }
+    v.N_Vids = GetDifference(v.N_Vids, v_nvids);
+    v.N_Eids = GetDifference(v.N_Eids, v_neids);
+    v.N_Fids = GetDifference(v.N_Fids, v_nfids);
+    for (auto fvid: faceToRemove.Vids) {
+        auto& fv = mesh->V.at(fvid);
+        fv.N_Fids = GetDifference(fv.N_Fids, std::vector<size_t>{faceToRemove.id});
+        
+    }
+    for (auto nfid: faceToRemove.N_Fids) {
+        mesh->F.at(nfid).N_Fids = GetDifference(mesh->F.at(nfid).N_Fids, std::vector<size_t>{faceToRemove.id});
+    }
+    for (auto fid: std::vector<size_t>{newF1.id, newF2.id, newF3.id}) {
+        auto& newF = mesh->F.at(fid);
+        for (auto fvid: newF.Vids) {
+            AddContents(ToSmooth, std::vector<size_t>{fvid});
+            AddContents(ToSmooth, mesh->V.at(fvid).N_Vids);
+            AddContents(newF.N_Fids, mesh->V.at(fvid).N_Fids);
+            AddContents(mesh->V.at(fvid).N_Fids, std::vector<size_t>{newF.id});
+        }
+    }
+
+    // std::cout << "newF1 Vids: ";
+    // for (auto id: newF1.Vids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    // std::cout << "newF1 Eids: ";
+    // for (auto id: newF1.Eids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    // std::cout << "newF2 Vids: ";
+    // for (auto id: newF2.Vids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    // std::cout << "newF2 Eids: ";
+    // for (auto id: newF2.Eids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    // std::cout << "newF3 Vids: ";
+    // for (auto id: newF3.Vids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    // std::cout << "newF3 Eids: ";
+    // for (auto id: newF3.Eids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    edgeToRemove.Vids.clear();
+    edgeToRemove.N_Fids.clear();
+    faceToRemove.Vids.clear();
+    faceToRemove.Eids.clear();
+    faceToRemove.N_Fids.clear();
+    Smooth();
+}
+
 
 std::vector<size_t> VertexSplit::SelectEdgesToSplit() {
     std::vector<size_t> splitEdges;

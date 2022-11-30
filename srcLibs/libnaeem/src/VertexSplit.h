@@ -28,7 +28,7 @@ class VertexSplit : public SimplificationOperation {
         size_t vid;
         std::vector<size_t> splitEdges;
         std::vector<size_t> SelectEdgesToSplit();
-
+        void FiveVertexSplit();
 };
 
 #endif

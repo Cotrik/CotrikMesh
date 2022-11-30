@@ -187,6 +187,18 @@ void Smoother::SetOptimizedPositions(int iter, std::vector<size_t>& V) {
 }
 
 void Smoother::SetPosition(Vertex& v) {
+    // std::cout << "SetPosition of " << v.id << std::endl;
+    // std::cout << "N_Vids: ";
+    // for (auto id: v.N_Vids) std::cout << id << " ";
+    // std::cout << std::endl;
+    // std::cout << "N_Eids: ";
+    // for (auto id: v.N_Eids) std::cout << id << " ";
+    // std::cout << std::endl;
+    // std::cout << "N_Fids: ";
+    // for (auto id: v.N_Fids) std::cout << id << " ";
+    // std::cout << std::endl;
+
+    
     double polyArea = 0.0;
     glm::dvec3 centroid(0.0, 0.0, 0.0);
     size_t startE = v.N_Eids.at(0);
@@ -229,6 +241,10 @@ void Smoother::SetPosition(Vertex& v) {
     }
     if (polyArea == 0.0) return;
     centroid /= polyArea;
+    // v.x = centroid.x;
+    // v.y = centroid.y;
+    // v.z = centroid.z;
+    // return;
     for (auto fid: v.N_Fids) {
         auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));

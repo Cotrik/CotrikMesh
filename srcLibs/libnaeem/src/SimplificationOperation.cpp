@@ -253,8 +253,8 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
     }
     
     face.N_Fids.clear();
-    // face.Vids.clear();
-    // face.Eids.clear();
+    face.Vids.clear();
+    face.Eids.clear();
     // Smooth();
 }
 

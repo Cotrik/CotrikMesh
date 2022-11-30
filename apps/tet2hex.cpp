@@ -46,6 +46,7 @@ int main(int argc, char* argv[]) {
     hexMesh.C.resize(4 * tetMesh.C.size());
     // Construct V;
     size_t vid = 0;
+    std::cout << "beginning hex mesh construction" << std::endl; 
     for (const auto& v : tetMesh.V) {
         hexMesh.V.at(vid) = v.xyz();
         hexMesh.V.at(vid).isBoundary = v.isBoundary;
@@ -112,6 +113,7 @@ int main(int argc, char* argv[]) {
         hexMesh.C.at(cid).Vids = c4;
         hexMesh.C.at(cid).id = cid++;
     }
+    std::cout << "writing hex mesh" << std::endl;
     MeshFileWriter writer(hexMesh, argv[2]);
     writer.WriteFile();
     return 0;
