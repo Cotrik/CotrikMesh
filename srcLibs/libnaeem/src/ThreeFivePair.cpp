@@ -134,7 +134,20 @@ int ThreeFivePair::Move(size_t dest, bool skipCheck) {
             return 0;
         }
     }
-    
+    for (auto fid: GetDifference(three.N_Fids, five.N_Fids)) {
+        auto& f = mesh->F.at(fid);
+        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), threeId));
+        if ((f.Vids.at((idx+2)%f.Vids.size()) == dest) && mesh->V.at(f.Vids.at((idx+1)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+1)%f.Vids.size())).isBoundary
+        && mesh->V.at(f.Vids.at((idx+3)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+3)%f.Vids.size())).isBoundary) {
+            threeId = f.Vids.at((idx+2)%f.Vids.size());
+            fiveId = f.Vids.at((idx+1)%f.Vids.size());
+            std::shared_ptr<SimplificationOperation> dc = std::make_shared<DiagonalCollapse>(*mesh, *mu, *smoother, f.id, (idx+1)%f.Vids.size(), (idx+3)%f.Vids.size());
+            dc->PerformOperation();
+            SetEdgeId();
+            return 0;
+        }
+    }
+
     for (auto eid: five.N_Eids) {
         // std::cout << "Rotating three five pair" << std::endl;
         if (eid == edgeId) continue;
@@ -143,11 +156,12 @@ int ThreeFivePair::Move(size_t dest, bool skipCheck) {
         if (GetIntersection(pairEdge.N_Fids, e.N_Fids).size() == 0) continue;
         size_t fid = GetDifference(e.N_Fids, pairEdge.N_Fids).at(0);
         size_t vid = e.Vids.at(0) == dest ? e.Vids.at(0) : e.Vids.at(1);
+        size_t evid = e.Vids.at(0) == fiveId ? e.Vids.at(1) : e.Vids.at(0);
         auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), fiveId));
-        if ((f.Vids.at((idx+1)%f.Vids.size()) == vid || f.Vids.at((idx+3)%f.Vids.size()) == vid) && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary) {
-            bool rotClockwise = f.Vids.at((idx+1)%f.Vids.size()) == vid ? false : true;
-            threeId = vid;
+        if ((f.Vids.at((idx+1)%f.Vids.size()) == vid || f.Vids.at((idx+2)%f.Vids.size()) == dest || f.Vids.at((idx+3)%f.Vids.size()) == vid) && mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).type != FEATURE && !mesh->V.at(f.Vids.at((idx+2)%f.Vids.size())).isBoundary) {
+            bool rotClockwise = f.Vids.at((idx+1)%f.Vids.size()) == vid || (f.Vids.at((idx+1)%f.Vids.size()) == evid && f.Vids.at((idx+2)%f.Vids.size()) == dest) ? false : true;
+            threeId = f.Vids.at((idx+2)%f.Vids.size()) == dest ? evid : vid;
             fiveId = f.Vids.at((idx+2)%f.Vids.size());
             std::shared_ptr<SimplificationOperation> s = std::make_shared<EdgeRotation>(*mesh, *mu, *smoother, e.id, rotClockwise);
             s->PerformOperation();
@@ -183,6 +197,21 @@ int ThreeFivePair::Move(size_t dest, bool skipCheck) {
                 SplitSixSingularity();
             }
             return 0;
+        }
+        fid = GetDifference(e2.N_Fids, e.N_Fids).at(0);
+        auto& f2 = mesh->F.at(fid);
+        idx = std::distance(f2.Vids.begin(), std::find(f2.Vids.begin(), f2.Vids.end(), fiveId));
+        if (f2.Vids.at((idx+2)%f.Vids.size()) == dest) {
+            std::vector<size_t> tempEdges;
+            for (auto nfid: pairEdge.N_Fids) {
+                AddContents(tempEdges, GetDifference(GetIntersection(mesh->F.at(nfid).Eids, five.N_Eids), std::vector<size_t>{pairEdge.id}));
+                std::shared_ptr<SimplificationOperation> vs = std::make_shared<VertexSplit>(*mesh, *mu, *smoother, five.id, tempEdges);
+                vs->PerformOperation();
+                threeId = five.id;
+                fiveId = dest;
+                SetEdgeId();
+                return 0;
+            }
         }
     }
     return -1;

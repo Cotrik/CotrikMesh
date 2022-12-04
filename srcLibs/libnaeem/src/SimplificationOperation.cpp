@@ -129,9 +129,24 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
     std::vector<size_t> diffTargetEdges = GetDifference(target.N_Eids, edgesToKeep);
     std::vector<size_t> diffTargetFaces = GetDifference(target.N_Fids, facesToRemove);
 
-    // std::cout << "target: " << target.id << std::endl;
-    // std::cout << "source: " << source.id << std::endl;
-
+    // std::cout << "target: " << target.id << " " << target.N_Vids.size() << " " << target.N_Eids.size() << " " << target.N_Fids.size() << std::endl;
+    // for (auto nvid: target.N_Vids) {
+    //     auto& nv = mesh->V.at(nvid);
+    //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << " ";
+    //     for (auto nnvid: nv.N_Vids) std::cout << nnvid << " ";
+    //     std::cout << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+    // }
+    // std::cout << "source: " << source.id << " " << source.N_Vids.size() << " " << source.N_Eids.size() << " " << source.N_Fids.size() << std::endl;
+    // for (auto nvid: source.N_Vids) {
+    //     auto& nv = mesh->V.at(nvid);
+    //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << " ";
+    //     for (auto nnvid: nv.N_Vids) std::cout << nnvid << " ";
+    //     std::cout << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+    // }
     // for (auto fvid: face.Vids) {
     //     std::cout << "face v: " << fvid << std::endl;
     // }
@@ -153,13 +168,23 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
     
     for (auto vid: source.N_Vids) {
         Vertex& v = mesh->V.at(vid);
+        // std::cout << "changing source nvid: " << v.id << " " << v.N_Vids.size() << " ";
+        // for (auto nnvid: v.N_Vids) std::cout << nnvid << " ";
+        // std::cout << std::endl;
+        
         AddContents(v.N_Vids, std::vector<size_t>{target.id});
         UpdateContents(v.N_Vids, verticesToRemove);
         UpdateContents(v.N_Eids, edgesToRemove);
         UpdateContents(v.N_Fids, facesToRemove);
     }
     // std::cout << "After updating source nvids" << std::endl;
-
+    // for (auto vid: source.N_Vids) {
+    //     Vertex& v = mesh->V.at(vid);
+    //     std::cout << "source nvid: " << v.id << " " << v.N_Vids.size() << " ";
+    //     for (auto nnvid: v.N_Vids) std::cout << nnvid << " ";
+    //     std::cout << std::endl;
+        
+    // }
     for (auto eid: diffSourceEdges) {
         Edge& e = mesh->E.at(eid);
         if (e.Vids.at(0) == source.id) e.Vids.at(0) = target.id;
@@ -213,7 +238,7 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
         Edge& edgeToRemove = mesh->E.at(e2);
         // std::cout << edgeToKeep.N_Fids.size() << " " << edgeToRemove.N_Fids.size() << std::endl;
         if (edgeToRemove.N_Fids.size() < 2) continue;
-        // Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh->F.at(edgeToKeep.N_Fids.at(1)) : mesh->F.at(edgeToKeep.N_Fids.at(0));
+        Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh->F.at(edgeToKeep.N_Fids.at(1)) : mesh->F.at(edgeToKeep.N_Fids.at(0));
         Face& faceToChange = edgeToRemove.N_Fids.at(0) == face.id ? mesh->F.at(edgeToRemove.N_Fids.at(1)) : mesh->F.at(edgeToRemove.N_Fids.at(0));
         for (int i = 0; i < faceToChange.Eids.size(); i++) {
             if (faceToChange.Eids.at(i) == edgeToRemove.id) {
@@ -239,6 +264,14 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
     source.N_Eids.clear();
     source.N_Fids.clear();
     // std::cout << "After updating face info" << std::endl;
+    // for (auto nvid: target.N_Vids) {
+    //     auto& nv = mesh->V.at(nvid);
+    //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << " ";
+    //     for (auto nnvid: nv.N_Vids) std::cout << nnvid << " ";
+    //     std::cout << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+    // }
     for (auto id: face.Vids) {
         FixDoublet(id);
     }

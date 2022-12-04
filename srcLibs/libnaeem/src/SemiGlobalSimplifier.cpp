@@ -1183,14 +1183,23 @@ void SemiGlobalSimplifier::PrototypeF(int idxOffset) {
             auto& fv = mesh->V.at(f.Vids.at((idx+idxOffset)%f.Vids.size()));
             if (fv.type != FEATURE && !fv.isBoundary && fv.N_Vids.size() == valenceToCheck) {
                 std::vector<size_t> threeFiveIds = valenceToCheck == 5 ? std::vector<size_t>{v.id, fv.id} : std::vector<size_t>{fv.id, v.id};
+                // std::cout << mesh->V.at(threeFiveIds.at(0)).id << " " << mesh->V.at(threeFiveIds.at(1)).id << std::endl;
+                // std::cout << mesh->V.at(threeFiveIds.at(0)).N_Vids.size() << " " << mesh->V.at(threeFiveIds.at(1)).N_Vids.size() << std::endl;
                 SingularityLink l1 = PrototypeGetLink(v.id, bc, fv.id, std::vector<size_t>{}, false, false);
                 SingularityLink l2 = PrototypeGetLink(fv.id, bc, v.id, std::vector<size_t>{}, false, false);
                 if (l1.linkVids.empty() || l2.linkVids.empty()) continue;
                 std::vector<size_t> toMove = l1.a+l1.b <= l2.a+l2.b ? l1.linkVids : l2.linkVids;
+                // size_t step = toMove.at(1);
+                // if (mu->GetDifference(mesh->V.at(threeFiveIds.at(0)).N_Vids, mesh->V.at(threeFiveIds.at(1)).N_Vids).at(0) != step) {
+                //     continue;
+                // }
+                // std::cout << "Got a down direction" << std::endl;
+                // std::cout << "toMove size: " << toMove.size() << std::endl;
                 if (idxOffset == 2) {
                     std::shared_ptr<DiagonalThreeFivePair> tfp = std::make_shared<DiagonalThreeFivePair>(*mesh, *mu, *smoother, threeFiveIds.at(0), threeFiveIds.at(1));
                     for (int i = 1; i < toMove.size(); i++) {
                         tfp->Move(toMove.at(i));
+                        if (!CheckMeshValidity()) return;
                     }
                 } else {
                     std::shared_ptr<ThreeFivePair> tfp = std::make_shared<ThreeFivePair>(*mesh, *mu, *smoother, threeFiveIds.at(0), threeFiveIds.at(1));
@@ -1201,6 +1210,7 @@ void SemiGlobalSimplifier::PrototypeF(int idxOffset) {
                 break;
             }
         }
+        // if (breakLoop) break;
     }
     while (FixValences());
 }
@@ -2371,28 +2381,28 @@ void SemiGlobalSimplifier::ResolveSingularities() {
     std::cout << "SINGULARITIES: " << nSingularities << " DETECTED SINGULARITIES: " << Singularities.size() << std::endl;
     std::cout << "THREE SINGULARITIES: " << nThreeSingularities << " FIVE SINGULARITIES: " << nFiveSingularities << std::endl;
     // return;
-    GetSingularityGroups(Singularities, bc);
+    // GetSingularityGroups(Singularities, bc);
 
     std::cout << "END OF SIMPLIFICATION LOOP" << std::endl;
     // int it = 0;
-    // for (auto sid: Singularities) {
-    //     int mSize = mesh->V.size();
-    //     auto& s = mesh->V.at(sid);
-    //     std::cout << "Resolving Singularity: " << s.id << std::endl;
-    //     // if ((s.N_Vids.size() != 3 && s.N_Vids.size() != 5) || s.type == FEATURE || s.isBoundary) continue;
-    //     int id = ResolveSingularity(sid, bc);
-    //     while (id != -1) {
-    //         id = ResolveSingularity(id, bc);
-    //         // std::cout << "NEW ID: " << id << std::endl;
-    //     }
-    //     // if (mesh->V.size() != mSize) {
-    //     //     Smooth();
-    //     // }
-    //     it += 1;
-    //     if (it == iters) {
-    //         break;
-    //     }
-    // }
+    for (auto sid: Singularities) {
+        int mSize = mesh->V.size();
+        auto& s = mesh->V.at(sid);
+        std::cout << "Resolving Singularity: " << s.id << std::endl;
+        // if ((s.N_Vids.size() != 3 && s.N_Vids.size() != 5) || s.type == FEATURE || s.isBoundary) continue;
+        int id = ResolveSingularity(sid, bc);
+        while (id != -1) {
+            id = ResolveSingularity(id, bc);
+            // std::cout << "NEW ID: " << id << std::endl;
+        }
+        // if (mesh->V.size() != mSize) {
+        //     Smooth();
+        // }
+        // it += 1;
+        // if (it == iters) {
+        //     break;
+        // }
+    }
     // Smooth();
     clock_t end = clock();
     double time = (double) (end-start) / CLOCKS_PER_SEC;
@@ -4391,6 +4401,24 @@ bool SemiGlobalSimplifier::FixValences() {
 
 bool SemiGlobalSimplifier::CheckMeshValidity() {
     bool res = true;
+    for (auto& v: mesh->V) {
+        if ((v.N_Vids.size() + v.N_Eids.size() + v.N_Fids.size()) / 3 != v.N_Vids.size()) {
+            std::cout << v.id << " : " << v.N_Vids.size() << " " << v.N_Eids.size() << " " << v.N_Fids.size() << std::endl;
+            return false;
+        }
+        for (auto nvid: v.N_Vids) {
+            auto& nv = mesh->V.at(nvid);
+            if (std::find(nv.N_Vids.begin(), nv.N_Vids.end(), v.id) == nv.N_Vids.end()) {
+                std::cout << "v neighbors: " << v.id << " ";
+                for (auto id: v.N_Vids) std::cout << id << " ";
+                std::cout << std::endl;
+                std::cout << "nv neighbors: " << nv.id << " ";
+                for (auto id: nv.N_Vids) std::cout << id << " ";
+                std::cout << std::endl;
+                return false;
+            }
+        }
+    }
     for (auto& f: mesh->F) {
         if (f.Vids.empty() || f.N_Fids.empty()) continue;
         for (auto eid: f.Eids) {

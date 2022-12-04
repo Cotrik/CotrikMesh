@@ -564,6 +564,7 @@ void VertexSplit::FiveVertexSplit() {
             auto& e = mesh->E.at(eid);
             if (eid == edgeToRemove.id || eid == e1.id || (e.Vids.at(0) != v.id && e.Vids.at(1) != v.id)) continue;
             e.Vids.at(0) == v.id ? newV1.N_Vids.push_back(e.Vids.at(1)) : newV1.N_Vids.push_back(e.Vids.at(0));
+            e.Vids.at(0) == v.id ? mesh->V.at(e.Vids.at(1)).N_Vids.at(std::distance(mesh->V.at(e.Vids.at(1)).N_Vids.begin(), std::find(mesh->V.at(e.Vids.at(1)).N_Vids.begin(), mesh->V.at(e.Vids.at(1)).N_Vids.end(), v.id))) = newV1.id : mesh->V.at(e.Vids.at(0)).N_Vids.at(std::distance(mesh->V.at(e.Vids.at(0)).N_Vids.begin(), std::find(mesh->V.at(e.Vids.at(0)).N_Vids.begin(), mesh->V.at(e.Vids.at(0)).N_Vids.end(), v.id))) = newV1.id;
             newV1.N_Eids.push_back(e.id);
             e.Vids.at(std::distance(e.Vids.begin(), std::find(e.Vids.begin(), e.Vids.end(), v.id))) = newV1.id;
         }
@@ -574,6 +575,7 @@ void VertexSplit::FiveVertexSplit() {
             auto& e = mesh->E.at(eid);
             if (eid == edgeToRemove.id || eid == e2.id || (e.Vids.at(0) != v.id && e.Vids.at(1) != v.id)) continue;
             e.Vids.at(0) == v.id ? newV2.N_Vids.push_back(e.Vids.at(1)) : newV2.N_Vids.push_back(e.Vids.at(0));
+            e.Vids.at(0) == v.id ? mesh->V.at(e.Vids.at(1)).N_Vids.at(std::distance(mesh->V.at(e.Vids.at(1)).N_Vids.begin(), std::find(mesh->V.at(e.Vids.at(1)).N_Vids.begin(), mesh->V.at(e.Vids.at(1)).N_Vids.end(), v.id))) = newV2.id : mesh->V.at(e.Vids.at(0)).N_Vids.at(std::distance(mesh->V.at(e.Vids.at(0)).N_Vids.begin(), std::find(mesh->V.at(e.Vids.at(0)).N_Vids.begin(), mesh->V.at(e.Vids.at(0)).N_Vids.end(), v.id))) = newV2.id;
             newV2.N_Eids.push_back(e.id);
             e.Vids.at(std::distance(e.Vids.begin(), std::find(e.Vids.begin(), e.Vids.end(), v.id))) = newV2.id;
         }

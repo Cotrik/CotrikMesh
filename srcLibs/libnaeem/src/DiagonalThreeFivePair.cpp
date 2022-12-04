@@ -87,6 +87,18 @@ int DiagonalThreeFivePair::Move(size_t dest, bool skipCheck) {
     // std::cout << "three id: " << three.id << " three nfids: " << three.N_Fids.size() << " five id: " << five.id << " five nfids: " << five.N_Fids.size() << std::endl;
     // std::cout << "three id: " << three.id << " three nvids: " << three.N_Vids.size() << " five id: " << five.id << " five nvids: " << five.N_Vids.size() << std::endl;
     // std::cout << "three id: " << three.id << " three neids: " << three.N_Eids.size() << " five id: " << five.id << " five neids: " << five.N_Eids.size() << std::endl;
+    // for (auto nvid: three.N_Vids) {
+    //     auto& nv = mesh->V.at(nvid);
+    //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+    // }
+    // for (auto nvid: five.N_Vids) {
+    //     auto& nv = mesh->V.at(nvid);
+    //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+    //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+    // }
     faceId = GetIntersection(three.N_Fids, five.N_Fids).at(0);
     int newThreeId = -1;
     int newFiveId = -1;
@@ -112,6 +124,18 @@ int DiagonalThreeFivePair::Move(size_t dest, bool skipCheck) {
         // std::cout << "three id: " << mesh->V.at(threeId).id << " three nfids: " << mesh->V.at(threeId).N_Fids.size() << " five id: " << mesh->V.at(fiveId).id << " five nfids: " << mesh->V.at(fiveId).N_Fids.size() << std::endl;
         // std::cout << "three id: " << mesh->V.at(threeId).id << " three nvids: " << mesh->V.at(threeId).N_Vids.size() << " five id: " << mesh->V.at(fiveId).id << " five nvids: " << mesh->V.at(fiveId).N_Vids.size() << std::endl;
         // std::cout << "three id: " << mesh->V.at(threeId).id << " three neids: " << mesh->V.at(threeId).N_Eids.size() << " five id: " << mesh->V.at(fiveId).id << " five neids: " << mesh->V.at(fiveId).N_Eids.size() << std::endl;
+        // for (auto nvid: mesh->V.at(threeId).N_Vids) {
+        //     auto& nv = mesh->V.at(nvid);
+        //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+        //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+        //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+        // }
+        // for (auto nvid: mesh->V.at(fiveId).N_Vids) {
+        //     auto& nv = mesh->V.at(nvid);
+        //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+        //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+        //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+        // }
         return 1;
     }
 
@@ -131,6 +155,18 @@ int DiagonalThreeFivePair::Move(size_t dest, bool skipCheck) {
             // std::cout << "three id: " << mesh->V.at(threeId).id << " three nfids: " << mesh->V.at(threeId).N_Fids.size() << " five id: " << mesh->V.at(fiveId).id << " five nfids: " << mesh->V.at(fiveId).N_Fids.size() << std::endl;
             // std::cout << "three id: " << mesh->V.at(threeId).id << " three nvids: " << mesh->V.at(threeId).N_Vids.size() << " five id: " << mesh->V.at(fiveId).id << " five nvids: " << mesh->V.at(fiveId).N_Vids.size() << std::endl;
             // std::cout << "three id: " << mesh->V.at(threeId).id << " three neids: " << mesh->V.at(threeId).N_Eids.size() << " five id: " << mesh->V.at(fiveId).id << " five neids: " << mesh->V.at(fiveId).N_Eids.size() << std::endl;
+            // for (auto nvid: mesh->V.at(threeId).N_Vids) {
+            //     auto& nv = mesh->V.at(nvid);
+            //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+            //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+            //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+            // }
+            // for (auto nvid: mesh->V.at(fiveId).N_Vids) {
+            //     auto& nv = mesh->V.at(nvid);
+            //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+            //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+            //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+            // }
             return 1;
         }
     }
@@ -157,7 +193,18 @@ int DiagonalThreeFivePair::Move(size_t dest, bool skipCheck) {
                 // std::cout << "three id: " << mesh->V.at(threeId).id << " three nfids: " << mesh->V.at(threeId).N_Fids.size() << " five id: " << mesh->V.at(fiveId).id << " five nfids: " << mesh->V.at(fiveId).N_Fids.size() << std::endl;
                 // std::cout << "three id: " << mesh->V.at(threeId).id << " three nvids: " << mesh->V.at(threeId).N_Vids.size() << " five id: " << mesh->V.at(fiveId).id << " five nvids: " << mesh->V.at(fiveId).N_Vids.size() << std::endl;
                 // std::cout << "three id: " << mesh->V.at(threeId).id << " three neids: " << mesh->V.at(threeId).N_Eids.size() << " five id: " << mesh->V.at(fiveId).id << " five neids: " << mesh->V.at(fiveId).N_Eids.size() << std::endl;
-    
+                // for (auto nvid: mesh->V.at(threeId).N_Vids) {
+                //     auto& nv = mesh->V.at(nvid);
+                //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+                //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+                //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+                // }
+                // for (auto nvid: mesh->V.at(fiveId).N_Vids) {
+                //     auto& nv = mesh->V.at(nvid);
+                //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+                //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+                //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+                // }
                 return 1;
             } else if ((fid != f.id && ef.Vids.at((idx+3)%ef.Vids.size()) == dest && (dest != e.Vids.at(0) && dest != e.Vids.at(1))) || (fid == f.id && ef.Vids.at((idx+3)%ef.Vids.size()) == dest && (dest == e.Vids.at(0) || dest == e.Vids.at(1)))) {
                 // std::cout << "Moving Right" << std::endl;
@@ -173,7 +220,18 @@ int DiagonalThreeFivePair::Move(size_t dest, bool skipCheck) {
                 // std::cout << "three id: " << mesh->V.at(threeId).id << " three nfids: " << mesh->V.at(threeId).N_Fids.size() << " five id: " << mesh->V.at(fiveId).id << " five nfids: " << mesh->V.at(fiveId).N_Fids.size() << std::endl;
                 // std::cout << "three id: " << mesh->V.at(threeId).id << " three nvids: " << mesh->V.at(threeId).N_Vids.size() << " five id: " << mesh->V.at(fiveId).id << " five nvids: " << mesh->V.at(fiveId).N_Vids.size() << std::endl;
                 // std::cout << "three id: " << mesh->V.at(threeId).id << " three neids: " << mesh->V.at(threeId).N_Eids.size() << " five id: " << mesh->V.at(fiveId).id << " five neids: " << mesh->V.at(fiveId).N_Eids.size() << std::endl;
-    
+                // for (auto nvid: mesh->V.at(threeId).N_Vids) {
+                //     auto& nv = mesh->V.at(nvid);
+                //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+                //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+                //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+                // }
+                // for (auto nvid: mesh->V.at(fiveId).N_Vids) {
+                //     auto& nv = mesh->V.at(nvid);
+                //     std::cout << "nv id: " << nv.id << " nv nvids: " << nv.N_Vids.size() << std::endl;
+                //     std::cout << "nv id: " << nv.id << " nv neids: " << nv.N_Eids.size() << std::endl;
+                //     std::cout << "nv id: " << nv.id << " nv nfids: " << nv.N_Fids.size() << std::endl;
+                // }
                 return 1;
             }
         }

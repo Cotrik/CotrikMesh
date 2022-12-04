@@ -172,19 +172,23 @@ int main(int argc, char* argv[]) {
     }
     start = std::clock();
     sg.PrototypeF();
-    // sg.CheckMeshValidity();
+    if (!sg.CheckMeshValidity()) return 0;
     sg.PrototypeF();
-    // sg.CheckMeshValidity();
+    if (!sg.CheckMeshValidity()) return 0;
+    sg.CheckMeshValidity();
     sg.PrototypeF();
+    if (!sg.CheckMeshValidity()) return 0;
     sg.PrototypeF(1);
+    if (!sg.CheckMeshValidity()) return 0;
     sg.PrototypeF(1);
+    if (!sg.CheckMeshValidity()) return 0;
     sg.PrototypeF(1);
+    if (!sg.CheckMeshValidity()) return 0;
     sg.PrototypeF(3);
+    if (!sg.CheckMeshValidity()) return 0;
     sg.PrototypeF(3);
+    if (!sg.CheckMeshValidity()) return 0;
     sg.PrototypeF(3);
-    // sg.PrototypeD();
-    sg.PrototypeBoundary(true);
-    // sg.CheckMeshValidity();
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Direct pairs simplification time: " << duration << " seconds" << std::endl;
     
@@ -225,25 +229,35 @@ int main(int argc, char* argv[]) {
     
     // sg.GetSingularityPairs();
     // sg.AlignSingularities();
+    // startSingularities = 0.0;
+    // for (auto& v: source.V) {
+    //     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+    //     if (v.N_Vids.size() != 4) startSingularities += 1;
+    // }
+    // start = std::clock();
+    
     // res = true;
     // while (res) {
-    //     res = sg.FixBoundary();
-    //     res = sg.ResolveHighValences();
+    //     res = sg.FixValences();
     // }
-    // res = true;
-    // while (res) {
-    //     res = sg.ResolveHighValences();
-    //     sg.FixBoundary();
-    // }
-    // sg.Smooth();
+    // // sg.Smooth();
     // for (int i = 0; i < 1; i++) {
     //     sg.ResolveSingularities();
     //     res = true;
     //     while (res) {
-    //         res = sg.ResolveHighValences();
+    //         res = sg.FixValences();
     //     }
-    //     // sg.Smooth();
+    //     sg.Smooth();
     // }
+    // duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    // std::cout << "singulairty simplification time: " << duration << " seconds" << std::endl;
+    
+    // nSingularities = 0.0;
+    // for (auto& v: source.V) {
+    //     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+    //     if (v.N_Vids.size() != 4) nSingularities += 1;
+    // }
+    // std::cout << "Initial Singularities: " << startSingularities << " Reduced Singularities: " << startSingularities - nSingularities << " ratio: " << ((startSingularities - nSingularities) / startSingularities) * 100.0 << "%" << std::endl;
     
     // std::cout << "After GetSingularityPairs" << std::endl;
     // sg.SetQuadSplitOperations();

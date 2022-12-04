@@ -7,6 +7,7 @@
 #include "DiagonalCollapse.h"
 #include "EdgeRotation.h"
 #include "QuadSplit.h"
+#include "VertexSplit.h"
 
 #include "Mesh.h"
 #include "MeshUtil.h"
