@@ -303,7 +303,7 @@ void SimplificationOperation::FixDoublet(size_t vid) {
         return;
     }
     if (v.N_Vids.size() != 2) return;
-    if (v.type == FEATURE || v.isBoundary) return;
+    if (v.isBoundary) return;
     for (auto fid: v.N_Fids) {
         if (mesh->F.at(fid).Vids.empty()) return;
     }
@@ -314,6 +314,12 @@ void SimplificationOperation::FixDoublet(size_t vid) {
     size_t targetId = faceToRemove.Vids.at((std::distance(faceToRemove.Vids.begin(), std::find(faceToRemove.Vids.begin(), faceToRemove.Vids.end(), vid)) + 2) % faceToRemove.Vids.size());
     Vertex& target = mesh->V.at(targetId);
     Vertex& source = mesh->V.at(vid);
+    // std::cout << "Inside Doublet collapse: " << target.id << " " << target.type << " " << source.id << " " << source.type << std::endl;
+    // std::cout << "Inside Doublet collapse: " << target.id << " " << target.isBoundary << " " << source.id << " " << source.isBoundary << std::endl;
+    if ((target.type != FEATURE && source.type == FEATURE) || (!target.isBoundary && source.isBoundary)) {
+        target.type = source.type;
+        target.isBoundary = source.isBoundary;
+    }
     UpdateNeighborInfo(target, source, faceToRemove.id);
     
     // for (auto fvid: faceToRemove.Vids) {

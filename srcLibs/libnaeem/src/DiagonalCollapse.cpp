@@ -72,13 +72,35 @@ void DiagonalCollapse::PerformOperation() {
             }
         }
         coords = mesh->V.at(f.Vids.at(minIdx)).xyz();
-    } else if (!mesh->V.at(f.Vids.at(d_idx1)).isBoundary && mesh->V.at(f.Vids.at(d_idx2)).isBoundary) {
-        int tmp = d_idx2;
-        d_idx2 = d_idx1;
-        d_idx1 = tmp;
+    } else if ((!mesh->V.at(f.Vids.at(d_idx1)).isBoundary && mesh->V.at(f.Vids.at(d_idx2)).isBoundary)) {
+        // int tmp = d_idx2;
+        // d_idx2 = d_idx1;
+        // d_idx1 = tmp;
         coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
     }
 
+    // std::cout << "Inside Diagonal collapse: " << f.Vids.at(d_idx1) << " " << mesh->V.at(f.Vids.at(d_idx1)).type << " " << f.Vids.at(d_idx2) << " " << mesh->V.at(f.Vids.at(d_idx2)).type << std::endl;
+    // std::cout << "Inside Diagonal collapse: " << f.Vids.at(d_idx1) << " " << mesh->V.at(f.Vids.at(d_idx1)).isBoundary << " " << f.Vids.at(d_idx2) << " " << mesh->V.at(f.Vids.at(d_idx2)).isBoundary << std::endl;
+    if ((mesh->V.at(f.Vids.at(d_idx1)).type == FEATURE && mesh->V.at(f.Vids.at(d_idx2)).type != FEATURE) || 
+        (mesh->V.at(f.Vids.at(d_idx1)).isBoundary && !mesh->V.at(f.Vids.at(d_idx2)).isBoundary)) {
+            coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
+    } else 
+    if ((mesh->V.at(f.Vids.at(d_idx1)).type != FEATURE && mesh->V.at(f.Vids.at(d_idx2)).type == FEATURE) || 
+        (!mesh->V.at(f.Vids.at(d_idx1)).isBoundary && mesh->V.at(f.Vids.at(d_idx2)).isBoundary)) {
+            coords = mesh->V.at(f.Vids.at(d_idx2)).xyz();
+            mesh->V.at(f.Vids.at(d_idx1)).isBoundary = mesh->V.at(f.Vids.at(d_idx2)).isBoundary;
+            mesh->V.at(f.Vids.at(d_idx1)).type = mesh->V.at(f.Vids.at(d_idx2)).type;
+    } else 
+    if ((mesh->V.at(f.Vids.at(d_idx1)).type == FEATURE && mesh->V.at(f.Vids.at(d_idx2)).type == FEATURE) || 
+        (mesh->V.at(f.Vids.at(d_idx1)).isBoundary && mesh->V.at(f.Vids.at(d_idx2)).isBoundary)) {
+            coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
+    }
+    if (mu->IsSharpFeature(f.Vids.at(d_idx1))) {
+        coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
+    } else if (mu->IsSharpFeature(f.Vids.at(d_idx2))) {
+        coords = mesh->V.at(f.Vids.at(d_idx2)).xyz();
+    }
+    // std::cout << "Is sharp: " << f.Vids.at(d_idx1) << " " << mu->IsSharpFeature(f.Vids.at(d_idx1)) << " " << f.Vids.at(d_idx2) << " " << mu->IsSharpFeature(f.Vids.at(d_idx2)) << std::endl;
     Vertex& target = mesh->V.at(f.Vids.at(d_idx1));
     Vertex& source = mesh->V.at(f.Vids.at(d_idx2));
     Vertex& v3 = mesh->V.at(f.Vids.at((d_idx1 + 1) % f.Vids.size()));

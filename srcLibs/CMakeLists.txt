@@ -162,6 +162,7 @@ add_library(srcLibs SHARED STATIC
     libnaeem/src/SeparatrixCollapse.cpp
     libnaeem/src/SimplificationOperation.h
     libnaeem/src/SimplificationOperation.cpp
+    libnaeem/src/SingularityPair.h
     libnaeem/src/Smooth.h
     libnaeem/src/Smooth.cpp
     libnaeem/src/ThreeFivePair.h

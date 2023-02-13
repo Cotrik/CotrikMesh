@@ -201,6 +201,22 @@ double MeshUtil::GetInteriorAngleAtEdge(int vid, int eid) {
     return alpha1 + alpha2;
 }
 
+bool MeshUtil::IsSharpFeature(size_t vid) {
+    auto& v = mesh->V.at(vid);
+    if (v.type == FEATURE || v.isBoundary) {
+        int count = 0;
+        for (auto nvid: v.N_Vids) {
+            if (mesh->V.at(nvid).type == FEATURE || mesh->V.at(nvid).isBoundary) count += 1; 
+        }
+        if (count != 2) {
+            mesh->SetIdealValence(vid);
+            if (v.idealValence != 4) return true;
+        }
+    }
+    return false;
+}
+
+
 std::vector<size_t> MeshUtil::GetDifference(std::vector<size_t> a, std::vector<size_t> b) {
     std::vector<size_t> diff;
     std::sort(a.begin(), a.end());

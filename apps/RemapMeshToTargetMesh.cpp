@@ -92,17 +92,17 @@ int main(int argc, char* argv[]) {
     start = std::clock();
 
     bool res = true;
-    sg.SetBoundaryDirectSeparatrixOperations(false);
-    sg.SetBoundaryDirectSeparatrixOperations(false);
-    sg.SetBoundaryDirectSeparatrixOperations(true);
-    sg.SetBoundaryDirectSeparatrixOperations(true);
+    // sg.SetBoundaryDirectSeparatrixOperations(false);
+    // sg.SetBoundaryDirectSeparatrixOperations(false);
+    // sg.SetBoundaryDirectSeparatrixOperations(true);
+    // sg.SetBoundaryDirectSeparatrixOperations(true);
     
     // res = true;
-    while (res) {
+    // while (res) {
     //     res = sg.RemoveDoublets();
-        res = sg.FixBoundary();
+        // res = sg.FixBoundary();
         // res = sg.FixValences();
-    }
+    // }
     // for (int i = 0; i < iters; i++) {
     //     bool res = true;
     //     while (res) {
@@ -116,10 +116,12 @@ int main(int argc, char* argv[]) {
     //     // sg.SetChordCollapseOperations();
     //     sg.SetDiagonalCollapseOperations();
     // }
-    sg.SetDirectSeparatrixOperations(false);
-    sg.SetDirectSeparatrixOperations(false);
-    sg.SetDirectSeparatrixOperations(true);
-    sg.SetDirectSeparatrixOperations(true);
+
+    // sg.SetDirectSeparatrixOperations(false);
+    // sg.SetDirectSeparatrixOperations(false);
+    // sg.SetDirectSeparatrixOperations(true);
+    // sg.SetDirectSeparatrixOperations(true);
+    
     // sg.SetHalfSeparatrixOperations();
     // sg.SetHalfSeparatrixOperations();
     // sg.SetHalfSeparatrixOperations();
@@ -127,11 +129,12 @@ int main(int argc, char* argv[]) {
     // sg.SetHalfSeparatrixOperations();
     // sg.SetHalfSeparatrixOperations();
     // sg.SetHalfSeparatrixOperations();
-    res = true;
-    while (res) {
-        // res = sg.FixBoundary();
-        res = sg.FixValences();
-    }
+    // while (sg.FixValences());
+    // res = true;
+    // while (res) {
+    //     // res = sg.FixBoundary();
+    //     res = sg.FixValences();
+    // }
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Direct Separatrix simplification time: " << duration << " seconds" << std::endl;
     
@@ -164,31 +167,48 @@ int main(int argc, char* argv[]) {
     //     }
     // }
     // std::cout << "Diagonal 3-5 pairs: " << n << std::endl;
-    sg.Smooth();
+    // sg.Smooth();
     startSingularities = 0.0;
     for (auto& v: source.V) {
         if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
         if (v.N_Vids.size() != 4) startSingularities += 1;
     }
     start = std::clock();
-    sg.PrototypeF();
-    if (!sg.CheckMeshValidity()) return 0;
-    sg.PrototypeF();
-    if (!sg.CheckMeshValidity()) return 0;
-    sg.CheckMeshValidity();
-    sg.PrototypeF();
-    if (!sg.CheckMeshValidity()) return 0;
-    sg.PrototypeF(1);
-    if (!sg.CheckMeshValidity()) return 0;
-    sg.PrototypeF(1);
-    if (!sg.CheckMeshValidity()) return 0;
-    sg.PrototypeF(1);
-    if (!sg.CheckMeshValidity()) return 0;
-    sg.PrototypeF(3);
-    if (!sg.CheckMeshValidity()) return 0;
-    sg.PrototypeF(3);
-    if (!sg.CheckMeshValidity()) return 0;
-    sg.PrototypeF(3);
+    // for (int i = 0; i < 10; i++) {
+    //     sg.PrototypeK();
+    //     sg.FixValences();
+    // }
+    sg.PrototypeExecute();
+    // sg.Smooth();
+    // sg.PrototypeH(1);
+    // sg.PrototypeH();
+    // sg.PrototypeH(1);
+    // sg.PrototypeH();
+    // sg.PrototypeH(1);
+    // sg.PrototypeH();
+    // sg.PrototypeH(1);
+    // sg.PrototypeH();
+    // sg.PrototypeH(1);
+    // while (sg.PrototypeI());
+    // sg.PrototypeJ();
+    // sg.PrototypeF();
+    // if (!sg.CheckMeshValidity()) return 0;
+    // sg.PrototypeF();
+    // if (!sg.CheckMeshValidity()) return 0;
+    // sg.CheckMeshValidity();
+    // sg.PrototypeF();
+    // if (!sg.CheckMeshValidity()) return 0;
+    // sg.PrototypeF(1);
+    // if (!sg.CheckMeshValidity()) return 0;
+    // sg.PrototypeF(1);
+    // if (!sg.CheckMeshValidity()) return 0;
+    // sg.PrototypeF(1);
+    // if (!sg.CheckMeshValidity()) return 0;
+    // sg.PrototypeF(3);
+    // if (!sg.CheckMeshValidity()) return 0;
+    // sg.PrototypeF(3);
+    // if (!sg.CheckMeshValidity()) return 0;
+    // sg.PrototypeF(3);
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Direct pairs simplification time: " << duration << " seconds" << std::endl;
     
@@ -198,7 +218,8 @@ int main(int argc, char* argv[]) {
         if (v.N_Vids.size() != 4) nSingularities += 1;
     }
     std::cout << "Initial Singularities: " << startSingularities << " Reduced Singularities: " << startSingularities - nSingularities << " ratio: " << ((startSingularities - nSingularities) / startSingularities) * 100.0 << "%" << std::endl;
-    sg.Smooth();
+    // sg.SaveEdgeMesh();
+    // sg.Smooth();
     // sg.PrototypeD();
     // sg.PrototypeC();
     // sg.PrototypeB();
@@ -499,3 +520,15 @@ if (breakLoop) break;*/
 // why start with tri or tet mesh
 // include qudriflow reference
 // 2021 paper comparison
+
+// list bullet points for comparison in paper
+// comparison with different triangle inputs
+// comparison with other methods
+
+// rot 5 edge large b1 - small b2 (elements removed) subtract 1 otherwise large b2 - small b1 (elements added)
+// nrot 5 edge large b2 - small b1 (elements removed) subtract 1 otherwise large b1 - small b2 (elements added)
+
+// direct three five pair:
+// threeEdges rot > 1, rot > 1; rot == 1, rot == 1
+// five rot edges rot >, rot > 1; rot == 1, rot == 1
+// five n rot edges rot == 2, rot == 1; rot > 2, rot > 1

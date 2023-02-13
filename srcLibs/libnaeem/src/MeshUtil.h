@@ -47,7 +47,7 @@ class MeshUtil {
         std::vector<size_t> GetUnion(std::vector<size_t> a, std::vector<size_t> b);
         std::vector<size_t> GetIntersection(std::vector<size_t> a, std::vector<size_t> b);
         std::vector<size_t> GetIntersectionParallel(std::vector<size_t> a, std::vector<size_t> b);
-        
+        bool IsSharpFeature(size_t vid);
     private:
         Mesh* mesh;
 

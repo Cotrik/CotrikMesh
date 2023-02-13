@@ -56,7 +56,7 @@ void FeatureExtractor::Extract() {
     bool setPlanar = n > 0 ? false : true;
     if (n > 0) {
         std::cout << "Feature points: " << n << std::endl;
-        PARALLEL_FOR_BEGIN(n) {
+        PARALLEL_FOR_BEGIN(0, n) {
         // for (int i = 0; i < n; i++) {
             SetFeatures(i, res, pl, false);
         // }
@@ -72,14 +72,14 @@ void FeatureExtractor::Extract() {
     // mesh->isPlanar = setPlanar && n > 0 ? true : false;
     if (n > 0) {
         std::cout << "Boundary Points: " << n << std::endl;
-        PARALLEL_FOR_BEGIN(n) {
+        PARALLEL_FOR_BEGIN(0, n) {
         // for (int i = 0; i < n; i++) {
             SetFeatures(i, res, pl, true);
         // }
         } PARALLEL_FOR_END();
     }
 
-    PARALLEL_FOR_BEGIN(mesh->V.size()) {
+    PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
         if (mesh->V.at(i).type == FEATURE || mesh->V.at(i).isBoundary) {
             mesh->SetIdealValence(mesh->V.at(i).id);
         }

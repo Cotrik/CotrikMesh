@@ -40,7 +40,7 @@ void Smoother::Smooth(std::vector<size_t> V) {
     if (V.empty()) {
         V.resize(mesh->V.size());
         if (V.size() >= 2000) {
-            PARALLEL_FOR_BEGIN(mesh->V.size()) {
+            PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
                 GetVerticesToSmooth(i, V);
             } PARALLEL_FOR_END();    
         } else {
