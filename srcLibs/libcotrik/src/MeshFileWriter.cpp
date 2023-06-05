@@ -172,7 +172,7 @@ void MeshFileWriter::WriteVtkFile() {
 }
 
 void MeshFileWriter::WriteVtuFile() {
-	vtkSmartPointer<vtkPoints> points =	vtkSmartPointer<vtkPoints>::New();
+	/*vtkSmartPointer<vtkPoints> points =	vtkSmartPointer<vtkPoints>::New();
 	for (auto& v : m_mesh.V) 
 		points->InsertNextPoint(v.x, v.y, v.z);
 	vtkSmartPointer<vtkUnstructuredGrid> ugrid = vtkSmartPointer<vtkUnstructuredGrid>::New();
@@ -193,11 +193,11 @@ void MeshFileWriter::WriteVtuFile() {
 #endif
 	writer->SetFileName(m_strFileName.c_str());
 	writer->SetDataModeToAscii();
-	writer->Update();
+	writer->Update();*/
 }
 
 void MeshFileWriter::WriteCellsVtu(const std::vector<size_t>& cellIds) {
-	vtkSmartPointer<vtkPoints> points =	vtkSmartPointer<vtkPoints>::New();
+	/*vtkSmartPointer<vtkPoints> points =	vtkSmartPointer<vtkPoints>::New();
 	for (auto& v : m_mesh.V) 
 		points->InsertNextPoint(v.x, v.y, v.z);
 	vtkSmartPointer<vtkUnstructuredGrid> ugrid = vtkSmartPointer<vtkUnstructuredGrid>::New();
@@ -219,11 +219,11 @@ void MeshFileWriter::WriteCellsVtu(const std::vector<size_t>& cellIds) {
 #endif
 	writer->SetFileName(m_strFileName.c_str());
 	writer->SetDataModeToAscii();
-	writer->Update();
+	writer->Update();*/
 }
 
 void MeshFileWriter::WriteCellsVtu(const std::vector<size_t>& cellIds, const std::vector<int>& cellDataField, const char* dataName) {
-	vtkSmartPointer<vtkPoints> points =	vtkSmartPointer<vtkPoints>::New();
+	/*vtkSmartPointer<vtkPoints> points =	vtkSmartPointer<vtkPoints>::New();
 	for (auto& v : m_mesh.V) 
 		points->InsertNextPoint(v.x, v.y, v.z);
 	vtkSmartPointer<vtkUnstructuredGrid> ugrid = vtkSmartPointer<vtkUnstructuredGrid>::New();
@@ -256,7 +256,7 @@ void MeshFileWriter::WriteCellsVtu(const std::vector<size_t>& cellIds, const std
 #endif
 	writer->SetFileName(m_strFileName.c_str());
 	writer->SetDataModeToAscii();
-	writer->Update();
+	writer->Update();*/
 }
 void MeshFileWriter::WriteVtkPolyDataFile()
 {

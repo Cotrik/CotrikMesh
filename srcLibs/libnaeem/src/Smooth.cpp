@@ -5,7 +5,9 @@
 #define PI 3.14159265
 
 Smoother::Smoother() {}
-Smoother::Smoother(Mesh& mesh_, MeshUtil& mu_) : mesh(&mesh_), mu(&mu_) {
+Smoother::Smoother(Mesh& mesh_, MeshUtil& mu_) {
+    mesh = &mesh_;
+    mu = &mu_;
 }
 
 Smoother::Smoother(const Smoother& r) {

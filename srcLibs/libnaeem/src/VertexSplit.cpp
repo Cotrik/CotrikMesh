@@ -128,6 +128,7 @@ void VertexSplit::PerformOperation() {
 
     int offset = 0;
     std::vector<Face> newFaces;
+    // std::cout << facesToAvoid.size() << std::endl;
     for (auto fid: facesToAvoid) {
         auto& f = mesh->F.at(fid);
         for (auto eid: f.Eids) {
@@ -239,6 +240,12 @@ void VertexSplit::PerformOperation() {
     }
     for (auto id: verticesToCheck) {
         SetSingularity(id);
+    }
+    for (auto fid: facesToAvoid) {
+        auto& f = mesh->F.at(fid);
+        f.Vids.clear();
+        f.Eids.clear();
+        f.N_Fids.clear();
     }
     AddContents(ToSmooth, verticesToCheck);
     /*std::cout << "checking validity of nvids and faces" << std::endl;
@@ -536,6 +543,7 @@ void VertexSplit::FiveVertexSplit() {
     mesh->F.push_back(newF_2);
     newF_3.id = mesh->F.size();
     mesh->F.push_back(newF_3);
+    mu->delta += 3;
 
     faceToRemove = &mesh->F.at(faceToRemoveId);
     // std::cout << "faceToRemove: " << faceToRemove->id << std::endl;

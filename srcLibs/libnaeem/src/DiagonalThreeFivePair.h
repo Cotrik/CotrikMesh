@@ -27,7 +27,7 @@ class DiagonalThreeFivePair : public SingularityPair {
         // void MoveLeft();
         // void MoveRight();
         void SplitSixSingularity(int vid);
-        void CheckValences(int vid, bool skipCheck);
+        void CheckValences(int vid, bool skipCheck, std::vector<size_t> faces);
         int Move(size_t dest, double& delta, bool skipCheck = true);
         void SetResolvedSingularity(size_t dest, int ref);
         int GetResolvedSingularity();

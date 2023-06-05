@@ -90,18 +90,18 @@ int ThreeFivePair::Move(size_t dest, double& delta, bool skipCheck) {
     CheckValidity();
     auto& three = mesh->V.at(threeId);
     auto& five = mesh->V.at(fiveId);
-    
     // std::cout << "three: " << three.id << " " << three.N_Vids.size() << std::endl;
     // std::cout << "five: " << five.id << " " << five.N_Vids.size() << std::endl;
-    // std::cout << "skipCheck: " << skipCheck << " dest: " << dest << std::endl;
+    // std::cout << "skipCheck: " << skipCheck << " dest: " << dest << " " << mesh->V.at(dest).N_Vids.size() << std::endl;
     // if ((dest == three.id || dest == five.id) && five.N_Vids.size() == 6 && skipCheck) {
-    if (five.N_Vids.size() == 6 && !skipCheck) {
+    if (((five.isBoundary && five.N_Vids.size() == 5) || five.N_Vids.size() == 6) && !skipCheck) {
         SplitSixSingularity();
         resolvedSingularity = fiveId;
         return -1;
     }
     if (!skipCheck && !IsOperationValid()) return -1;
 
+    if (three.N_Vids.empty() || five.N_Vids.empty() || three.N_Vids.size() != 3 || five.N_Vids.size() != 5) return -1;
     size_t vn = mesh->V.at(dest).N_Vids.size();
     // std::cout << "three: " << three.id << " " << three.N_Vids.size() << std::endl; 
     // std::cout << "five: " << five.id << " " << five.N_Vids.size() << std::endl;
@@ -120,10 +120,10 @@ int ThreeFivePair::Move(size_t dest, double& delta, bool skipCheck) {
     // if (std::find(three.N_Vids.begin(), three.N_Vids.end(), dest) == three.N_Vids.end()
     // && std::find(five.N_Vids.begin(), five.N_Vids.end(), dest) == five.N_Vids.end()) return -1;
     for (auto eid: three.N_Eids) {
-        // std::cout << "Collapsing three five pair" << std::endl;
         if (eid == edgeId) continue;
         auto& e = mesh->E.at(eid);
         if (std::find(e.Vids.begin(), e.Vids.end(), dest) == e.Vids.end()) continue;
+        // std::cout << "Collapsing three five pair" << std::endl;
         size_t fid = GetIntersection(pairEdge.N_Fids, e.N_Fids).at(0);
         size_t vid = e.Vids.at(0) == dest ? e.Vids.at(0) : e.Vids.at(1);
         auto& f = mesh->F.at(fid);
@@ -132,6 +132,7 @@ int ThreeFivePair::Move(size_t dest, double& delta, bool skipCheck) {
             fiveId = threeId;
             std::shared_ptr<SimplificationOperation> dc = std::make_shared<DiagonalCollapse>(*mesh, *mu, *smoother, f.id, idx, (idx+2)%f.Vids.size());
             dc->PerformOperation();
+            // std::cout << "After Diagonal Collapse" << std::endl;
             delta += -1;
             threeId = vid;
             SetEdgeId();
@@ -142,6 +143,7 @@ int ThreeFivePair::Move(size_t dest, double& delta, bool skipCheck) {
         auto& f = mesh->F.at(fid);
         int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), threeId));
         if (f.Vids.at((idx+2)%f.Vids.size()) == dest) {
+            // std::cout << "Collapsing diagonal" << std::endl;
             threeId = f.Vids.at((idx+2)%f.Vids.size());
             fiveId = f.Vids.at((idx+1)%f.Vids.size());
             std::shared_ptr<SimplificationOperation> dc = std::make_shared<DiagonalCollapse>(*mesh, *mu, *smoother, f.id, (idx+1)%f.Vids.size(), (idx+3)%f.Vids.size());
@@ -157,6 +159,7 @@ int ThreeFivePair::Move(size_t dest, double& delta, bool skipCheck) {
         if (eid == edgeId) continue;
         auto& e = mesh->E.at(eid);
         if (GetIntersection(pairEdge.N_Fids, e.N_Fids).size() == 0) continue;
+        if (GetDifference(e.N_Fids, pairEdge.N_Fids).size() == 0) continue;
         if (std::find(e.Vids.begin(), e.Vids.end(), dest) != e.Vids.end()) {
             size_t fid = GetDifference(e.N_Fids, pairEdge.N_Fids).at(0);
             size_t vid = e.Vids.at(0) == dest ? e.Vids.at(0) : e.Vids.at(1);
@@ -193,6 +196,7 @@ int ThreeFivePair::Move(size_t dest, double& delta, bool skipCheck) {
         if (eid == edgeId) continue;
         auto& e = mesh->E.at(eid);
         if (GetIntersection(pairEdge.N_Fids, e.N_Fids).size() == 0) continue;
+        if (GetDifference(e.N_Fids, pairEdge.N_Fids).size() == 0) continue;
         size_t fid = GetDifference(e.N_Fids, pairEdge.N_Fids).at(0);
         auto& f = mesh->F.at(fid);
         size_t eid2 = GetDifference(GetIntersection(f.Eids, five.N_Eids), std::vector<size_t>{e.id}).at(0);
@@ -474,12 +478,14 @@ void ThreeFivePair::SetEdgeId() {
             edgeId = veid;
         }
     }
+    // std::cout << "Inside SetEdgeId" << std::endl;
 }
 
 
 void ThreeFivePair::SplitSixSingularity() {
-    std::cout << "Fixing six singularity" << std::endl;
+    // std::cout << "Fixing six singularity" << std::endl;
     auto& v = mesh->V.at(fiveId);
+    if (v.isBoundary) return;
     int d = (v.N_Vids.size() / 2) + 1;
     size_t mainV = threeId;
     std::vector<size_t> verticesToSplit;

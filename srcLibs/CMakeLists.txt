@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 
 find_package(VTK REQUIRED)
-include(${VTK_USE_FILE})   
+# include(${VTK_USE_FILE})   
 include_directories(
     ${PROJECT_SOURCE_DIR}/srcLibs/libcotrik/src/ 
     ${PROJECT_SOURCE_DIR}/srcLibs/libnaeem/src/
@@ -147,6 +147,7 @@ add_library(srcLibs SHARED STATIC
     libnaeem/src/EdgeRotation.cpp
     libnaeem/src/FeatureExtractor.h
     libnaeem/src/FeatureExtractor.cpp
+    libnaeem/src/Memento.h
     libnaeem/src/MeshUtil.h
     libnaeem/src/MeshUtil.cpp
     libnaeem/src/ParallelFor.h
@@ -156,6 +157,7 @@ add_library(srcLibs SHARED STATIC
     libnaeem/src/QuadSplit.cpp
     libnaeem/src/QuadSurfaceMapper.h
     libnaeem/src/QuadSurfaceMapper.cpp
+    libnaeem/src/Renderer.h
     libnaeem/src/SemiGlobalSimplifier.h
     libnaeem/src/SemiGlobalSimplifier.cpp
     libnaeem/src/SeparatrixCollapse.h

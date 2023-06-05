@@ -2,7 +2,11 @@
 
 SimplificationOperation::SimplificationOperation() {}
 
-SimplificationOperation::SimplificationOperation(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_) : mesh(&mesh_), mu(&mu_), smoother(&smoother_) {}
+SimplificationOperation::SimplificationOperation(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_) {
+    mesh = &mesh_;
+    mu = &mu_;
+    smoother = &smoother_;
+}
 
 SimplificationOperation::~SimplificationOperation() {}
 
@@ -237,21 +241,24 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
         Edge& edgeToKeep = mesh->E.at(e1);
         Edge& edgeToRemove = mesh->E.at(e2);
         // std::cout << edgeToKeep.N_Fids.size() << " " << edgeToRemove.N_Fids.size() << std::endl;
-        if (edgeToRemove.N_Fids.size() < 2) continue;
-        Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh->F.at(edgeToKeep.N_Fids.at(1)) : mesh->F.at(edgeToKeep.N_Fids.at(0));
-        Face& faceToChange = edgeToRemove.N_Fids.at(0) == face.id ? mesh->F.at(edgeToRemove.N_Fids.at(1)) : mesh->F.at(edgeToRemove.N_Fids.at(0));
-        for (int i = 0; i < faceToChange.Eids.size(); i++) {
-            if (faceToChange.Eids.at(i) == edgeToRemove.id) {
-                faceToChange.Eids.at(i) = edgeToKeep.id;
-                break;
-            }
-        }
-        for (int i = 0; i < edgeToKeep.N_Fids.size(); i++) {
-            if (edgeToKeep.N_Fids.at(i) == face.id) {
-                edgeToKeep.N_Fids.at(i) = faceToChange.id;
-            }
-        }
+        if (edgeToRemove.N_Fids.size() < 2) {
+            UpdateContents(edgeToKeep.N_Fids, facesToRemove);
+        } else {
 
+            // Face& faceTokeep = edgeToKeep.N_Fids.at(0) == face.id ? mesh->F.at(edgeToKeep.N_Fids.at(1)) : mesh->F.at(edgeToKeep.N_Fids.at(0));
+            Face& faceToChange = edgeToRemove.N_Fids.at(0) == face.id ? mesh->F.at(edgeToRemove.N_Fids.at(1)) : mesh->F.at(edgeToRemove.N_Fids.at(0));
+            for (int i = 0; i < faceToChange.Eids.size(); i++) {
+                if (faceToChange.Eids.at(i) == edgeToRemove.id) {
+                    faceToChange.Eids.at(i) = edgeToKeep.id;
+                    break;
+                }
+            }
+            for (int i = 0; i < edgeToKeep.N_Fids.size(); i++) {
+                if (edgeToKeep.N_Fids.at(i) == face.id) {
+                    edgeToKeep.N_Fids.at(i) = faceToChange.id;
+                }
+            }
+        }
         UpdateContents(v.N_Vids, verticesToRemove);
         UpdateContents(v.N_Eids, edgesToRemove);
         UpdateContents(v.N_Fids, facesToRemove);
@@ -284,19 +291,22 @@ void SimplificationOperation::UpdateNeighborInfo(Vertex& target, Vertex& source,
         // ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
         // ToSmooth.insert(ToSmooth.end(), fv.N_Vids.begin(), fv.N_Vids.end());
     }
-    
+    // std::cout << "After finishing updates" << std::endl;
     face.N_Fids.clear();
     face.Vids.clear();
     face.Eids.clear();
+    // std::cout << "After clearing face" << std::endl;
+    mu->delta -= 1;
     // Smooth();
 }
 
 
 void SimplificationOperation::FixDoublet(size_t vid) {
     CheckValidity();
-
+    // std::cout << "Checking doublet, vid: " << mesh->V.at(vid).N_Vids.size() << std::endl;
     Vertex& v = mesh->V.at(vid);
     if (v.N_Vids.size() == 1) {
+        for (auto nvid: v.N_Vids) UpdateContents(mesh->V.at(nvid).N_Vids, std::vector<size_t>{v.id});
         v.N_Fids.clear();
         v.N_Vids.clear();
         v.N_Eids.clear();
@@ -308,7 +318,7 @@ void SimplificationOperation::FixDoublet(size_t vid) {
         if (mesh->F.at(fid).Vids.empty()) return;
     }
 
-    // std::cout << "Removing doublet at: " << v.id << std::endl;
+    // std::cout << "Removing doublet at: " << v.id << " isBoundary: " << v.isBoundary << " vids: " << v.N_Vids.size() << std::endl;
 
     Face& faceToRemove = mesh->F.at(v.N_Fids.at(0));
     size_t targetId = faceToRemove.Vids.at((std::distance(faceToRemove.Vids.begin(), std::find(faceToRemove.Vids.begin(), faceToRemove.Vids.end(), vid)) + 2) % faceToRemove.Vids.size());
@@ -321,7 +331,7 @@ void SimplificationOperation::FixDoublet(size_t vid) {
         target.isBoundary = source.isBoundary;
     }
     UpdateNeighborInfo(target, source, faceToRemove.id);
-    
+    // std::cout << "Removed doublet" << std::endl;    
     // for (auto fvid: faceToRemove.Vids) {
     //     FixDoublet(fvid);
     // }

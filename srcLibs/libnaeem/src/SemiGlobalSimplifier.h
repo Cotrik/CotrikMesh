@@ -13,8 +13,12 @@
 #include <memory>
 #include <mutex>
 #include <map>
+#include <functional>
+#include <stdlib.h>
+#include <time.h>
 
 #include "Mesh.h"
+#include "Memento.h"
 #include "BaseComplexQuad.h"
 #include "ChordExtractor.h"
 #include "ChordCollapse.h"
@@ -34,6 +38,7 @@
 #include "Smooth.h"
 #include "PQueue.h"
 #include "PQueue.cpp"
+#include "Renderer.h"
 
 struct SingularityLink {
     std::vector<size_t> linkVids;
@@ -62,7 +67,12 @@ struct Separatrix {
     bool empty = true;
     int minSize = -1;
     int rots = 0;
-    std::map<std::string, int> dirMap;
+    std::map<size_t, double> dirMap;
+    bool diagonal = false;
+    bool crossb1 = false;
+    bool crossb2 = false;
+    size_t moveDir;
+    double score = 0;
     /*std::vector<int> frontdirMap;
     std::vector<int> backdirMap;
     std::vector<int> score;
@@ -70,11 +80,36 @@ struct Separatrix {
     std::vector<int> backScore;*/
 };
 
+struct Path {
+    std::vector<size_t> vids;
+    std::unordered_set<size_t> vset;
+    double singularity_score = 0;
+    double qem_score = 0;
+    double score = 0;
+    int b1 = 0;
+    int b2 = 0;
+    int rots = 0;
+    bool is_diagonal = false;
+    bool intersect_b1 = false;
+    bool intersect_b2 = false;
+    int boundary_distance = 0;
+    size_t move_dir;
+};
+
+struct p_comp {
+    public: 
+    
+    bool operator() (Path& p1, Path& p2) {
+        return p1.score < p2.score;
+    }
+};
+
+
 struct SeparatrixComparator {
     public:
 
     bool operator()(Separatrix& l, Separatrix& r) {
-        return l.b1+l.b2 > r.b1+r.b2;
+        return l.score < r.score;
     }
 };
 
@@ -107,6 +142,211 @@ struct GroupComparator {
     bool operator()(SingularityGroup& l, SingularityGroup& r) {
         return l.rank > r.rank;
     }
+};
+
+struct vQEM {
+    double qem = 0;
+    double lower_bound = 0;
+    double upper_bound = 0;
+};
+
+struct vMesh {
+    // std::unordered_map<size_t, Vertex> vmap;
+    // std::unordered_map<size_t, Edge> emap;
+    // std::unordered_map<size_t, Face> fmap;
+    std::map<size_t, Vertex> vmap;
+    std::map<size_t, Edge> emap;
+    std::map<size_t, Face> fmap;
+    
+    int max_vid, max_fid, maxvid, maxfid;
+    Mesh* mesh;
+
+    vMesh(Mesh* mesh_) {
+        mesh = mesh_;
+        max_vid = mesh->V.size();
+        max_fid = mesh->F.size();
+        maxvid = mesh->V.size()-1;
+        maxfid = mesh->F.size()-1;
+    }
+
+    void SetMesh(Mesh* mesh_) {
+        mesh = mesh_;
+        max_vid = mesh->V.size();
+        max_fid = mesh->F.size();
+        maxvid = mesh->V.size()-1;
+        maxfid = mesh->F.size()-1;
+    }
+
+    Vertex& AddVertex(glm::dvec3 coords) {
+        max_vid++;
+        vmap[max_vid] = Vertex(coords);
+        vmap[max_vid].id = max_vid;
+        return vmap[max_vid];
+    }
+
+    Face& AddFace(std::vector<size_t> vids) {
+        max_fid++;
+        fmap[max_fid] = Face(vids);
+        fmap[max_fid].id = max_fid;
+        return fmap[max_fid];
+    }
+
+    void setVertex(size_t vid) {
+        if (vmap.find(vid) != vmap.end()) return;
+        auto& v = mesh->V.at(vid);
+        vmap[vid] = Vertex(v.xyz());
+        vmap[vid].id = v.id; vmap[vid].isBoundary = v.isBoundary; vmap[vid].type = v.type;
+        vmap[vid].N_Fids = v.N_Fids;
+    }
+
+    void setFace(size_t fid) {
+        if (fmap.find(fid) != fmap.end()) return;
+        auto& f = mesh->F.at(fid);
+        fmap[fid] = Face(f.Vids);
+        fmap[fid].id = f.id;
+    }
+
+    Vertex& getVertex(size_t vid) {
+        if (vmap.find(vid) != vmap.end()) return vmap[vid];
+        return mesh->V.at(vid);
+    }
+
+    Edge& getEdge(size_t eid) {
+        if (emap.find(eid) != emap.end()) return emap[eid];
+        return mesh->E.at(eid);
+    }
+
+    Face& getFace(size_t fid) {
+        if (fmap.find(fid) != fmap.end()) return fmap[fid];
+        return mesh->F.at(fid);
+    }
+
+    void Update() {
+        for (auto it = fmap.begin(); it != fmap.end(); it++) {
+            auto& f = it->second;
+            if (it->first > maxfid) {
+                int nId = mesh->F.size();
+                for (int i = 0; i < f.Vids.size(); i++) {
+                    auto& v = getVertex(f.Vids.at(i));
+                    int idx = std::distance(v.N_Fids.begin(), std::find(v.N_Fids.begin(), v.N_Fids.end(), it->first));
+                    v.N_Fids.at(idx) = nId;
+                }
+                f.id = nId;
+                mesh->F.push_back(f);
+            } else {
+                mesh->F.at(it->first).Vids = f.Vids;
+            }
+        }
+        for (auto it = vmap.begin(); it != vmap.end(); it++) {
+            if (it->first > maxvid) {
+                auto& v = it->second;
+                v.id = mesh->V.size();
+                for (int i = 0; i < v.N_Fids.size(); i++) {
+                    auto& f = mesh->F.at(v.N_Fids.at(i));
+                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), it->first));
+                    f.Vids.at(idx) = v.id;
+                }
+                mesh->V.push_back(v);
+            } else {
+                mesh->V.at(it->first).xyz(it->second.xyz());
+                mesh->V.at(it->first).N_Fids = it->second.N_Fids;
+            }
+        }
+    }
+};
+
+struct vInfo {
+    std::vector<size_t> N_Vids;
+    std::vector<size_t> N_Fids;
+    vInfo(Mesh* mesh, size_t vid, vMesh* m = nullptr) {
+        auto& getVertex = [&] (size_t vid) {
+            if (m == nullptr) return mesh->V.at(vid);
+            return m->getVertex(vid);
+        };
+        auto& getFace = [&] (size_t fid) {
+            if (m == nullptr) return mesh->F.at(fid);
+            return m->getFace(fid);
+        };
+        auto& v = getVertex(vid);
+        size_t start = v.N_Fids.at(0);
+        for (int i = 0; i < v.N_Fids.size(); i++) {
+            auto& f = getFace(start);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            N_Vids.push_back(f.Vids.at((idx+1)%4));
+            N_Fids.push_back(f.id);
+            for (auto fid: v.N_Fids) {
+                auto& tf = getFace(fid);              
+                int idx2 = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), v.id));
+                if (f.Vids.at((idx+3)%4) == tf.Vids.at((idx2+1)%4)) {
+                    start = fid;
+                    break;
+                }
+            }
+        }
+    }
+
+    std::vector<size_t> vids(int startId = -1) {
+        if (startId == -1 || N_Vids.at(0) == startId) return N_Vids;
+        int idx = std::distance(N_Vids.begin(), std::find(N_Vids.begin(), N_Vids.end(), startId));
+        std::rotate(N_Vids.begin(), N_Vids.begin()+idx, N_Vids.end());
+        std::rotate(N_Fids.begin(), N_Fids.begin()+idx, N_Fids.end());
+        return N_Vids;
+    }
+
+    std::vector<size_t> fids(int startId = -1) {
+        if (startId == -1 || N_Fids.at(0) == startId) return N_Fids;
+        int idx = std::distance(N_Fids.begin(), std::find(N_Fids.begin(), N_Fids.end(), startId));
+        std::rotate(N_Vids.begin(), N_Vids.begin()+idx, N_Vids.end());
+        std::rotate(N_Fids.begin(), N_Fids.begin()+idx, N_Fids.end());
+        return N_Fids;
+    }
+
+    int nvids() {
+        return N_Vids.size();
+    }
+
+    int nfids() {
+        return N_Fids.size();
+    }
+};
+
+
+struct tfPair {
+    size_t tId, fId;
+    bool diag = false;
+    tfPair(size_t tId_, size_t fId_, bool diag_) {
+        tId = tId_;
+        fId = fId_;
+        diag = diag_;
+    }
+
+    void setIds(size_t tId_, size_t fId_) {
+        tId = tId_;
+        fId = fId_;
+    }
+
+    bool isValid() {
+        return (tId != std::numeric_limits<size_t>::max() && fId != std::numeric_limits<size_t>::max());
+    }
+};
+
+struct Operation {
+    std::string name;
+    size_t vid;
+    std::vector<size_t> vids;
+    bool clockwise;
+
+    Operation(std::string name_, size_t vid_, std::vector<size_t> vids_, bool clockwise_) {
+        name = name_;
+        vid = vid_;
+        vids = vids_;
+        clockwise = clockwise_;
+    }
+
+    bool isValid() {
+        if (name == "Flip" || name == "Collapse" || name == "Split") return vids.size() == 2;
+        return true;
+    };
 };
 
 class SemiGlobalSimplifier {
@@ -251,11 +491,32 @@ class SemiGlobalSimplifier {
         void PrototypeSet33DirMap(Separatrix& s);
         void PrototypeSet55DirMap(Separatrix& s);
         void PrototypeSet35DirMap(Separatrix& s);
-
+        std::pair<size_t,double> PrototypeGetDir(size_t vid, std::vector<Separatrix>& separatrices);
+        Separatrix* PrototypeGetSeparatrix(size_t vid, std::vector<Separatrix>& separatrices, std::pair<size_t,double>& dirMap);
+        void PrototypeMove(Separatrix& s);
+        
+        void TraceAlongEdge(const Vertex& start_vertex, const Edge& start_edge, bool& crossBoundary, int& boundary_distance, std::vector<size_t>& vids_link, bool checkBoundary = false);
+        void TraceAlongDiagonal(const Vertex& start_vertex, const Face& start_face, int& boundary_distance, std::vector<size_t>& vids_link);
         size_t GettCCFaceAt(size_t vid, size_t eid, int counter);
 
 
+        void func1();
+        std::vector<Path> PrototypeGetPaths();
+        void PrototypeGetPathsAt(size_t vid, std::vector<Path>& paths);
+        void PrototypeMoveAlongPath(Path& p);
+        
+
+        void PerformOperation(Operation& op, vMesh& m);
+        vMesh* CheckPath(std::vector<size_t>& path);
+        void MovePair(tfPair& p, size_t dest, vMesh& m);
+        void TestFlips();
+
         bool CheckMeshValidity();
+
+        void RenderMesh() {
+            renderer.Render();
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        }
 
         MeshUtil* mu;
         int iters = 0;
@@ -263,6 +524,8 @@ class SemiGlobalSimplifier {
     private:
         Mesh* mesh;
         Smoother* smoother;
+        MeshCaretaker caretaker;
+        Renderer renderer;
 
         void CheckValidity();
         size_t GetFaceID(size_t vid, size_t exclude_vid);
@@ -277,7 +540,9 @@ class SemiGlobalSimplifier {
         std::vector<std::shared_ptr<SimplificationOperation>> Ops;
         PQueue<std::shared_ptr<SimplificationOperation>> Op_Q;
         std::recursive_mutex mtx;
+        std::mutex mx;
         double delta = 0.0;
+
 };
 
 #endif

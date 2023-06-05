@@ -257,6 +257,7 @@ void DirectSeparatrixCollapse::PerformOperation() {
         faceToRemove.Vids.clear();
         faceToRemove.Eids.clear();
         faceToRemove.N_Fids.clear();
+        mu->delta -= 1;
         UpdateContents(mesh->V.at(s2.at(0)).N_Fids, std::vector<size_t>{faceToRemove.id});
         UpdateContents(mesh->V.at(s2.at(1)).N_Fids, std::vector<size_t>{faceToRemove.id});
         for (auto fid: centerV.N_Fids) {

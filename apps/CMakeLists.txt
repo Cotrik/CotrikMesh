@@ -21,7 +21,7 @@ add_definitions(
 )
 
 find_package(VTK REQUIRED)
-include(${VTK_USE_FILE})  
+# include(${VTK_USE_FILE})  
 
 include_directories(
     ${PROJECT_SOURCE_DIR}/srcLibs/libcotrik/src/ 

@@ -62,6 +62,8 @@ int main(int argc, char* argv[]) {
     
 
     MeshUtil mu(source);
+    mu.Q_A = source.F.size();
+    mu.delta = mu.Q_A - source.F.size();
     FeatureExtractor fe(source, 20.0, mu);
     fe.Extract();
     Smoother s(source, mu);
@@ -131,10 +133,7 @@ int main(int argc, char* argv[]) {
     // sg.SetHalfSeparatrixOperations();
     // while (sg.FixValences());
     // res = true;
-    // while (res) {
-    //     // res = sg.FixBoundary();
-    //     res = sg.FixValences();
-    // }
+    
     duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
     std::cout << "Direct Separatrix simplification time: " << duration << " seconds" << std::endl;
     
@@ -178,7 +177,15 @@ int main(int argc, char* argv[]) {
     //     sg.PrototypeK();
     //     sg.FixValences();
     // }
-    sg.PrototypeExecute();
+    // for (int i = 0; i < iters; i++) {
+    // for (int i = 0; i < 1; i++) {
+        // sg.PrototypeExecute();
+        
+        // while (sg.FixValences());
+        // sg.func1();
+        // sg.Smooth();
+    // }
+    // sg.RenderMesh(); 
     // sg.Smooth();
     // sg.PrototypeH(1);
     // sg.PrototypeH();
@@ -382,11 +389,14 @@ int main(int argc, char* argv[]) {
     // sm.Map();
 
     // source.RemoveUselessVertices();
+    sg.TestFlips();
+    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    std::cout << "Paths time: " << duration << " seconds" << std::endl;
     std::cout << "# F in input mesh: " << source.C.size() << std::endl;
     // std::cout << source.F.size() << std::endl;
     std::vector<Cell> newC;
     for (auto& f: source.F) {
-        if (f.N_Fids.size() == 0) continue;
+        if (f.Vids.empty()) continue;
         Cell c;
         c.id = newC.size();
         c.Vids = f.Vids;

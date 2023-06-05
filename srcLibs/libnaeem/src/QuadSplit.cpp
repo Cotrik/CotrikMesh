@@ -166,6 +166,7 @@ void QuadSplit::PerformOperation() {
     Face newF_(newFaceVids);
     newF_.id = mesh->F.size();
     mesh->F.push_back(newF_);
+    mu->delta += 1;
     // std::cout << "newV: " << newV.id << std::endl;
     // std::cout << "newF: " << newF_.id << " ";
     // for (auto fvid: newF_.Vids) {

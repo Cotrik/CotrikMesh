@@ -81,6 +81,12 @@ void DiagonalCollapse::PerformOperation() {
 
     // std::cout << "Inside Diagonal collapse: " << f.Vids.at(d_idx1) << " " << mesh->V.at(f.Vids.at(d_idx1)).type << " " << f.Vids.at(d_idx2) << " " << mesh->V.at(f.Vids.at(d_idx2)).type << std::endl;
     // std::cout << "Inside Diagonal collapse: " << f.Vids.at(d_idx1) << " " << mesh->V.at(f.Vids.at(d_idx1)).isBoundary << " " << f.Vids.at(d_idx2) << " " << mesh->V.at(f.Vids.at(d_idx2)).isBoundary << std::endl;
+    
+    if ((mesh->V.at(f.Vids.at(d_idx1)).type == FEATURE || mesh->V.at(f.Vids.at(d_idx1)).isBoundary) && mu->IsSharpFeature(f.Vids.at(d_idx1))) {
+        coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
+    } else if ((mesh->V.at(f.Vids.at(d_idx2)).type == FEATURE || mesh->V.at(f.Vids.at(d_idx2)).isBoundary) && mu->IsSharpFeature(f.Vids.at(d_idx2))) {
+        coords = mesh->V.at(f.Vids.at(d_idx2)).xyz();
+    }
     if ((mesh->V.at(f.Vids.at(d_idx1)).type == FEATURE && mesh->V.at(f.Vids.at(d_idx2)).type != FEATURE) || 
         (mesh->V.at(f.Vids.at(d_idx1)).isBoundary && !mesh->V.at(f.Vids.at(d_idx2)).isBoundary)) {
             coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
@@ -94,11 +100,6 @@ void DiagonalCollapse::PerformOperation() {
     if ((mesh->V.at(f.Vids.at(d_idx1)).type == FEATURE && mesh->V.at(f.Vids.at(d_idx2)).type == FEATURE) || 
         (mesh->V.at(f.Vids.at(d_idx1)).isBoundary && mesh->V.at(f.Vids.at(d_idx2)).isBoundary)) {
             coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
-    }
-    if (mu->IsSharpFeature(f.Vids.at(d_idx1))) {
-        coords = mesh->V.at(f.Vids.at(d_idx1)).xyz();
-    } else if (mu->IsSharpFeature(f.Vids.at(d_idx2))) {
-        coords = mesh->V.at(f.Vids.at(d_idx2)).xyz();
     }
     // std::cout << "Is sharp: " << f.Vids.at(d_idx1) << " " << mu->IsSharpFeature(f.Vids.at(d_idx1)) << " " << f.Vids.at(d_idx2) << " " << mu->IsSharpFeature(f.Vids.at(d_idx2)) << std::endl;
     Vertex& target = mesh->V.at(f.Vids.at(d_idx1));

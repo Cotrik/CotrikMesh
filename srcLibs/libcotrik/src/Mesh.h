@@ -223,7 +223,7 @@ public:
 	bool isConvex;
     bool isVisited;
     bool isMovable = true;
-	size_t idealValence = 0;
+	int idealValence = 0;
     std::vector<size_t> twoRingNeighborSurfaceFaceIds; // for surface projecting;
     std::vector<size_t> oneRingNeighborVertices; // for 2D surface smoothing
 

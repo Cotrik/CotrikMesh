@@ -16,7 +16,10 @@
 class SingularityPair {
     public:
         SingularityPair() {}
-        SingularityPair(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t threeId_, size_t fiveId_) : mesh(&mesh_), mu(&mu_), smoother(&smoother_) {
+        SingularityPair(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, size_t threeId_, size_t fiveId_) {
+            mesh = &mesh_;
+            mu = &mu_;
+            smoother = &smoother_;
             threeId = threeId_;
             fiveId = fiveId_;
         }

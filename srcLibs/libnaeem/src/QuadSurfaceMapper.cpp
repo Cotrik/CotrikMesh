@@ -16,12 +16,17 @@
 SurfaceMapper::SurfaceMapper() {}
 
 // SurfaceMapper::SurfaceMapper(Mesh& source_, Mesh& target_) : source(source_), target(target_) {
-SurfaceMapper::SurfaceMapper(Mesh& source_, Mesh& target_, MeshUtil& mu_) : source(&source_), target(&target_), mu(&mu_) {
+SurfaceMapper::SurfaceMapper(Mesh& source_, Mesh& target_, MeshUtil& mu_) {
+    source = &source_;
+    target = &target_;
+    mu = &mu_;
     source_polyData = GetPolyDataFromMesh(*source);
     target_polyData = GetPolyDataFromMesh(*target);
 }
 
-SurfaceMapper::SurfaceMapper(Mesh& target_, MeshUtil& mu_) : target(&target_), mu(&mu_) {
+SurfaceMapper::SurfaceMapper(Mesh& target_, MeshUtil& mu_) {
+    target = &target_;
+    mu = &mu_;
     target_polyData = GetPolyDataFromMesh(*target);
     // point_finder->SetInput(target_polyData);
     SetCellLocator();
