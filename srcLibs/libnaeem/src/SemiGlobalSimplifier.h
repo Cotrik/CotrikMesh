@@ -506,8 +506,8 @@ class SemiGlobalSimplifier {
         void PrototypeMoveAlongPath(Path& p);
         
 
-        void PerformOperation(Operation& op, vMesh& m);
-        vMesh* CheckPath(std::vector<size_t>& path);
+        void PerformOperation(Operation& op, vMesh* m);
+        std::vector<vMesh*> CheckPath(std::vector<size_t>& path);
         void MovePair(tfPair& p, size_t dest, vMesh& m);
         void TestFlips();
 
