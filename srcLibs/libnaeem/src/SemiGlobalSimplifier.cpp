@@ -9114,7 +9114,7 @@ void SemiGlobalSimplifier::TestFlips() {
     for (auto& v: mesh->V) {
         if (v.isBoundary || v.type == FEATURE) continue;
         if (isSingularity(v)) {
-            if (it++ < iters) continue;
+            if (it++ < 0) continue;
             const int MAIN = 1, MAIN_BRANCH = 2, BRANCH = 3, DEFLECT = 4, DEFLECT_SKIP = 5, SKIP = 6;
             struct vPath {
                 int id;
@@ -9251,21 +9251,21 @@ void SemiGlobalSimplifier::TestFlips() {
                 }
             };
             getPaths(v, paths, isTarget);
-            // std::random_device rd;
-            // std::mt19937 g(rd());
-            // std::uniform_int_distribution<size_t> dist(0, paths.size()-1);
-            // int idx = dist(g);
-            // idx = 25;
-            // auto& path = paths.at(idx);
-            // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{path}, "test");
-            // std::cout << "Chose path at idx: " << idx << std::endl;
-            // std::cout << "path size: " << path.size() << std::endl;
-            // std::cout << "path: ";
-            // for (auto id: path) std::cout << id << " ";
-            // std::cout << std::endl;
-            // CheckPath(path);
-            PrototypeSaveSeparatrices(paths, "test");
-            std::cout << "Found " << paths.size() << " paths for vertex: " << v.id << std::endl;
+            std::random_device rd;
+            std::mt19937 g(rd());
+            std::uniform_int_distribution<size_t> dist(0, paths.size()-1);
+            int idx = dist(g);
+            idx = 32;
+            auto& path = paths.at(idx);
+            PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{path}, "test");
+            std::cout << "Chose path at idx: " << idx << std::endl;
+            std::cout << "path size: " << path.size() << std::endl;
+            std::cout << "path: ";
+            for (auto id: path) std::cout << id << " ";
+            std::cout << std::endl;
+            CheckPath(path);
+            // PrototypeSaveSeparatrices(paths, "test");
+            // std::cout << "Found " << paths.size() << " paths for vertex: " << v.id << std::endl;
             break;
         }
     }
@@ -9276,23 +9276,139 @@ std::vector<vMesh*> SemiGlobalSimplifier::CheckPath(std::vector<size_t>& path) {
     vInfo info_s(mesh, s.id);
     auto nvids = info_s.vids(path.at(1));
     auto nfids = info_s.fids();
-    std::cout << "s: " << s.id << " nvids: ";
-    for (auto nvid: nvids) std::cout << nvid << " ";
-    std::cout << std::endl;
-    std::cout << "nfids: ";
-    for (auto nfid: nfids) std::cout << nfid << " ";
-    std::cout << std::endl;
+    // std::cout << "s: " << s.id << " nvids: ";
+    // for (auto nvid: nvids) std::cout << nvid << " ";
+    // std::cout << std::endl;
+    // std::cout << "nfids: ";
+    // for (auto nfid: nfids) std::cout << nfid << " ";
+    // std::cout << std::endl;
     std::vector<vMesh*> vm(info_s.nvids()*2, new vMesh(mesh));
+
+    int maxIdx = 0;
+    auto getPair = [&] (int idx_, bool three) {
+        tfPair tfp(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
+        auto m = vm.at(idx_);
+        if (three) {
+            tfp.fId = s.id;
+            if (idx_ < 3) {
+                auto& f = m->getFace(nfids.at((idx_+1)%3));
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
+                tfp.tId = f.Vids.at((idx+2)%4);
+            } else {
+                idx_ = idx_%3;
+                tfp.diag = true;
+                tfp.tId = nvids.at(idx_);
+            }
+            auto dest = nvids.at(idx_);
+            PerformOperation(Operation("Rotate", s.id, std::vector<size_t>{}, false), m);
+            std::vector<size_t> faces;
+            vInfo info_t(mesh, s.id, m);
+            for (auto fid: info_t.fids()) {
+                auto& f = m->getFace(fid);
+                if (std::find(f.Vids.begin(), f.Vids.end(), dest) != f.Vids.end()) continue;
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
+                PerformOperation(Operation("Collapse", s.id, std::vector<size_t>{s.id, f.Vids.at((idx+2)%4)}, false), m);
+            }
+        } else {
+            tfp.tId = s.id;
+            if (idx_ < 5) {
+                auto& f = m->getFace(nfids.at((idx_+2)%5));
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
+                tfp.fId = f.Vids.at((idx+2)%4);
+            } else {
+                idx_ = idx_%5;
+                tfp.diag = true;
+                tfp.fId = nvids.at(idx_);
+            }
+            auto edge1 = {s.id, nvids.at((idx_+1)%nvids.size())};
+            auto edge2 = {s.id, nvids.at((idx_+4)%nvids.size())};
+            PerformOperation(Operation("Split", s.id, edge1, false), m);
+            PerformOperation(Operation("Split", s.id, edge2, false), m);
+            PerformOperation(Operation("Rotate", s.id, std::vector<size_t>{}, false), m);
+        }
+        auto setMaxIdx = [&] (size_t vid) {
+            vInfo info_t(mesh, vid, m);
+            for (auto nvid: info_t.vids()) {
+                auto it = std::find(path.begin(), path.end(), nvid);
+                if (it == path.end()) continue;
+                int idx = std::distance(path.begin(), it);
+                maxIdx = std::max(maxIdx, idx);
+            }
+        };
+        setMaxIdx(tfp.tId); setMaxIdx(tfp.fId); setMaxIdx(nvids.at(idx_));
+        return tfp;
+    };
+
+    auto updatedPath = [&] (tfPair& tfp, vMesh* m) {
+        std::vector<size_t> tPath(path.begin()+maxIdx, path.end());
+        std::unordered_map<size_t, int> parent;
+        std::queue<size_t> q;
+        auto skip = [] (Vertex& v) {
+            if (v.N_Fids.size() == 3 || v.N_Fids.size() == 5) return true;
+            return false;
+        };
+        parent[tfp.tId] = -1; parent[tfp.fId] = -1;
+        for (auto vid: mu->GetDifference(vInfo(mesh, tfp.tId, m).vids(), std::vector<size_t>{tfp.fId})) {
+            parent[vid] = tfp.tId;
+            q.push(vid);
+        }
+        for (auto vid: mu->GetDifference(vInfo(mesh, tfp.fId, m).vids(), std::vector<size_t>{tfp.tId})) {
+            parent[vid] = tfp.fId;
+            q.push(vid);
+        }
+        
+        while (!q.empty()) {
+            auto vid = q.front();
+            q.pop();
+
+            auto& v = m->getVertex(vid);
+            if (skip(v)) continue;
+            auto it = std::find(tPath.begin(), tPath.end(), vid);
+            if (it != tPath.end()) {
+                std::vector<size_t> newPath;
+                auto path_id = vid;
+                while (true) {
+                    if (parent[path_id] == -1) break;
+                    // CHANGE THIS
+                    // if (path_id > mesh->V.size()) {
+                        // newPath.push_back(path_id-1);
+                    // } else {
+                        newPath.push_back(path_id);
+                    // }
+                    path_id = parent[path_id];
+                }
+                std::reverse(newPath.begin(), newPath.end());
+                newPath.insert(newPath.end(), it+1, tPath.end());
+                return newPath;
+            }
+            vInfo info_v(mesh, vid, m);
+            auto nvids = info_v.vids(parent[vid]);
+            for (auto nvid: nvids) {
+                if (parent.find(nvid) != parent.end()) continue;
+                parent[nvid] = vid;
+                q.push(nvid);
+            }
+        }
+        return std::vector<size_t>{};
+    };
 
     auto movePair = [&] (tfPair& tfp, size_t dest, vMesh* m) {
         std::cout << "inside movePair" << std::endl;
         auto& three = m->getVertex(tfp.tId);
         auto& five = m->getVertex(tfp.fId);
-        std::cout << "three: " << three.id << " five: " << five.id << std::endl;
+        std::cout << "three: " << three.id << "(" << three.N_Fids.size() << ") " << " five: " << five.id << "(" << five.N_Fids.size() << ")" << std::endl;
         vInfo info_three(mesh, tfp.tId, m);
         vInfo info_five(mesh, tfp.fId, m);
         std::vector<size_t> vids = info_three.vids(five.id);
         std::vector<size_t> fids = info_three.fids();
+        auto collapseEdge = [&] (size_t vid, size_t vid2) {
+            std::vector<size_t> edge = {vid, vid2};
+            for (int i = 0; i < path.size(); i++) {
+                if (path.at(i) == vid2) return std::vector<size_t>{vid2, vid};
+            }
+            return edge;
+        };
+        
         if (tfp.diag) {
             std::cout << "Moving diagonal pair" << std::endl;
             size_t face_id = mu->GetIntersection(info_three.fids(), info_five.fids()).at(0);
@@ -9306,37 +9422,82 @@ std::vector<vMesh*> SemiGlobalSimplifier::CheckPath(std::vector<size_t>& path) {
                 if (vids.at(2) == dest) edge.at(1) = vids.at(1);
                 if (vids.at(4) == dest) edge.at(1) = vids.at(0);
                 std::cout << "moving pair " << (clockwise ? "clockwise" : "counter-clockwise") << std::endl;
-                Operation op("Flip", tfp.fId, edge, clockwise);
-                PerformOperation(op, m);
+                PerformOperation(Operation("Flip", tfp.fId, edge, clockwise), m);
                 tfp.tId = clockwise ? vids.at(1) : vids.at(0); tfp.fId = clockwise ? vids.at(2) : vids.at(4);
+                [this, &m, &tfp, &collapseEdge] () {
+                    if (m->getVertex(tfp.tId).N_Fids.size() == 2) {
+                        auto& v = m->getVertex(tfp.tId);
+                        PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
+                        vInfo info_t(mesh, tfp.tId, m);
+                        for (auto fid: info_t.fids()) {
+                            auto& f = m->getFace(fid);
+                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                            auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                            PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                        }
+                    } else if (m->getVertex(tfp.fId).N_Fids.size() == 6) {
+                        auto& v = m->getVertex(tfp.fId);
+                        vInfo info_t(mesh, tfp.fId, m);
+                        auto fid = mu->GetIntersection(info_t.fids(), vInfo(mesh, tfp.tId, m).fids()).at(0);
+                        auto fids = info_t.fids(fid);
+                        auto vids = info_t.vids();
+                        std::vector<size_t> edge1 = {tfp.fId, vids.at(2)}; std::vector<size_t> edge2 = {tfp.fId, vids.at(5)};
+                        PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
+                        PerformOperation(Operation("Split", tfp.fId, edge2, false), m);
+                        PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
+                    }
+                }();
                 return;
             }
             if (vids.at(3) == dest) {
                 std::vector<size_t> nvs = {vids.at(2), vids.at(4)};
                 for (auto id: nvs) {
-                    Operation op("Split", tfp.fId, std::vector<size_t>{tfp.fId, id}, false);
-                    PerformOperation(op, m);
+                    PerformOperation(Operation("Split", tfp.fId, std::vector<size_t>{tfp.fId, id}, false), m);
                 }
-                Operation op("Rotate", tfp.fId, std::vector<size_t>{}, false);
-                PerformOperation(op, m);
+                PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
                 tfp.tId = tfp.fId; tfp.fId = dest;
+                [this, &m, &tfp] () {
+                    auto& v = m->getVertex(tfp.fId);
+                    if (v.N_Fids.size() == 6) {
+                        vInfo info_t(mesh, tfp.fId, m);
+                        auto fid = mu->GetIntersection(info_t.fids(), vInfo(mesh, tfp.tId, m).fids()).at(0);
+                        auto fids = info_t.fids(fid);
+                        auto vids = info_t.vids();
+                        std::vector<size_t> edge1 = {tfp.fId, vids.at(2)}; std::vector<size_t> edge2 = {tfp.fId, vids.at(5)};
+                        PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
+                        PerformOperation(Operation("Split", tfp.fId, edge2, false), m);
+                        PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
+                    }
+                }();
                 return;
             }
             fids = info_three.fids(face_id);
             vids = info_three.vids();
             if (vids.at(2) == dest) {
-                Operation op("Rotate", tfp.tId, std::vector<size_t>{}, false);
-                PerformOperation(op, m);
+                PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
                 std::vector<size_t> faces;
                 vInfo info_t(mesh, tfp.tId, m);
                 for (auto fid: info_t.fids()) {
                     auto& f = m->getFace(fid);
                     if (std::find(f.Vids.begin(), f.Vids.end(), dest) != f.Vids.end()) continue;
                     int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                    Operation op2("Collapse", tfp.tId, std::vector<size_t>{tfp.tId, f.Vids.at((idx+2)%4)}, false);
-                    PerformOperation(op2, m);
+                    auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                    PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
                 }
                 tfp.fId = tfp.tId; tfp.tId = dest;
+                [this, &m, &tfp, &collapseEdge] () {
+                    auto& v = m->getVertex(tfp.tId);
+                    if (v.N_Fids.size() == 2) {
+                        PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
+                        vInfo info_t(mesh, tfp.tId, m);
+                        for (auto fid: info_t.fids()) {
+                            auto& f = m->getFace(fid);
+                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                            auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                            PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                        }
+                    }
+                }();
                 return;
             }
         } else {
@@ -9349,9 +9510,18 @@ std::vector<vMesh*> SemiGlobalSimplifier::CheckPath(std::vector<size_t>& path) {
                 size_t fidx = (vids.at(1) == dest) ? fids.at(0) : fids.at(2);
                 auto& f = m->getFace(fidx);
                 int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                Operation op("Collapse", tfp.tId, std::vector<size_t>{tfp.tId, f.Vids.at((idx+2)%4)}, false);
+                auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
                 tfp.fId = tfp.tId; tfp.tId = dest;
-                PerformOperation(op, m);
+                PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                [this, &m, &tfp, &collapseEdge] () {
+                    auto& v = m->getVertex(tfp.tId);
+                    if (v.N_Fids.size() == 2) {
+                        auto& f = m->getFace(v.N_Fids.at(0));
+                        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                        auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                        PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                    }
+                }();
                 return;
             }
             vids = info_five.vids(three.id);
@@ -9365,105 +9535,58 @@ std::vector<vMesh*> SemiGlobalSimplifier::CheckPath(std::vector<size_t>& path) {
             if (vids.at(1) == dest || vids.at(4) == dest) {
                 std::cout << "Performing Flip" << std::endl;
                 bool clockwise = (vids.at(4) == dest);
-                Operation op("Flip", tfp.fId, std::vector<size_t>{tfp.fId, dest}, clockwise);
                 int fidx = (vids.at(1) == dest) ? fids.at(1) : fids.at(3);
                 auto& f = m->getFace(fidx);
                 int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.fId));
+                PerformOperation(Operation("Flip", tfp.fId, std::vector<size_t>{tfp.fId, dest}, clockwise), m);
                 tfp.tId = dest; tfp.fId = f.Vids.at((idx+2)%4);
-                PerformOperation(op, m);
+                [this, &m, &tfp, &collapseEdge] () {
+                    auto& v = m->getVertex(tfp.tId);
+                    if (v.N_Fids.size() == 2) {
+                        auto& f = m->getFace(v.N_Fids.at(0));
+                        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                        auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                        PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                    }
+                }();
                 return;
             } else if (vids.at(2) == dest || vids.at(3) == dest) {
                 std::cout << "Performing Split" << std::endl;
                 std::vector<size_t> edge = {tfp.fId, vids.at(2) == dest ? vids.at(1) : vids.at(4)};
-                Operation op("Split", tfp.fId, edge, false);
-                PerformOperation(op, m);
+                PerformOperation(Operation("Split", tfp.fId, edge, false), m);
                 tfp.tId = m->max_vid; tfp.fId = dest;
+                [this, &m, &tfp] () {
+                    auto& v = m->getVertex(tfp.fId);
+                    if (v.N_Fids.size() == 6) {
+                        vInfo info_six(mesh, tfp.fId, m);
+                        auto vids = info_six.vids(tfp.tId);
+                        auto fids = info_six.fids();
+                        std::vector<size_t> edge1 = {tfp.fId, vids.at(1)};
+                        std::vector<size_t> edge2 = {tfp.fId, vids.at(2)};
+                        PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
+                        PerformOperation(Operation("Flip", tfp.fId, edge2, true), m);
+                    }
+                }();
                 return;
             }
         }
     };
-
-    auto getPair = [&] (int idx_, bool three) {
-        tfPair tfp(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
-        auto m = vm.at(idx_);
-        std::cout << "idx_: " << idx_ << std::endl;
-        if (three) {
-            if (idx_ == 0 || idx_ == 1 || idx_ == 2) {
-                auto fid = idx_ == 2 ? 2 : 0;
-                std::cout << "fid: " << fid << std::endl;
-                auto& f = m->getFace(nfids.at(fid));
-                std::cout << "f.Vids: " << f.Vids.at(0) << " " << f.Vids.at(1) << " " << f.Vids.at(2) << " " << f.Vids.at(3) << std::endl;
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
-                std::cout << "idx: " << idx << std::endl;
-                Operation op("Collapse", s.id, std::vector<size_t>{s.id, f.Vids.at((idx+2)%4)}, false);
-                tfp.tId = idx_ == 0 ? f.Vids.at((idx+3)%4) : f.Vids.at((idx_-1)%4); tfp.fId = s.id;
-                std::cout << "tfp.tId: " << tfp.tId << " tfp.fId: " << tfp.fId << std::endl;
-                PerformOperation(op, m);
-                std::cout << "Performed collapse" << std::endl;
-                std::cout << "dest for movePAir: " << vInfo(mesh, tfp.fId, m).vids(tfp.tId).at(2) << std::endl;
-                if (idx_ == 0) movePair(tfp, vInfo(mesh, tfp.fId, m).vids(tfp.tId).at(3), m);
-                std::cout << "Performed movePair" << std::endl;
-            } else if (idx_ == 3 || idx_ == 5) {
-                bool clockwise = (idx_ == 3);
-                auto fid = idx_ == 3 ? 0 : 2;
-                auto& f = m->getFace(nfids.at(fid));
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
-                int offset_a = clockwise ? 1 : 3;
-                std::vector<size_t> edge = {f.Vids.at((idx+offset_a)%4), f.Vids.at((idx+2)%4)};
-                Operation op("Flip", s.id, edge, clockwise);
-                auto tmp_fid = mu->GetDifference(mu->GetIntersection(m->getVertex(edge[0]).N_Fids, m->getVertex(edge[1]).N_Fids), info_s.fids()).at(0);
-                auto& tmp_f = m->getFace(tmp_fid);
-                int tmp_idx = std::distance(tmp_f.Vids.begin(), std::find(tmp_f.Vids.begin(), tmp_f.Vids.end(), f.Vids.at((idx+offset_a)%4)));
-                tfp.tId = f.Vids.at((idx+2)%4); tfp.fId = tmp_f.Vids.at((tmp_idx+2)%4); tfp.diag = true;
-                PerformOperation(op, m);
-            } else {
-                auto dest = info_s.vids().at(0);
-                Operation op("Rotate", s.id, std::vector<size_t>{}, false);
-                PerformOperation(op, m);
-                std::vector<size_t> faces;
-                vInfo info_t(mesh, s.id, m);
-                for (auto fid: info_t.fids()) {
-                    auto& f = m->getFace(fid);
-                    if (std::find(f.Vids.begin(), f.Vids.end(), dest) != f.Vids.end()) continue;
-                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
-                    Operation op2("Collapse", s.id, std::vector<size_t>{s.id, f.Vids.at((idx+2)%4)}, false);
-                    PerformOperation(op2, m);
-                }
-                tfp.tId = dest; tfp.fId = s.id; tfp.diag = true;
-            }
-        } else {
-            bool diag = (idx_ == 0 || idx_ > 4);
-            idx_ == 0 ? idx_ = 5 : 1;
-            idx_ = idx_ > 4 ? ((idx_-2)%5) : idx_;
-            int dest = -1;
-            if (idx_ == 2 || idx_ == 3) {
-                auto fid = idx_ == 2 ? nfids.at((idx_+4)%nfids.size()) : nfids.at((idx_)%nfids.size());
-                // auto fid = nfids.at(idx_);
-                auto& f = m->getFace(fid);
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
-                dest = f.Vids.at((idx+2)%4);
-            }
-            auto v1 = nvids.at((idx_+1)%nvids.size());
-            auto v2 = nvids.at((idx_+4)%nvids.size());
-            auto fid = nfids.at((idx_+2)%nvids.size());
-            auto& f = m->getFace(fid);
-            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
-            auto v3 = f.Vids.at((idx+2)%4);
-            Operation op("Split", s.id, std::vector<size_t>{s.id, v1}, false);
-            PerformOperation(op, m);
-            op = Operation("Split", s.id, std::vector<size_t>{s.id, v2}, false);
-            PerformOperation(op, m);
-            op = Operation("Rotate", s.id, std::vector<size_t>{}, false);
-            PerformOperation(op, m);
-            tfp.tId = s.id; tfp.fId = diag ? nvids.at(idx_) : v3; tfp.diag = diag;
-            if (dest != -1) movePair(tfp, dest, m);
-        }
-        std::cout << "Before Update\n";
-        m->Update();
-        return tfp;
-    };
-
-    auto tfp = getPair(9, info_s.nvids() == 3);
+    
+    auto tfp = getPair(iters, info_s.nvids() == 3);
+    auto nPath = updatedPath(tfp, vm.at(iters));
+    for (auto vid: nPath) {
+    // for (int i = 0; i < 2; i++) {
+        // auto vid = nPath.at(i);
+        movePair(tfp, vid, vm.at(iters));
+    }
+    for (auto it = vm.at(iters)->fmap.begin(); it != vm.at(iters)->fmap.end(); it++) {
+        std::cout << "qid: " << it->second.id << std::endl;
+    }
+    for (auto vid: path) {
+        std::cout << "path v: " << vid << "(" << vm.at(iters)->getVertex(vid).N_Fids.size() << ")" << std::endl;
+    }
+    vm.at(iters)->Update();
+    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{nPath}, "test");
     return vm;
 }
 
