@@ -16,6 +16,8 @@ static void parallelFor(int nStart, int nEnd, std::function<void (int start, int
         nThreads = 1;
         batchSize = n;
     }
+    std::cout << "num threads: " << nThreads << std::endl;
+    std::cout << "batch size: " << batchSize << std::endl;
     std::vector<std::thread> threads;
     for (int i = 0; i < nThreads; i++) {
         int start = (i * batchSize) + nStart;
