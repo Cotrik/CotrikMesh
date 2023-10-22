@@ -306,7 +306,7 @@ double MeshUtil::CalculateQEM(size_t vid) {
     auto& v = mesh->V.at(vid);
     // v_score->Q = glm::dmat4(0.0f);
     // v_scores.at(vid).Q = glm::dmat4(0.0f);
-    auto& p = v.xyz();
+    const auto& p = v.xyz();
     glm::dmat4 Q = glm::dmat4(0.0f);
     std::unordered_set<size_t> faces;
     for (auto fid: v.N_Fids) {
@@ -327,7 +327,7 @@ double MeshUtil::CalculateQEM(size_t vid) {
         // auto& e2 = mesh->V.at(f.Vids.at(2)).xyz() - mesh->V.at(f.Vids.at(1)).xyz();
         // auto& e3 = v1 - v3;
         // auto& e4 = v1 - v4;
-        auto& n = glm::normalize(glm::cross((mesh->V.at(f.Vids.at(1)).xyz() - mesh->V.at(f.Vids.at(0)).xyz()), (mesh->V.at(f.Vids.at(2)).xyz() - mesh->V.at(f.Vids.at(1)).xyz())));
+        const auto& n = glm::normalize(glm::cross((mesh->V.at(f.Vids.at(1)).xyz() - mesh->V.at(f.Vids.at(0)).xyz()), (mesh->V.at(f.Vids.at(2)).xyz() - mesh->V.at(f.Vids.at(1)).xyz())));
 
         // calculate QEM
         // glm::dmat4 q = glm::dmat4(0.0f);
