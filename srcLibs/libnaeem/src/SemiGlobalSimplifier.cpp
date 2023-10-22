@@ -16,6 +16,7 @@
 SemiGlobalSimplifier::SemiGlobalSimplifier() {}
 
 SemiGlobalSimplifier::SemiGlobalSimplifier(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, KDTree& kdtree_) {
+    std::cout << "SemiGlobalSimplifier constructor" << std::endl;
     mesh = &mesh_;
     mu = &mu_;
     smoother = &smoother_;
@@ -59,8 +60,11 @@ void SemiGlobalSimplifier::SetIters(int iters_) {
 }
 
 void SemiGlobalSimplifier::SetFaceMetrics() {
+    std::cout << "Inside SetFaceMetrics" << std::endl;
     CheckValidity();
+    std::cout << "Smoothing mesh" << std::endl;
     Smooth();
+    std::cout << "Setting Face Metrics" << std::endl;
     PARALLEL_FOR_BEGIN(0, mesh->F.size()) {
         auto& f = mesh->F.at(i);
         auto qV_arr = [&] (Face& f) {
