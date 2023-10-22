@@ -109,6 +109,7 @@ void SemiGlobalSimplifier::SetFaceMetrics() {
         f.threshold_shape = sum_shape / neighborhood.size();
         // f.threshold_shape = f.shape;
     } PARALLEL_FOR_END();
+    std::cout << "After setting face metrics" << std::endl;
 }
 
 void SemiGlobalSimplifier::SetSimplificationOperations() {
