@@ -118,6 +118,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Setting up SemiGlobalSimplifier" << std::endl;
     SemiGlobalSimplifier sg(source, mu, s, kd);
     sg.SetIters(iters);
+    std::cout << "Finished setting up SemiGlobalSimplifier" << std::endl;
     // sg.SetVertexSplitOperations();
     // sg.SetQuadSplitOperations();
     // sg.FixBoundary();
@@ -142,17 +143,24 @@ int main(int argc, char* argv[]) {
     bool res = true;
     start = std::clock();
     // sg.SetVertexRotationOperations();
+    std::cout << "Setting up operations" << std::endl;
     if (iters == 0) {
+        std::cout << "-------------iters is 0----------------" << std::endl;
+        std::cout << "Direct Separatrix Operations" << std::endl;
         while (sg.SetBoundaryDirectSeparatrixOperations(false));
         while (sg.SetBoundaryDirectSeparatrixOperations(true));
         while (sg.SetDirectSeparatrixOperations(false));
         while (sg.SetDirectSeparatrixOperations(true));
+        std::cout << "Smooth" << std::endl;
         sg.Smooth(nullptr);
     } else {
+        std::cout << "-------------iters is " << iters << "----------------" << std::endl;
+        std::cout << "Direct Separatrix Operations" << std::endl;
         while (sg.SetBoundaryDirectSeparatrixOperations(false));
         while (sg.SetBoundaryDirectSeparatrixOperations(true));
         while (sg.SetDirectSeparatrixOperations(false));
         while (sg.SetDirectSeparatrixOperations(true));
+        std::cout << "Singularity Movement" << std::endl;
         for (int i = 0; i < iters; i++) {
         // for (int i = 0; i < 1; i++) {
             // while(sg.FixValences());
