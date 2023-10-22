@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
     mu.delta = mu.Q_A - source.F.size();
     FeatureExtractor fe(source, 30.0, mu);
     fe.Extract();
-    std::cout << "Writing output file" << std::endl;
+    /*std::cout << "Writing output file" << std::endl;
     std::ofstream ofs("FeaturePoints.vtk");
     ofs << "# vtk DataFile Version 3.0\n"
         << "FeaturePoints.vtk.vtk\n"
@@ -107,7 +107,7 @@ int main(int argc, char* argv[]) {
     ofs << "CELL_TYPES " << c_indices.size() << "\n";
     for (size_t i = 0; i < c_indices.size(); i++) {
         ofs << "1" << std::endl;
-    }
+    }*/
     Smoother s(source, mu);
     // std::unique_ptr<SurfaceProjector> sp = std::make_unique<SurfaceProjector>(source);
     // SurfaceProjector sp(source);
