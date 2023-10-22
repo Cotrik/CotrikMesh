@@ -706,7 +706,7 @@ struct vInfo {
         }
     }
 
-    std::vector<size_t> vids(int startId = -1) {
+    const std::vector<size_t> vids(int startId = -1) {
         if (startId == -1 || N_Vids.at(0) == startId) return N_Vids;
         int idx = std::distance(N_Vids.begin(), std::find(N_Vids.begin(), N_Vids.end(), startId));
         std::rotate(N_Vids.begin(), N_Vids.begin()+idx, N_Vids.end());
@@ -714,7 +714,7 @@ struct vInfo {
         return N_Vids;
     }
 
-    std::vector<size_t> fids(int startId = -1) {
+    const std::vector<size_t> fids(int startId = -1) {
         if (startId == -1 || N_Fids.at(0) == startId) return N_Fids;
         int idx = std::distance(N_Fids.begin(), std::find(N_Fids.begin(), N_Fids.end(), startId));
         std::rotate(N_Vids.begin(), N_Vids.begin()+idx, N_Vids.end());
@@ -767,7 +767,7 @@ struct Operation {
         coords = coords_;
     }
 
-    bool isValid() {
+    const bool isValid() {
         if (name == "Flip" || name == "Collapse" || name == "Split") return vids.size() == 2;
         return true;
     };
