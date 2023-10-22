@@ -9850,7 +9850,7 @@ bool SemiGlobalSimplifier::TestFlips() {
             // if ((!v.isBoundary && v.type != FEATURE) && v.N_Fids.size() != 4) return true;
             // return false;
         };
-        auto countSingularities = [&] (const vInfo& info_v) {
+        auto countSingularities = [&] (vInfo info_v) {
             std::unordered_set<size_t> res;
             for (auto fid: info_v.fids()) {
                 auto& f = mesh->F.at(fid);
@@ -11601,7 +11601,7 @@ bool SemiGlobalSimplifier::TestFlips() {
     return final_paths.size() > 0;
 }
 
-bool SemiGlobalSimplifier::PerformOperation(const Operation& op, vMesh* m) {
+bool SemiGlobalSimplifier::PerformOperation(Operation op, vMesh* m) {
     bool res = false;
     auto Flip = [&] () {
         if (!op.isValid()) return;

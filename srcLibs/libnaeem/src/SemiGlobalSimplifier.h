@@ -714,7 +714,7 @@ struct vInfo {
         return N_Vids;
     }
 
-    const std::vector<size_t> fids(int startId = -1) {
+    std::vector<size_t> fids(int startId = -1) {
         if (startId == -1 || N_Fids.at(0) == startId) return N_Fids;
         int idx = std::distance(N_Fids.begin(), std::find(N_Fids.begin(), N_Fids.end(), startId));
         std::rotate(N_Vids.begin(), N_Vids.begin()+idx, N_Vids.end());
@@ -767,7 +767,7 @@ struct Operation {
         coords = coords_;
     }
 
-    const bool isValid() {
+    bool isValid() {
         if (name == "Flip" || name == "Collapse" || name == "Split") return vids.size() == 2;
         return true;
     };
@@ -931,7 +931,7 @@ class SemiGlobalSimplifier {
         void PrototypeMoveAlongPath(Path& p);
         
 
-        bool PerformOperation(const Operation& op, vMesh* m);
+        bool PerformOperation(Operation op, vMesh* m);
         void MovePair(tfPair& p, size_t dest, vMesh& m);
         bool TestFlips();
 
