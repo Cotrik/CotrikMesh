@@ -2,6 +2,11 @@
 #include "ParallelFor.h"
 #include <math.h>
 
+#include <vtkPointData.h>
+#include <vtkCellArray.h>
+#include <vtkCurvatures.h>
+#include <vtkSmoothPolyDataFilter.h>
+
 #define PI 3.14159265
 
 Smoother::Smoother() {}
@@ -354,4 +359,31 @@ void Smoother::SetCoords(size_t vid, glm::dvec3& c) {
     mesh->V.at(vid).z = c.z;
 }
 
+void Smoother::vtkSmoother(int iters) {
+    std::cout << "Beginning Smoothing" << std::endl;
+    vtkSmartPointer<vtkPolyData> polyData = mu->GetPolyData();
+    vtkSmartPointer<vtkCurvatures> curvaturesFilter = vtkSmartPointer<vtkCurvatures>::New();
+    curvaturesFilter->SetInputData(polyData);
+    curvaturesFilter->SetCurvatureTypeToMean();
+    curvaturesFilter->Update();
+
+    polyData->GetPointData()->SetScalars(curvaturesFilter->GetOutput()->GetPointData()->GetScalars());
+
+    vtkSmartPointer<vtkSmoothPolyDataFilter> smoothFilter = vtkSmartPointer<vtkSmoothPolyDataFilter>::New();
+    smoothFilter->SetInputData(polyData);
+    smoothFilter->SetNumberOfIterations(iters);
+    smoothFilter->SetRelaxationFactor(0.1);
+    smoothFilter->SetFeatureAngle(15);
+    smoothFilter->FeatureEdgeSmoothingOff();
+    smoothFilter->BoundarySmoothingOn();
+    smoothFilter->Update();
+
+    PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
+        auto& v = mesh->V.at(i);
+        auto p = smoothFilter->GetOutput()->GetPoint(i);
+        v.x = p[0];
+        v.y = p[1];
+        v.z = p[2];
+    } PARALLEL_FOR_END();
+}
 

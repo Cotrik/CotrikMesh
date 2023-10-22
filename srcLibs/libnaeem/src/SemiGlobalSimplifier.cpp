@@ -7,15 +7,21 @@
 #include <memory>
 #include <cmath>
 #include <random>
+#include <chrono>
+#include "ThreadPool.h"
+#include "verdict.h"
 #include "ParallelFor.h"
 #include "SemiGlobalSimplifier.h"
 
 SemiGlobalSimplifier::SemiGlobalSimplifier() {}
 
-SemiGlobalSimplifier::SemiGlobalSimplifier(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_) {
+SemiGlobalSimplifier::SemiGlobalSimplifier(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, KDTree& kdtree_) {
     mesh = &mesh_;
     mu = &mu_;
     smoother = &smoother_;
+    kd = &kdtree_;
+    sp = std::make_unique<SurfaceProjector>(mesh_);
+    SetFaceMetrics();
     // renderer.SetMesh(mesh_);
 }
 
@@ -44,11 +50,61 @@ void SemiGlobalSimplifier::SetMembers(Mesh& mesh_, MeshUtil& mu_, Smoother& smoo
     mesh = &mesh_;
     mu = &mu_;
     smoother = &smoother_;
+    SetFaceMetrics();
 }
 
 void SemiGlobalSimplifier::SetIters(int iters_) {
     iters = iters_;
     smoother->SetIters(iters_);
+}
+
+void SemiGlobalSimplifier::SetFaceMetrics() {
+    CheckValidity();
+    Smooth();
+    PARALLEL_FOR_BEGIN(0, mesh->F.size()) {
+        auto& f = mesh->F.at(i);
+        auto qV_arr = [&] (Face& f) {
+            double coords[4][3];
+            for (int i = 0; i < 4; i++) {
+                auto& v = mesh->V.at(f.Vids.at(i));
+                coords[i][0] = v.x; coords[i][1] = v.y; coords[i][2] = v.z;
+            }
+            return coords;
+        }(f);
+        f.area = v_quad_area(4, qV_arr);
+        // f.shape = v_quad_shape(4, qV_arr);
+        f.shape = v_quad_aspect_ratio(4, qV_arr);
+    } PARALLEL_FOR_END();
+    PARALLEL_FOR_BEGIN(0, mesh->F.size()) {
+        auto& f = mesh->F.at(i);
+        auto neighborhood = [&] () {
+            std::unordered_set<size_t> neighborhood;
+            auto setNeighborhood = [&] (Face& f) {
+                for (auto vid: f.Vids) {
+                    auto& v = mesh->V.at(vid);
+                    neighborhood.insert(v.N_Fids.begin(), v.N_Fids.end());
+                }
+            };
+            setNeighborhood(f);
+            for (auto vid: f.Vids) {
+                auto& v = mesh->V.at(vid);
+                for (auto qid: v.N_Fids) {
+                    setNeighborhood(mesh->F.at(qid));
+                }
+            }
+            return neighborhood;
+        }();
+        double sum_area = 0.0;
+        double sum_shape = 0.0;
+        for (auto neighbor: neighborhood) {
+            sum_area += mesh->F.at(neighbor).area;
+            sum_shape += mesh->F.at(neighbor).shape;
+        }
+        f.avg_area = sum_area / neighborhood.size();
+        f.threshold_size = std::pow(std::min(f.area/f.avg_area, f.avg_area/f.area), 2);
+        f.threshold_shape = sum_shape / neighborhood.size();
+        // f.threshold_shape = f.shape;
+    } PARALLEL_FOR_END();
 }
 
 void SemiGlobalSimplifier::SetSimplificationOperations() {
@@ -245,56 +301,62 @@ void SemiGlobalSimplifier::SetDiagonalCollapseOperations() {
     }
 }
 
-void SemiGlobalSimplifier::SetBoundaryDirectSeparatrixOperations(bool looseCollapse) {
+bool SemiGlobalSimplifier::SetBoundaryDirectSeparatrixOperations(bool looseCollapse) {
     CheckValidity();
 
     Op_Q.setMaxQueueOn();
     Op_Q.setSpecialComparisonOn();
     for (auto& v: mesh->V) {
-        if (v.N_Vids.size() != 4 || v.type == FEATURE || v.isBoundary) continue;
+        // std::cout << "on " << v.id << std::endl;
+        if (v.N_Fids.empty() || mesh->virtualValence(v) != 4 || v.type == FEATURE || v.isBoundary) continue;
         std::vector<size_t> c1, c2;
-        for (auto vid: v.N_Vids) mesh->V.at(vid).type != FEATURE && !mesh->V.at(vid).isBoundary && mesh->V.at(vid).N_Vids.size() == 3 ? c1.push_back(vid) : c2.push_back(vid);
+        for (auto vid: v.N_Vids) mesh->V.at(vid).type != FEATURE && !mesh->V.at(vid).isBoundary && mesh->valence(mesh->V.at(vid)) == 3 ? c1.push_back(vid) : c2.push_back(vid);
         if (c1.size() != 2 && c2.size() != 2) continue;
         auto& s3_v1 = mesh->V.at(c1.at(0));
         auto& s3_v2 = mesh->V.at(c1.at(1));
         auto& sn_v1= mesh->V.at(c2.at(0));
         auto& sn_v2= mesh->V.at(c2.at(1));
         if (mu->GetDifference(s3_v1.N_Fids, s3_v2.N_Fids).size() != s3_v1.N_Fids.size()) continue;
-        if ((sn_v1.type == FEATURE || sn_v1.isBoundary) && sn_v1.N_Fids.size() < sn_v1.idealValence) continue; 
-        if ((sn_v2.type == FEATURE || sn_v2.isBoundary) && sn_v2.N_Fids.size() < sn_v2.idealValence) continue; 
+        // std::cout << "here" << std::endl;
+        if ((sn_v1.type == FEATURE || sn_v1.isBoundary) && mesh->virtualValence(sn_v1, v.N_Fids) < 5) continue; 
+        if ((sn_v2.type == FEATURE || sn_v2.isBoundary) && mesh->virtualValence(sn_v2, v.N_Fids) < 5) continue; 
         if (sn_v1.type == FEATURE || sn_v1.isBoundary || sn_v2.type == FEATURE || sn_v2.isBoundary) {
-            bool skip = false;
-            int featureCount = 0;
-            for (auto nvid: v.N_Vids) {
-                if (mesh->V.at(nvid).type == FEATURE || mesh->V.at(nvid).isBoundary) featureCount += 1;
-            }
-            for (auto cvid: c2) {
-                for (auto eid: v.N_Eids) {
-                    int count = 0;
-                    auto& e = mesh->E.at(eid);
-                    if ((e.Vids.at(0) == v.id && e.Vids.at(1) == cvid) || (e.Vids.at(1) == v.id && e.Vids.at(0) == cvid)) {
-                        for (auto efid: e.N_Fids) {
-                            auto& f = mesh->F.at(efid);
-                            for (auto fvid: f.Vids) {
-                                if (mesh->V.at(fvid).type == FEATURE || mesh->V.at(fvid).isBoundary) count += 1;
-                            }
-                        }
-                        // if (count == 4 && featureCount == 2) skip = true;
-                        if (count == 4 && mesh->V.at(cvid).idealValence == 4) skip = true;
-                        break;
-                    }
-                }
-            }
-            if (skip) continue;
+            // bool skip = false;
+            // if (mesh->virtualValence())
+            // int featureCount = 0;
+            // for (auto nvid: v.N_Vids) {
+            //     if (mesh->V.at(nvid).type == FEATURE || mesh->V.at(nvid).isBoundary) featureCount += 1;
+            // }
+            // for (auto cvid: c2) {
+            //     for (auto eid: v.N_Eids) {
+            //         int count = 0;
+            //         auto& e = mesh->E.at(eid);
+            //         if ((e.Vids.at(0) == v.id && e.Vids.at(1) == cvid) || (e.Vids.at(1) == v.id && e.Vids.at(0) == cvid)) {
+            //             for (auto efid: e.N_Fids) {
+            //                 auto& f = mesh->F.at(efid);
+            //                 for (auto fvid: f.Vids) {
+            //                     if (mesh->V.at(fvid).type == FEATURE || mesh->V.at(fvid).isBoundary) count += 1;
+            //                 }
+            //             }
+            //             // if (count == 4 && featureCount == 2) skip = true;
+            //             if (count == 4 && mesh->V.at(cvid).idealValence == 4) skip = true;
+            //             break;
+            //         }
+            //     }
+            // }
+            // if (skip) continue;
             std::shared_ptr<SimplificationOperation> ds = std::make_shared<DirectSeparatrixCollapse>(*mesh, *mu, *smoother, v.id, c1, c2, looseCollapse);
             ds->SetRanking();
+            // std::cout << "ranking: " << ds->ranking << std::endl;
             if (ds->ranking < 0) continue;
             Op_Q.insert(ds->ranking, v.id, ds);
         }
     }
     int i = 0;
     std::cout << Op_Q.size() << " boundary direct separatrix operations" << std::endl;
+    bool res = Op_Q.size() > 0;
     while (!Op_Q.empty()) {
+        // std::cout << "Performing Operation" << std::endl;
         auto op = Op_Q.pop();
         op->PerformOperation();
         // smoother->Smooth(op->smoothV);
@@ -307,22 +369,23 @@ void SemiGlobalSimplifier::SetBoundaryDirectSeparatrixOperations(bool looseColla
         // i += 1;
         // if (i >= iters) break;
     }
-    // std::cout << "Smoothing mesh" << std::endl;
+    std::cout << "Smoothing mesh" << std::endl;
     // std::vector<size_t> smoothv;
     // for (auto& v: mesh->V) smoothv.push_back(v.id);
     // smoother->Smooth(smoothv);
+    return res;
 }
 
 
-void SemiGlobalSimplifier::SetDirectSeparatrixOperations(bool looseCollapse) {
+bool SemiGlobalSimplifier::SetDirectSeparatrixOperations(bool looseCollapse) {
     CheckValidity();
 
     Op_Q.setMaxQueueOn();
     Op_Q.setSpecialComparisonOn();
     for (auto& v: mesh->V) {
-        if (v.N_Vids.size() != 4 || v.type == FEATURE || v.isBoundary) continue;
+        if (mesh->virtualValence(v) != 4 || v.type == FEATURE || v.isBoundary) continue;
         std::vector<size_t> c1, c2;
-        for (auto vid: v.N_Vids) mesh->V.at(vid).N_Vids.size() == 3 ? c1.push_back(vid) : c2.push_back(vid);
+        for (auto vid: v.N_Vids) mesh->valence(mesh->V.at(vid)) == 3 ? c1.push_back(vid) : c2.push_back(vid);
         if (c1.size() != 2 && c2.size() != 2) continue;
         auto& s3_v1 = mesh->V.at(c1.at(0));
         auto& s3_v2 = mesh->V.at(c1.at(1));
@@ -338,6 +401,7 @@ void SemiGlobalSimplifier::SetDirectSeparatrixOperations(bool looseCollapse) {
     }
     int i = 0;
     std::cout << Op_Q.size() << " direct separatrix operations" << std::endl;
+    bool res = Op_Q.size() > 0;
     while (!Op_Q.empty()) {
         auto op = Op_Q.pop();
         op->PerformOperation();
@@ -353,7 +417,7 @@ void SemiGlobalSimplifier::SetDirectSeparatrixOperations(bool looseCollapse) {
     // std::vector<size_t> smoothv;
     // for (auto& v: mesh->V) smoothv.push_back(v.id);
     // smoother->Smooth(smoothv);
-
+    return res;
 }
 
 void SemiGlobalSimplifier::SetSeparatrixOperations() {
@@ -668,7 +732,22 @@ void SemiGlobalSimplifier::SetVertexRotationOperations() {
     CheckValidity();
 
     int i = 0;
+    std::vector<bool> visited(mesh->V.size(), false);
     for (auto& v: mesh->V) {
+        bool skip = true;
+        // if (visited.at(v.id)) continue;
+        // for (auto nfid: v.N_Fids) {
+        //     auto&f = mesh->F.at(nfid);
+        //     for (auto fvid: f.Vids) {
+        //         visited.at(fvid) = true;
+        //     }
+        // }
+        if (v.N_Vids.size() != 4) continue;
+        int count = 0;
+        for (auto nvid: v.N_Vids) {
+            if (mesh->V.at(nvid).N_Vids.size() == 4) count++; 
+        }
+        if (count != 4) continue;
         std::shared_ptr<SimplificationOperation> s = std::make_shared<VertexRotation>(*mesh, *mu, *smoother, v.id);
         s->PerformOperation();
         // i += 1;
@@ -5636,8 +5715,8 @@ bool SemiGlobalSimplifier::Contains(std::vector<size_t> v, std::vector<size_t> v
     return !mu->GetIntersection(v, v2).empty();
 }
 
-void SemiGlobalSimplifier::Smooth() {
-    std::cout << "Smoothing mesh" << std::endl;
+void SemiGlobalSimplifier::Smooth(vMesh* m) {
+    // std::cout << "Smoothing mesh" << std::endl;
     // std::vector<size_t> smoothv;
     // for (auto& v: mesh->V) {
     //     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty()) continue;
@@ -5645,7 +5724,189 @@ void SemiGlobalSimplifier::Smooth() {
     // }
     // smoother->Smooth(smoothv);
     // smoother->SetMesh(*mesh);
-    smoother->Smooth(std::vector<size_t>{});
+    // smoother->Smooth(std::vector<size_t>{});
+    int iters = 10;
+    std::vector<size_t> V;
+    bool useVM = m != nullptr;
+    std::vector<glm::dvec3> new_xyz;
+    if (useVM) {
+        for (auto it_map = m->vmap.begin(); it_map != m->vmap.end(); it_map++) {
+            V.push_back(it_map->second.id);
+            new_xyz.push_back(it_map->second.xyz());
+        }
+    } else {
+        V.resize(mesh->V.size());
+        new_xyz.resize(mesh->V.size());
+        PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
+            V.at(i) = i;
+            new_xyz.at(i) = mesh->V.at(i).xyz();
+        } PARALLEL_FOR_END();
+    }
+    if (m == nullptr) m = new vMesh(mesh);
+    auto normalize = [&] (glm::dvec3 v) {
+        if (glm::length(v) == 0.) return glm::dvec3(0.0, 0.0, 0.0);
+        return glm::normalize(v);
+    };
+    auto getVertexNormal = [&] (Vertex& v) {
+        glm::dvec3 normal(0.0, 0.0, 0.0);
+        auto n = [&] (size_t vid_1, size_t vid_2, size_t vid_3) {
+            glm::dvec3 a = m->getVertex(vid_2, useVM).xyz() - m->getVertex(vid_1, useVM).xyz();
+            glm::dvec3 b = m->getVertex(vid_3, useVM).xyz() - m->getVertex(vid_1, useVM).xyz();
+            return normalize(glm::cross(a, b));
+        };
+        for (auto fid: v.N_Fids) {
+            auto& f = m->getFace(fid, useVM);
+            normal += n(f.Vids.at(0), f.Vids.at(1), f.Vids.at(2));
+            normal += n(f.Vids.at(0), f.Vids.at(2), f.Vids.at(3));
+            normal += n(f.Vids.at(1), f.Vids.at(2), f.Vids.at(3));
+            normal += n(f.Vids.at(1), f.Vids.at(3), f.Vids.at(0));
+        }
+        normal = normalize(normal);
+        return normal;
+    };
+    auto projectToNormal = [&] (Vertex& v, glm::dvec3 p, glm::dvec3 n) {
+        return p - (glm::dot(p-v.xyz(), n) * n);
+    };
+    auto SetPosition = [&] (Vertex& v, int idx) {
+        vInfo info_v(mesh, v.id, m, useVM);
+        auto nvids = info_v.vids();
+        glm::dvec3 move(0.0, 0.0, 0.0);
+        auto normal = getVertexNormal(v);
+        double count = 0.0;
+        for (int i = 0; i < nvids.size(); i++) {
+            auto& v_n = m->getVertex(nvids.at(i), useVM);
+            auto& v_n_prev = m->getVertex(nvids.at((i-1+nvids.size())%nvids.size()), useVM);
+            auto& v_n_next = m->getVertex(nvids.at((i+1)%nvids.size()), useVM);
+
+            auto A = v_n.xyz();
+            auto B = v_n_prev.xyz();
+            auto C = v_n_next.xyz();
+
+            glm::dvec3 AB = B - A;
+            glm::dvec3 BC = C - B;
+            glm::dvec3 CA = A - C;
+
+            double a = glm::length(BC);
+            double b = glm::length(CA);
+            double c = glm::length(AB);
+            
+            glm::dvec3 incenter = glm::dvec3((a*A.x)+(b*B.x)+(c*C.x), (a*A.y)+(b*B.y)+(c*C.y), (a*A.z)+(b*B.z)+(c*C.z)) / (a+b+c);
+            auto dir = normalize(incenter - A);
+            dir = (A + (dir * glm::length(v.xyz() - A))) - v.xyz();
+            auto target = v.xyz() + dir;
+            move += projectToNormal(v, target, normal);
+            // move += target;
+            count += 1.0;
+        }
+        if (count > 0.0) move /= count;
+        new_xyz.at(idx) = move;
+        // v.xyz(move);
+    };
+    auto SetPositionBoundary = [&] (Vertex& v, int idx) {
+        // std::cout << "inside SetPositionBoundary" << std::endl;
+        vInfo info_v(mesh, v.id, m, useVM);
+        // std::cout << "Got vInfo " << std::endl;
+        auto nvids = info_v.vids();
+        std::vector<size_t> boundaryVertices;
+        for (auto nvid: nvids) {
+            auto& nv = m->getVertex(nvid, useVM);
+            if (nv.isBoundary || nv.type == FEATURE) boundaryVertices.push_back(nvid);
+        }
+        // std::cout << "boundaryVertices size: " << boundaryVertices.size() << std::endl;
+        if (boundaryVertices.empty() || boundaryVertices.size() > 2) return;
+        if (boundaryVertices.size() == 1) {
+            SetPosition(v, idx);
+            return;
+        }
+        auto& b1 = m->getVertex(boundaryVertices.at(0), useVM);
+        auto& b2 = m->getVertex(boundaryVertices.at(1), useVM);
+        glm::dvec3 move(0.0, 0.0, 0.0);
+        auto normal = getVertexNormal(v);
+        int k = 0;
+        for (auto nvid: nvids) {
+            if (nvid == b1.id || nvid == b2.id) continue;
+            auto& nv = m->getVertex(nvid, useVM);
+            glm::dvec3 A(v.xyz() - nv.xyz());
+            glm::dvec3 B(b1.xyz() - nv.xyz());
+            glm::dvec3 C(b2.xyz() - nv.xyz());
+            double theta_1 = atan2(glm::length(glm::cross(A, B)), glm::dot(A, B));
+            double theta_2 = atan2(glm::length(glm::cross(A, C)), glm::dot(A, C));
+            double theta = (theta_2 - theta_1) / 2.0;
+            glm::dvec3 r(v.xyz());
+            double l = 0.0;
+            if (theta > 0) {
+                r = b2.xyz() - v.xyz();
+                l += fabs(theta/theta_2) * glm::length(r);
+            } else if (theta < 0) {
+                r = b1.xyz() - v.xyz();
+                l += fabs(theta/theta_1) * glm::length(r);
+            }
+            move += projectToNormal(v, v.xyz()+l*normalize(r), normal);
+            // move += v.xyz()+l*normalize(r);
+            k += 1;
+        }
+        if (k > 0) move /= k;
+        new_xyz.at(idx) = move;
+        // v.xyz(move);
+    };
+    auto SetOptimizedPositions = [&] (int idx) {
+        // std::cout << "getting vertex at: " << idx << std::endl;
+        auto& v = m->getVertex(V.at(idx), useVM);
+        // std::cout << "got vertex at: " << idx << std::endl;
+        if (v.N_Fids.empty()) return;
+        if (v.isBoundary || v.type == FEATURE) {
+            // std::cout << "got vertex ";
+            SetPositionBoundary(v, idx);
+        } else {
+            SetPosition(v, idx);
+        }
+    };
+    auto SetProjectedPositions = [&] (int idx) {
+        auto& v = m->getVertex(V.at(idx), useVM);
+        if (v.N_Fids.empty()) return;
+        if (v.isBoundary || v.type == FEATURE) {
+            v.xyz(v.xyz()+sp->projectToBoundary(v.xyz()));
+        } else {
+            auto normal = getVertexNormal(v);
+            v.xyz(v.xyz()+sp->projectToSurface(v.xyz(), normal));
+        }
+    };
+    while (iters--) {
+        // std::cout << "**********smoothing iter " << iters+1 << "*******************" << std::endl;
+        // std::cout << "Getting new positions" << std::endl;
+        // std::cout << "vertices: " << mesh->V.size() << " V: " << V.size() << std::endl;
+        if (useVM) {
+            for (int i = 0; i < V.size(); i++) {
+                SetOptimizedPositions(i);
+            }
+        } else {
+            // for (int i = 0; i < mesh->V.size(); i++) {
+            PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
+                SetOptimizedPositions(i);
+            } PARALLEL_FOR_END();
+            // }
+        }
+        // std::cout << "Setting new positions" << std::endl;
+        if (useVM) {
+            for (int i = 0; i < V.size(); i++) {                
+                m->getVertex(V.at(i), useVM).xyz(new_xyz.at(i));
+            }
+        } else {
+            PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
+                m->getVertex(V.at(i), useVM).xyz(new_xyz.at(i));
+            } PARALLEL_FOR_END();
+        }
+        // std::cout << "Projecting to surface" << std::endl;
+        if (useVM) {
+            for (int i = 0; i < V.size(); i++) {
+                SetProjectedPositions(i);
+            }
+        } else {
+            PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
+                SetProjectedPositions(i);
+            } PARALLEL_FOR_END();
+        }
+    }
 }
 
 bool SemiGlobalSimplifier::RemoveDoublets() {
@@ -6496,7 +6757,7 @@ void SemiGlobalSimplifier::PrototypeSaveSeparatrices(std::vector<std::vector<siz
 
     std::vector<size_t> c_indices;
     for (auto& f: mesh->F) {
-        if (f.Vids.empty() || f.N_Fids.empty()) continue;
+        if (f.Vids.empty()) continue;
         c_indices.push_back(f.id);
     }
     ofs << "# vtk DataFile Version 3.0\n"
@@ -8705,898 +8966,2650 @@ void SemiGlobalSimplifier::PrototypeMoveAlongPath(Path& p) {
     // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{}, "test_end");
 }
 
-void SemiGlobalSimplifier::TestFlips() {
-    // auto& getVertex = [&] (size_t vid, vMesh& m) -> Vertex& {
-    //     if (m.vmap.find(vid) != m.vmap.end()) return m.getVertex(vid);
-    //     return mesh->V.at(vid);
-    // };
-
-    // auto& getFace = [&] (size_t fid, vMesh& m) -> Face& {
-    //     if (m.fmap.find(fid) != m.fmap.end()) return m.getFace(fid);
-    //     return mesh->F.at(fid);
-    // };
-
-    // std::vector<vMesh> meshes(mesh->E.size());
-    // PARALLEL_FOR_BEGIN(0, mesh->E.size()) {
-    //     vMesh m;
-    //     m.SetMesh(mesh);
-    //     auto& e = mesh->E.at(i);
-    //     Operation op("Flip", e.Vids[0], std::vector<size_t>{e.Vids[0], e.Vids[1]}, false);        
-    //     PerformOperation(op, m);
-    //     meshes.at(i) = m;
-    // } PARALLEL_FOR_END();
-
-    // std::vector<vMesh> meshes(mesh->F.size());
-    // PARALLEL_FOR_BEGIN(0, mesh->F.size()) {
-    //     vMesh m;
-    //     m.SetMesh(mesh);
-    //     auto& f = mesh->F.at(i);
-    //     Operation op("Collapse", f.Vids[0], std::vector<size_t>{f.Vids[0], f.Vids[2]}, false);        
-    //     PerformOperation(op, m);
-    //     meshes.at(i) = m;
-    // } PARALLEL_FOR_END();
-
-    // std::vector<vMesh> meshes(mesh->E.size());
-    // PARALLEL_FOR_BEGIN(0, mesh->E.size()) {
-    //     vMesh m;
-    //     m.SetMesh(mesh);
-    //     auto& e = mesh->E.at(i);
-    //     Operation op("Split", e.Vids[0], std::vector<size_t>{e.Vids[0], e.Vids[1]}, false);        
-    //     PerformOperation(op, m);
-    //     meshes.at(i) = m;
-    // } PARALLEL_FOR_END();
-
-    // std::vector<vMesh> meshes(mesh->V.size());
-    // PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
-    //     vMesh m;
-    //     m.SetMesh(mesh);
-    //     auto& v = mesh->V.at(i);
-    //     Operation op("Rotate", v.id, std::vector<size_t>{}, false);        
-    //     PerformOperation(op, m);
-    //     meshes.at(i) = m;
-    // } PARALLEL_FOR_END();
-
-    // std::cout << "Meshes: " << meshes.size() << std::endl;
-    /*tfPair tfp(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
-    std::cout << "Getting three five pair" << std::endl;
-    for (auto& v: mesh->V) {
-        if ([&](Vertex& v) {
-            vInfo info_v(mesh, v.id);
-            for (auto vid: info_v.vids()) {
-                auto& nv = mesh->V.at(vid);
-                vInfo info_nv(mesh, vid);
-                if (v.isBoundary || v.type == FEATURE ||
-                    nv.isBoundary || nv.type == FEATURE) return false;
-                if (info_v.nvids() == 3 && info_nv.nvids() == 5) {
-                    tfp.setIds(v.id, nv.id);
-                    return true;
-                }
-                if (info_v.nvids() == 5 && info_nv.nvids() == 3) {
-                    tfp.setIds(nv.id, v.id);
-                    return true;
-                }
-            }
-            return false;
-        }(v)) break; 
-    }
-    if (tfp.isValid()) {
-        // std::cout << "Three Five Pair Ids: " << tfp.tId << " " << tfp.fId << std::endl;
-        auto& three = mesh->V.at(tfp.tId);
-        auto& five = mesh->V.at(tfp.fId);
-        vInfo info(mesh, tfp.fId);
-        std::vector<size_t> vids_three = mu->GetDifference(info.vids(tfp.tId), std::vector<size_t>{tfp.fId});
-        std::vector<size_t> vids_five = mu->GetDifference(info.vids(tfp.fId), std::vector<size_t>{tfp.tId});
-        std::vector<int> idxs = {1,2,3,3,2,2,1,1,2,2,3,3,2,2,1,1,2,2};
-        int it = 0;
-        auto getRandomPath = [&] (std::vector<size_t> edge) {
-            std::vector<size_t> res;
-            size_t currId = edge.at(0);
-            size_t nextId = edge.at(1);
-            std::unordered_map<size_t, bool> visited; 
-            while (true) {
-                auto& v = mesh->V.at(nextId);
-                if (it >= idxs.size() || visited.find(nextId) != visited.end() || v.id == tfp.tId || v.id == tfp.fId || v.isBoundary || v.type == FEATURE) break;
-                res.push_back(nextId);
-                visited[nextId] = true;
-                vInfo info_v(mesh, nextId);
-                if (info_v.nvids() != 4) break;
-                std::vector<size_t> vids = info_v.vids(currId);
-                currId = nextId;
-                std::random_device rd;
-                std::mt19937 g(rd());
-                std::uniform_int_distribution<size_t> dist(1, 3);
-                int idx = dist(g);
-                // idx = idxs.at(it);
-                // it += 1;
-                nextId = vids.at(idx);
-            }
-            return res;
-        };
-        std::vector<std::vector<size_t>> paths(100000);
-        // while (paths.size() < 10000) {
-        // for (int i = 0; i < paths.size(); i++) {
-        PARALLEL_FOR_BEGIN(0, 100000) {    
-            {
-                std::random_device rd;
-                std::mt19937 g(rd());
-                std::uniform_int_distribution<size_t> dist(0, vids_three.size()-1);
-                int idx = dist(g);
-                auto path = getRandomPath(std::vector<size_t>{tfp.tId, vids_three.at(idx)});
-                if (path.empty()) continue;
-                paths.at(i) = path;
-                // paths.push_back(path);
-            }
-            {
-                std::random_device rd;
-                std::mt19937 g(rd());
-                std::uniform_int_distribution<size_t> dist(0, vids_five.size()-1);
-                int idx = dist(g);
-                auto path = getRandomPath(std::vector<size_t>{tfp.fId, vids_five.at(idx)});
-                // auto path = getRandomPath(std::vector<size_t>{tfp.fId, vids_five.at(1)});
-                if (path.empty()) continue;
-                paths.at(i) = path;
-                // paths.push_back(path);
-            }
-        } PARALLEL_FOR_END();
-        // }
-        std::cout << "paths: " << paths.size() << std::endl;
-        PrototypeSaveSeparatrices(paths, "test_all");
-        auto movePair = [&] (tfPair& tfp, size_t dest, vMesh& m) {
-            auto& three = m.getVertex(tfp.tId);
-            auto& five = m.getVertex(tfp.fId);
-            vInfo info_three(mesh, tfp.tId, &m);
-            vInfo info_five(mesh, tfp.fId, &m);
-            // std::cout << "three: " << tfp.tId << "(" << info_three.nvids() << ") five: " << tfp.fId << "(" << info_five.nvids() << ")" << std::endl;
-            std::vector<size_t> vids = info_three.vids(five.id);
-            std::vector<size_t> fids = info_three.fids();
-            // std::cout << "vids: "; for (auto vid: vids) std::cout << vid << " "; std::cout << std::endl;
-            // std::cout << "faces: " << std::endl;
-            // for (auto fid: fids) {
-            //     auto& f = m.getFace(fid);
-            //     std::cout << "face: "; for (auto vid: f.Vids) std::cout << vid << " "; std::cout << std::endl;
-            // }
-            if (vids.at(1) == dest || vids.at(2) == dest) {
-                size_t fidx = (vids.at(1) == dest) ? fids.at(0) : fids.at(2);
-                auto& f = m.getFace(fidx);
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                // std::cout << "Performing Collapse" << std::endl;
-                Operation op("Collapse", tfp.tId, std::vector<size_t>{tfp.tId, f.Vids.at((idx+2)%4)}, false);
-                tfp.fId = tfp.tId; tfp.tId = dest;
-                PerformOperation(op, m);
-                return;
-            }
-            vids = info_five.vids(three.id);
-            fids = info_five.fids();
-            for (auto fid: fids) {
-                auto& f = m.getFace(fid);
-            }
-            if (vids.at(1) == dest || vids.at(4) == dest) {
-                bool clockwise = (vids.at(4) == dest);
-                Operation op("Flip", tfp.fId, std::vector<size_t>{tfp.fId, dest}, clockwise);
-                int fidx = (vids.at(1) == dest) ? fids.at(1) : fids.at(3);
-                auto& f = m.getFace(fidx);
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.fId));
-                tfp.tId = dest; tfp.fId = f.Vids.at((idx+2)%4);
-                // std::cout << "Performing Flip" << std::endl;
-                PerformOperation(op, m);
-                return;
-            } else if (vids.at(2) == dest || vids.at(3) == dest) {
-                std::vector<size_t> edge = {tfp.fId, vids.at(2) == dest ? vids.at(1) : vids.at(4)};
-                // std::cout << "Performing Split" << std::endl;
-                Operation op("Split", tfp.fId, edge, false);
-                PerformOperation(op, m);
-                tfp.tId = m.max_vid; tfp.fId = dest;
-                return;
-            }
-        };
-        
-        std::vector<vMesh> meshes(paths.size());
-        PARALLEL_FOR_BEGIN(0, paths.size()) {
-        // for (int i = 0; i < paths.size(); i++) {
-            auto& path = paths.at(i);
-            // std::cout << "path size: " << paths.at(i).size() << std::endl;
-            // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{paths[i]}, "test");
-            vMesh m;
-            m.SetMesh(mesh);
-            tfPair tfp_(tfp.tId, tfp.fId, false);
-            for (int j = 0; j < path.size(); j++) {
-                movePair(tfp_, path.at(j), m);
-                // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{}, "temp");
-            } 
-            meshes.at(i) = m;
-        // }
-        } PARALLEL_FOR_END();
-        for (int i = 0; i < 1; i++) {
-            std::random_device rd;
-            std::mt19937 g(rd());
-            std::uniform_int_distribution<size_t> dist(0, meshes.size()-1);
-            int idx = dist(g);
-            vMesh& m = meshes.at(idx);
-            std::cout << "path size: " << paths.at(idx).size() << " fmap: " << m.fmap.size() << std::endl;
-            PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{paths[idx]}, "test");
-            m.Update();
-        }
-    }*/
-
-    /*tfPair tfp(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), true);
-    std::cout << "Getting diagonal three five pair" << std::endl;
-    for (auto& v: mesh->V) {
-        if ([&](Vertex& v) {
-            vInfo info_v(mesh, v.id);
-            for (auto fid: info_v.fids()) {
-                auto& f = mesh->F.at(fid);
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
-                auto& nv = mesh->V.at(f.Vids.at((idx+2)%4));
-                vInfo info_nv(mesh, f.Vids.at((idx+2)%4));
-                if (v.isBoundary || v.type == FEATURE ||
-                    nv.isBoundary || nv.type == FEATURE) return false;
-                if (info_v.nvids() == 3 && info_nv.nvids() == 5) {
-                    tfp.setIds(v.id, nv.id);
-                    return true;
-                }
-                if (info_v.nvids() == 5 && info_nv.nvids() == 3) {
-                    tfp.setIds(nv.id, v.id);
-                    return true;
-                }
-            }
-            return false;
-        }(v)) break;
-    }
-    if (tfp.isValid()) {
-        std::cout << "Diagonal Three Five Pair Ids: " << tfp.tId << " " << tfp.fId << std::endl;
-        auto& three = mesh->V.at(tfp.tId);
-        auto& five = mesh->V.at(tfp.fId);
-        /*vInfo info_three(mesh, tfp.tId);
-        vInfo info_five(mesh, tfp.fId);
-        size_t face = mu->GetIntersection(info_three.fids(), info_five.fids()).at(0);
-        auto& f = mesh->F.at(face);
-        size_t vert = mu->GetDifference(info_three.vids(), mu->GetIntersection(info_three.vids(), f.Vids)).at(0);
-        vMesh m;
-        m.SetMesh(mesh);
-        {
-            Operation op("Rotate", tfp.tId, std::vector<size_t>{}, false);
-            PerformOperation(op, m);
-        }
-        vInfo info_nt(mesh, tfp.tId, &m);
-        for (auto nfid: info_nt.fids()) {
-            auto& nf = m.getFace(nfid);
-            if (std::find(nf.Vids.begin(), nf.Vids.end(), vert) == nf.Vids.end()) {
-                int idx = std::distance(nf.Vids.begin(), std::find(nf.Vids.begin(), nf.Vids.end(), tfp.tId));
-                Operation op("Collapse", tfp.tId, std::vector<size_t>{nf.Vids.at(idx), nf.Vids.at((idx+2)%4)}, false);
-                PerformOperation(op, m);
-                // break;
-            }
-        }
-        m.Update();
-        vInfo info_three(mesh, tfp.tId);
-        vInfo info_five(mesh, tfp.fId);
-        std::vector<size_t> vids_three = info_three.vids();
-        std::vector<size_t> vids_five = info_five.vids();
-        std::vector<int> idxs = {3,1,3,2,2,2,2,2,1,1,3,1,3,2,2,3,3,2,1,1,1};
-        int it = 0;
-        auto getRandomPath = [&] (std::vector<size_t> edge) {
-            std::vector<size_t> res;
-            size_t currId = edge.at(0);
-            size_t nextId = edge.at(1);
-            std::unordered_map<size_t, bool> visited; 
-            while (true) {
-                auto& v = mesh->V.at(nextId);
-                if (it >= idxs.size() || visited.find(nextId) != visited.end() || v.id == tfp.tId || v.id == tfp.fId || v.isBoundary || v.type == FEATURE) break;
-                res.push_back(nextId);
-                visited[nextId] = true;
-                vInfo info_v(mesh, nextId);
-                if (info_v.nvids() != 4) break;
-                std::vector<size_t> vids = info_v.vids(currId);
-                currId = nextId;
-                std::random_device rd;
-                std::mt19937 g(rd());
-                std::uniform_int_distribution<size_t> dist(1, 3);
-                int idx = dist(g);
-                // idx = idxs.at(it);
-                // it += 1;
-                nextId = vids.at(idx);
-            }
-            return res;
-        };
-        std::vector<std::vector<size_t>> paths;
-        // for (int i = 0; i < 1; i++) {
-        while (paths.size() < 1) {
-            {
-                // std::random_device rd;
-                // std::mt19937 g(rd());
-                // std::uniform_int_distribution<size_t> dist(0, vids_three.size()-1);
-                // int idx = dist(g);
-                // std::vector<size_t> path = getRandomPath(std::vector<size_t>{tfp.tId, vids_three.at(idx)});
-                // std::vector<size_t> path = getRandomPath(std::vector<size_t>{tfp.tId, vids_three.at(2)});
-                // if (path.empty()) continue;
-                // paths.push_back(path);
-            }
-            {
-                // std::random_device rd;
-                // std::mt19937 g(rd());
-                // std::uniform_int_distribution<size_t> dist(0, vids_five.size()-1);
-                // int idx = dist(g);
-                // std::vector<size_t> path = getRandomPath(std::vector<size_t>{tfp.fId, vids_five.at(idx)});
-                std::vector<size_t> path = getRandomPath(std::vector<size_t>{tfp.fId, vids_five.at(0)});
-                if (path.empty()) continue;
-                paths.push_back(path);
-                // paths.push_back(getRandomPath(std::vector<size_t>{tfp.fId, vids_five.at(0)}));
-            }
-        }
-        // std::cout << "paths: " << paths.size() << std::endl;
-        // std::cout << "path: " << paths.at(0).size() << std::endl;
-        PrototypeSaveSeparatrices(paths, "test_all");
-        auto movePair = [&] (tfPair& tfp, size_t dest, vMesh& m) {
-            auto& three = m.getVertex(tfp.tId);
-            auto& five = m.getVertex(tfp.fId);
-            vInfo info_three(mesh, tfp.tId, &m);
-            vInfo info_five(mesh, tfp.fId, &m);
-            size_t face_id = mu->GetIntersection(info_three.fids(), info_five.fids()).at(0);
-            auto& f = m.getFace(face_id);
-            std::vector<size_t> fids = info_five.fids(face_id);
-            std::vector<size_t> vids = info_five.vids();
-            if (vids.at(0) == dest || vids.at(1) == dest || vids.at(2) == dest || vids.at(4) == dest) {
-                std::cout << "Performing edge flip" << std::endl;
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.fId));
-                bool clockwise = (vids.at(1) == dest || vids.at(2) == dest);
-                std::vector<size_t> edge = {tfp.fId, dest};
-                if (vids.at(2) == dest) edge.at(1) = vids.at(1);
-                if (vids.at(4) == dest) edge.at(1) = vids.at(0);
-                Operation op("Flip", tfp.fId, edge, clockwise);
-                PerformOperation(op, m);
-                tfp.tId = clockwise ? vids.at(1) : vids.at(0); tfp.fId = clockwise ? vids.at(2) : vids.at(4);
-                return;
-            }
-            if (vids.at(3) == dest) {
-                std::cout << "Performing diagonal up op" << std::endl;
-                std::vector<size_t> nvs = {vids.at(2), vids.at(4)};
-                for (auto id: nvs) {
-                    Operation op("Split", tfp.fId, std::vector<size_t>{tfp.fId, id}, false);
-                    PerformOperation(op, m);
-                }
-                Operation op("Rotate", tfp.fId, std::vector<size_t>{}, false);
-                PerformOperation(op, m);
-                tfp.tId = tfp.fId; tfp.fId = dest;
-                return;
-            }
-            fids = info_three.fids(face_id);
-            vids = info_three.vids();
-            if (vids.at(2) == dest) {
-                std::cout << "Performing diagonal down op" << std::endl;
-                Operation op("Rotate", tfp.tId, std::vector<size_t>{}, false);
-                PerformOperation(op, m);
-                std::vector<size_t> faces;
-                vInfo info_t(mesh, tfp.tId, &m);
-                for (auto fid: info_t.fids()) {
-                    auto& f = m.getFace(fid);
-                    if (std::find(f.Vids.begin(), f.Vids.end(), dest) != f.Vids.end()) continue;
-                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                    Operation op2("Collapse", tfp.tId, std::vector<size_t>{tfp.tId, f.Vids.at((idx+2)%4)}, false);
-                    PerformOperation(op2, m);
-                }
-                tfp.fId = tfp.tId; tfp.tId = dest;
-                return;
-            }
-        };
-        
-        std::vector<vMesh> meshes(paths.size());
-        // PARALLEL_FOR_BEGIN(0, paths.size()) {
-        for (int i = 0 ; i < paths.size(); i++) {
-            auto& path = paths.at(i);
-            PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{paths[i]}, "test");
-            vMesh m;
-            m.SetMesh(mesh);
-            tfPair tfp_(tfp.tId, tfp.fId, true);
-            for (int j = 0; j < path.size(); j++) {
-                movePair(tfp_, path.at(j), m);
-            } 
-            meshes.at(i) = m;
-        }
-        // } PARALLEL_FOR_END();
-        for (int i = 0; i < 1; i++) {
-            std::random_device rd;
-            std::mt19937 g(rd());
-            std::uniform_int_distribution<size_t> dist(0, meshes.size()-1);
-            int idx = dist(g);
-            vMesh& m = meshes.at(idx);
-            std::cout << "path size: " << paths.at(idx).size() << " fmap: " << m.fmap.size() << std::endl;
-            // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{paths[idx]}, "test");
-            m.Update();
-        }
-    }*/
-    std::vector<std::vector<size_t>> paths;
+bool SemiGlobalSimplifier::TestFlips() {
+    // auto testFlipQuads = [&]() {
+    //     auto qV_arr = [&] (Face& f) {
+    //         double coords[4][3];
+    //         for (int i = 0; i < 4; i++) {
+    //             auto& v = mesh->V.at(f.Vids.at(i));
+    //             coords[i][0] = v.x; coords[i][1] = v.y; coords[i][2] = v.z;
+    //         }
+    //         return coords;
+    //     };
+    //     for (auto& f: mesh->F) {
+    //         std::cout << "aspect_ratio_score for: " << f.id << " " << v_quad_aspect_ratio(4, qV_arr(f)) << std::endl; 
+    //         std::cout << "shape_score for: " << f.id << " " << v_quad_shape(4, qV_arr(f)) << std::endl; 
+    //         std::cout << "---------------------" << std::endl;
+    //     }
+    //     return 0;
+    // }();
+    // return;
+    // for (int mainIter = 0; mainIter < iters; mainIter++) {
+    // for (int mainIter = 0; mainIter < 1; mainIter++) {
+        // std::cout << "MAIN ITER: " << mainIter << std::endl;
+    // std::vector<std::vector<size_t>> paths;
+    // for (auto& v: mesh->V) {
+    //     vMesh m(mesh);
+    //     PerformOperation(Operation("Rotate", v.id, std::vector<size_t>{}, false), &m);
+    //     m.Update();
+    // }
+    // return 0;
+    int mainIter = 0;
+    int singularity_idx = 175;
+    int path_idx = 991;
+    int iteration_idx = 2;
+    int mainIter_idx = 0;
+    int singularity_it = 0;
+    int path_it = 0;
+    int iteration_it = 0;
     auto isSingularity = [&](Vertex& v) {
         if (v.isBoundary || v.type == FEATURE) return false;
-        if (v.N_Fids.size() == 3 || v.N_Fids.size() == 5) return true;
-        return false;
+        // if (v.N_Fids.size() == 3 || v.N_Fids.size() == 5) return true;
+        // return false;
+        return (mesh->virtualValence(v) == 3 || mesh->virtualValence(v) == 5);
     };
     int it = 0;
-    for (auto& v: mesh->V) {
-        if (v.isBoundary || v.type == FEATURE) continue;
-        if (isSingularity(v)) {
-            if (it++ < 0) continue;
-            const int MAIN = 1, MAIN_BRANCH = 2, BRANCH = 3, DEFLECT = 4, DEFLECT_SKIP = 5, SKIP = 6;
-            struct vPath {
-                int id;
-                int flag = 1;
-                vPath(int id_, int flag_) : id(id_), flag(flag_) {}
+    const int MAIN = 1, MAIN_BRANCH = 2, BRANCH = 3, DEFLECT = 4, DEFLECT_SKIP = 5, SKIP = 6;
+    struct vPath {
+        int id;
+        int flag = 1;
+        vPath(int id_, int flag_) : id(id_), flag(flag_) {}
+    };
+    struct executablePath {
+        vMesh m;
+        std::vector<size_t> path;
+        double score = -1.0;
+        double valence_score = 0.0;
+        double singularity_score = 0.0;
+        double element_score = 0.0;
+        bool operator<(const executablePath& p) const {return score < p.score;}
+        int singularity_it = 0; int iteration_it = 0; int path_it = 0; int mainIter = 0;
+        executablePath() {}
+        executablePath& operator=(const executablePath& other) {
+            if (this == &other) return *this;
+            m = other.m;
+            path = other.path;
+            score = other.score;
+            valence_score = other.valence_score;
+            singularity_score = other.singularity_score;
+            element_score = other.element_score;
+            singularity_it = other.singularity_it;
+            iteration_it = other.iteration_it;
+            path_it = other.path_it;
+            mainIter = other.mainIter;
+            return *this;
+        }
+    };
+    struct pathQueueItem {
+        pathQueueItem() {}
+        pathQueueItem(std::vector<size_t> path_, int pth_id_) {
+            path = path_;
+            pth_id = pth_id_;
+        }
+        std::vector<size_t> path;
+        int pth_id;
+    };
+    std::priority_queue<executablePath> paths_;
+        
+    auto corner = [&] (size_t vid, vMesh* m = nullptr, bool useVM = true) {
+        if (m == nullptr) m = new vMesh(mesh);
+        auto& v = m->getVertex(vid, useVM);
+        if (!v.isBoundary && v.type != FEATURE) return false;
+        int ideal_valence = m->getIdealValence(v.id, useVM);
+        if (v.isBoundary && ideal_valence != 2) return true;
+        if (v.type == FEATURE && ideal_valence != 4) return true;
+        vInfo info_v(mesh, v.id, m, useVM);
+        auto nvids = info_v.vids();
+        std::vector<size_t> features;
+        for (auto nvid: nvids) {
+            auto& nv = m->getVertex(nvid, useVM);
+            if (nv.isBoundary || nv.type == FEATURE) features.push_back(nvid);
+        }
+        if (features.size() == 2) {
+            double angle = m->getAngle(v.id, features.at(0), features.at(1), useVM);
+            if (angle < 165 || angle > 195) return true;
+        } else if (features.size() > 2) {
+            features.push_back(features.at(0));
+            std::vector<glm::dvec3> normals;
+            for (int i = 0; i < features.size()-1; i++) {
+                auto& v1 = m->getVertex(features.at(i), useVM);
+                auto& v2 = m->getVertex(features.at(i+1), useVM);
+                normals.push_back(glm::normalize(glm::cross(v1.xyz()-v.xyz(), v2.xyz()-v.xyz())));
+            }
+            for (int i = 0; i < normals.size()-1; i++) {
+                auto A = normals.at(i);
+                auto B = normals.at(i+1);
+                double angle = atan2(glm::length(glm::cross(A, B)), glm::dot(A, B));
+                if (angle < 0) angle += 2*PI;
+                angle = angle * 180.0 / PI;
+                if (angle < 165 || angle > 195) return true; 
+            }
+        }
+        return false;
+    };
+    auto renewMesh = [&] () {
+        std::vector<Vertex> V;
+        std::vector<Edge> E;
+        std::vector<Face> F;
+        std::unordered_map<size_t, size_t> vmap;
+        size_t vidx = 0;
+        for (auto& v: mesh->V) {
+            if (v.N_Fids.empty()) continue;
+            Vertex v_(v);
+            v_.id = V.size();
+            v_.N_Fids.clear();
+            V.push_back(v_);
+            vmap[v.id] = v_.id;
+        }
+        for (auto& f: mesh->F) {
+            if (f.Vids.empty()) continue;
+            for (int i = 0; i < f.Vids.size(); i++) {
+                f.Vids.at(i) = vmap[f.Vids.at(i)];
+            }
+            Face f_(f);
+            f_.id = F.size();
+            F.push_back(f_);
+        }
+        for (auto& f: F) {
+            for (int i = 0; i < f.Vids.size(); i++) {
+                auto& v = V.at(f.Vids.at(i));
+                mu->AddContents(v.N_Fids, std::vector<size_t>{f.id});
+            }
+        }
+        mesh->V.swap(V);
+        mesh->E.swap(E);
+        mesh->F.swap(F);
+    };
+    auto smooth = [&] (vMesh* m = nullptr, int smoothIters = 5) {
+        int it = 0;
+        bool useVM = m != nullptr;
+        std::vector<size_t> V;
+        // std::unordered_map<int, glm::dvec3> new_xyz;
+        std::vector<glm::dvec3> new_xyz;
+        if (useVM) {
+            for (auto it_map = m->vmap.begin(); it_map != m->vmap.end(); it_map++) {
+                V.push_back(it_map->second.id);
+                new_xyz.push_back(it_map->second.xyz());
+            }
+        } else {
+            V.resize(mesh->V.size());
+            new_xyz.resize(mesh->V.size());
+            PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
+                V.at(i) = i;
+                new_xyz.at(i) = mesh->V.at(i).xyz();
+            } PARALLEL_FOR_END();
+        }
+        if (m == nullptr) m = new vMesh(mesh);
+        bool log = mainIter == mainIter_idx && path_it == path_idx && singularity_it == singularity_idx && iteration_it == iteration_idx;
+        log = false;
+        auto getSmoothPoint = [&] (Vertex& v, Vertex& nv, Vertex& prev, Vertex& next) {
+            auto A = v.xyz() - nv.xyz();
+            auto B = prev.xyz() - nv.xyz();
+            auto C = next.xyz() - nv.xyz();
+
+            double theta_1 = atan2(glm::length(glm::cross(A, B)), glm::dot(A, B));
+            double theta_2 = atan2(glm::length(glm::cross(A, C)), glm::dot(A, C));
+            double theta = (theta_2 - theta_1) / 2.0;
+
+            glm::dvec3 r(v.xyz());
+            double l = 0.0;
+            if (theta > 0) {
+                r = next.xyz() - v.xyz();
+                l = fabs(theta/theta_2) * glm::length(r);
+            } else if (theta < 0) {
+                r = prev.xyz() - v.xyz();
+                l = fabs(theta/theta_1) * glm::length(r);
+            }
+            return v.xyz()+(l*glm::normalize(r));
+        };
+        auto normalize = [&] (glm::dvec3 v) {
+            if (glm::length(v) == 0.0) return glm::dvec3(0.0, 0.0, 0.0);
+            return glm::normalize(v);
+        };
+        auto vertexNormal = [&] (Vertex& v) {
+            glm::dvec3 normal(0.0, 0.0, 0.0);
+            auto n = [&] (size_t vid_1, size_t vid_2, size_t vid_3) {
+                glm::dvec3 a = m->getVertex(vid_2, useVM).xyz() - m->getVertex(vid_1, useVM).xyz();
+                glm::dvec3 b = m->getVertex(vid_3, useVM).xyz() - m->getVertex(vid_1, useVM).xyz();
+                return normalize(glm::cross(a, b));
             };
-            std::vector<std::vector<size_t>> paths;
-            auto push = [&] (std::unordered_map<size_t, int>& parent, std::queue<vPath*>& q, size_t vid, int flag, int parentId) {
-                parent[vid] = parentId;
-                q.push(new vPath(vid, flag));
-                // auto path = {(size_t) vid, (size_t) parentId};
-                // paths.push_back(path);
-            };
-            auto isTarget = [&] (Vertex& v) {
-                if (v.isBoundary) return true;
-                if ((!v.isBoundary && v.type != FEATURE) && (v.N_Fids.size() == 3 || v.N_Fids.size() == 5)) return true;
-                return false;
-            };
-            auto countSingularities = [&] (vInfo& info_v) {
-                std::unordered_set<size_t> res;
-                for (auto fid: info_v.fids()) {
-                    auto& f = mesh->F.at(fid);
-                    for (auto fvid: f.Vids) {
-                        if (!mesh->V.at(fvid).isBoundary && mesh->V.at(fvid).N_Fids.size() != 4) {
-                            res.insert(fvid);
+            for (auto fid: v.N_Fids) {
+                auto& f = m->getFace(fid, useVM);
+                normal += n(f.Vids.at(0), f.Vids.at(1), f.Vids.at(2));
+                normal += n(f.Vids.at(0), f.Vids.at(2), f.Vids.at(3));
+                normal += n(f.Vids.at(1), f.Vids.at(2), f.Vids.at(3));
+                normal += n(f.Vids.at(1), f.Vids.at(3), f.Vids.at(0));
+            }
+            return normalize(normal);
+        };
+        auto projectToNormal = [&] (glm::dvec3 x, glm::dvec3 p, glm::dvec3 n) {
+            // std::cout << "dot p,n: " << glm::dot(p-x, n) << std::endl;
+            // auto toSub = glm::dot(p-x, n) * n;
+            // std::cout << "to sub from p: " << toSub.x << " " << toSub.y << " " << toSub.z << std::endl;
+            return p - (glm::dot(p-x, n) * n);
+        };
+        auto smoothInterior = [&] (Vertex& v, int id) {
+            vInfo info_v(mesh, v.id, m, useVM);
+            auto nvids = info_v.vids();
+            double polyArea = 0.0;
+            glm::dvec3 centroid(0.0, 0.0, 0.0);
+            for (int nvid = 0; nvid < nvids.size(); nvid++) {
+                auto& v2 = m->getVertex(nvids.at(nvid), useVM); // A
+                auto& v3 = m->getVertex(nvids.at((nvid+nvids.size()-1)%nvids.size()), useVM); // B
+                auto& v4 = m->getVertex(nvids.at((nvid+1)%nvids.size()), useVM); // C
+                
+                auto A = v2.xyz();
+                auto B = v3.xyz();
+                auto C = v4.xyz();
+
+                glm::dvec3 AB = B - A;
+                glm::dvec3 BC = C - B;
+                glm::dvec3 CA = A - C;
+                glm::dvec3 AC = C - A;
+
+                double a = glm::length(BC);
+                double b = glm::length(CA);
+                double c = glm::length(AB);
+
+                auto diag_1 = v.xyz() - A;
+                auto diag_2 = B - C;
+                
+                // glm::dvec3 incenter = ((a * v2.xyz()) + (b * v3.xyz()) + (c * v4.xyz())) / (a + b + c);
+                glm::dvec3 incenter = glm::dvec3((a*A.x)+(b*B.x)+(c*C.x), (a*A.y)+(b*B.y)+(c*C.y), (a*A.z)+(b*B.z)+(c*C.z));
+                incenter /= (a+b+c);
+                // double area = 0.5 * glm::length(glm::cross(AB, AC));
+                double area = 0.5 * glm::length(glm::cross(diag_1, diag_2));
+                // centroid += (area * incenter); 
+                centroid += (A + normalize(incenter - A) * glm::length(v.xyz() - A)) * area;
+                polyArea += area;
+            }
+            if (polyArea == 0.0) return;
+            // std::cout << "v " << v.id << " pos calculation" << std::endl;
+            // std::cout << "current pos: " << v.x << " " << v.y << " " << v.z << std::endl;
+            // auto new_pos = (centroid/polyArea);
+            // std::cout << "new pos: " << new_pos.x << " " << new_pos.y << " " << new_pos.z << std::endl;
+            // auto normal = vertexNormal(v);
+            // std::cout << "normal: " << normal.x << " " << normal.y << " " << normal.z << std::endl;
+            // auto projected_point = projectToNormal(v.xyz(), new_pos, normal);
+            // std::cout << "projected point: " << projected_point.x << " " << projected_point.y << " " << projected_point.z << std::endl;
+            // centroid /= polyArea;
+            v.xyz(v.xyz() + (1.0 * ((centroid/polyArea) - v.xyz())));
+            // auto normal = vertexNormal(v);
+            // v.xyz(projectToNormal(v.xyz(), centroid/polyArea, vertexNormal(v)));
+            // new_xyz[id] = centroid/polyArea;
+        };
+        auto smoothBoundary = [&] (Vertex& v, int id) {
+            if (corner(v.id, m, useVM)) return;
+            vInfo info_v(mesh, v.id, m, useVM);
+            auto nvids = info_v.vids();
+            std::vector<size_t> boundaryVertices;
+            for (auto nvid: nvids) {
+                auto& nv = m->getVertex(nvid, useVM);
+                if (nv.isBoundary || nv.type == FEATURE) boundaryVertices.push_back(nvid);
+            }
+            // if (v.N_Fids.size() == 6) std::cout << "boundary vertices: " << boundaryVertices.size() << std::endl;
+            if (boundaryVertices.size() > 2) return;
+            if (boundaryVertices.size() == 1) {
+                // std::cout << "boundary vertex has one boundary neighbor: " << v.id << std::endl;
+                smoothInterior(v, id);
+                return;
+            }
+            auto& b1 = m->getVertex(boundaryVertices.at(0), useVM);
+            auto& b2 = m->getVertex(boundaryVertices.at(1), useVM);
+            glm::dvec3 centroid(0.0, 0.0, 0.0);
+            int k = 0;
+            auto r1 = b1.xyz() - v.xyz();
+            auto r2 = b2.xyz() - v.xyz();
+            double l1 = 0.0;
+            double l2 = 0.0;
+            for (auto nvid: nvids) {
+                if (nvid == b1.id || nvid == b2.id) continue;
+                auto& nv = m->getVertex(nvid, useVM);
+                glm::dvec3 A(v.xyz() - nv.xyz());
+                glm::dvec3 B(b1.xyz() - nv.xyz());
+                glm::dvec3 C(b2.xyz() - nv.xyz());
+                double theta_1 = atan2(glm::length(glm::cross(A, B)), glm::dot(A, B));
+                double theta_2 = atan2(glm::length(glm::cross(A, C)), glm::dot(A, C));
+                double theta = (theta_2 - theta_1) / 2.0;
+                glm::dvec3 r(v.xyz());
+                double l = 0.0;
+                if (theta > 0) {
+                    r = b2.xyz() - v.xyz();
+                    l += fabs(theta/theta_2) * glm::length(r);
+                } else if (theta < 0) {
+                    r = b1.xyz() - v.xyz();
+                    l += fabs(theta/theta_1) * glm::length(r);
+                }
+                v.xyz(projectToNormal(v.xyz(), v.xyz()+l*normalize(r), vertexNormal(v)));
+                // v.xyz(v.xyz()+l*glm::normalize(r));
+                // centroid += (v.xyz()+l*glm::normalize(r));
+                // k++;
+            }
+            // if (l1 > l2) {
+            //     v.xyz(v.xyz()+((l1-l2)*glm::normalize(r1)));
+            // } else {
+            //     v.xyz(v.xyz()+((l2-l1)*glm::normalize(r2)));
+            // }
+            // if (k > 0) v.xyz(centroid/(double) k);
+        };
+        
+        auto calculatePos = [&] (int id, Vertex& v) {
+            // if (useVM) std::cout << "calculatePos point " << id << std::endl;
+            if (v.N_Fids.empty()) return;
+            // vInfo info_v(mesh, v.id, m, useVM);
+            // auto nvids = info_v.vids();
+            if (v.isBoundary || v.type == FEATURE) {
+                // smoothBoundary(v, id);
+                // if (corner(v.id, m, useVM)) return;
+                // if (useVM) std::cout << "Boundary Vertex" << std::endl;
+                // std::vector<size_t> boundaryVertices;
+                // for (auto nvid: nvids) {
+                //     auto& nv = m->getVertex(nvid, useVM);
+                //     if (nv.isBoundary || nv.type == FEATURE) boundaryVertices.push_back(nvid);
+                // }
+                // if (boundaryVertices.size() != 2) return;
+                // auto& b1 = m->getVertex(boundaryVertices.at(0), useVM);
+                // auto& b2 = m->getVertex(boundaryVertices.at(1), useVM);
+                // std::vector<glm::dvec3> points;
+                // for (auto nvid: nvids) {
+                //     if (nvid == boundaryVertices.at(0) || nvid == boundaryVertices.at(1)) continue;
+                //     points.push_back(getSmoothPoint(v, m->getVertex(nvid, useVM), b1, b2));
+                // }
+                // glm::dvec3 p = points.at(0);
+                // for (int pid = 1; pid < points.size(); pid++) {
+                //     if (glm::length(p-v.xyz()) > glm::length(points.at(pid)-v.xyz())) p = points.at(pid);
+                // }
+                // kd->SearchAndProject(p);
+                // new_xyz.at(id) = p;
+            } else {
+                smoothInterior(v, id);
+                // if (useVM) std::cout << "Normal Vertex" << std::endl;
+                // glm::dvec3 p(0.0);
+                // int np = 0;
+                // for (int nvid = 0; nvid < nvids.size(); nvid++) {
+                //     p += getSmoothPoint(v, m->getVertex(nvids.at(nvid), useVM), 
+                //         m->getVertex(nvids.at((nvid+nvids.size()-1)%nvids.size()), useVM), m->getVertex(nvids.at((nvid+1)%nvids.size()), useVM));
+                //     np++;
+                // }
+                // if (np > 0) p /= np;
+                // if (useVM) std::cout << "calculating projection" << std::endl;
+                // kd->SearchAndProject(p);
+                // if (useVM) std::cout << "calculated projection" << std::endl;
+                // new_xyz.at(id) = p;
+            }
+        };
+        auto setPos = [&] (int id, Vertex& v) {
+            if (v.type == FEATURE || v.isBoundary) return;
+            auto p = v.xyz();
+            glm::dvec3 n(0.0, 0.0, 0.0);
+            for (auto fid: v.N_Fids) {
+                auto& f = m->getFace(fid, useVM);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                auto& AB = m->getVertex(f.Vids.at((idx+1)%f.Vids.size()), useVM).xyz() - v.xyz();
+                auto& AC = m->getVertex(f.Vids.at((idx+2)%f.Vids.size()), useVM).xyz() - v.xyz();
+                auto& AD = m->getVertex(f.Vids.at((idx+3)%f.Vids.size()), useVM).xyz() - v.xyz();
+                auto T_area_a = glm::cross(AB, AC);
+                auto T_area_b = glm::cross(AC, AD);
+                n += (0.5 * glm::length(T_area_a) * T_area_a);
+                n += (0.5 * glm::length(T_area_b) * T_area_b);
+            }
+            n = glm::normalize(n);
+            
+            kd->SearchAndProject(p, n);
+            // v.xyz(new_xyz.at(id));
+            v.xyz(p);
+        };
+        while (it < smoothIters) {
+            // std::cout << "iter: " << it << std::endl;
+            // std::cout << "V: " << V.size() << std::endl;
+            // if (useVM) {
+            //     for (int i = 0; i < V.size(); i++) {
+            //         setPos(i, m->getVertex(V.at(i), useVM));
+            //     }
+            // } else {
+            //     PARALLEL_FOR_BEGIN(0, V.size()) {
+            //         setPos(i, m->getVertex(V.at(i), useVM));
+            //     } PARALLEL_FOR_END();
+            // }
+
+            if (useVM) {
+                for (int i = 0; i < V.size(); i++) {
+                    // std::cout << "Calculating point " << i << std::endl;
+                    calculatePos(i, m->getVertex(V.at(i), useVM));
+                    // std::cout << "Calculated point " << i << std::endl;
+                }
+            } else {
+                // PARALLEL_FOR_BEGIN(0, V.size()) {
+                //     calculatePos(i, m->getVertex(V.at(i), useVM));
+                // } PARALLEL_FOR_END();
+                int it_ = 0;
+                for (int i = 0; i < V.size(); i++) {
+                    // std::cout << "Calculating point " << i << std::endl;
+                    // auto& v = m->getVertex(V.at(i), useVM);
+                    // if (v.isBoundary || v.type == FEATURE) continue;
+                    calculatePos(i, m->getVertex(V.at(i), useVM));
+                    // if (++it_ > 9) break;
+                    // std::cout << "Calculated point " << i << std::endl;
+                }
+                // PARALLEL_FOR_BEGIN(0, V.size()) {
+                //     m->getVertex(V.at(i), useVM).xyz(new_xyz.at(i));
+                // } PARALLEL_FOR_END();
+            }
+            if (useVM) {
+                // for (int i = 0; i < V.size(); i++) {
+                //     setPos(i, m->getVertex(V.at(i), useVM));
+                // }
+            } else {
+                PARALLEL_FOR_BEGIN(0, V.size()) {
+                    setPos(i, m->getVertex(V.at(i), useVM));
+                } PARALLEL_FOR_END();
+            }
+            // for (auto vid: V) {
+            /*for (int i = 0; i < V.size(); i++) {
+                auto vid = V.at(i);
+                // auto& v = m->getVertex(vid);
+                // auto& v = it_map->second;
+                auto& v = m->getVertex(vid, useVM);
+                if (v.N_Fids.empty()) continue;
+                // if (path_it == path_idx && iteration_it == iteration_idx) std::cout  << "smoothing " << vid << std::endl;
+                if (v.isBoundary || v.type == FEATURE) {
+                    continue;
+                    // if (path_it == path_idx && iteration_it == iteration_idx) continue;
+                    // if (iteration_it != iteration_idx || path_it != path_idx) continue;
+                    // if (path_it == path_idx && iteration_it == iteration_idx) std::cout << "smoothing boundary" << std::endl;
+                    // bool log = path_it == path_idx && iteration_it == iteration_idx;
+                    // int ideal_valence = m->getIdealValence(v.id, useVM, log);1
+                    // int ideal_valence = m->getIdealValence(v.id, useVM);
+                    // if (path_it == path_idx && iteration_it == iteration_idx) std::cout << "ideal valence: " << ideal_valence << std::endl;
+                    // if ((v.isBoundary && ideal_valence != 2) || (v.type == FEATURE && ideal_valence != 4)) continue;
+                    if (corner(v.id, m, useVM)) continue;                
+                    vInfo info_v(mesh, v.id, m, useVM);
+                    // std::cout << "boundary: " << v.id << (v.isBoundary ? " yes" : " no") << std::endl;
+                    auto nvids = info_v.vids();
+                    std::vector<size_t> boundaryVertices;
+                    for (auto nvid: nvids) {
+                        auto& nv = m->getVertex(nvid, useVM);
+                        if (nv.isBoundary || nv.type == FEATURE) boundaryVertices.push_back(nvid);
+                    }
+                    if (boundaryVertices.size() != 2) continue;
+                    // std::cout << "boundaryVertices: " << boundaryVertices[0] << " " << boundaryVertices[1] << std::endl;
+                    // std::cout << "nvids: "; for (auto nvid: nvids) std::cout << nvid << " "; std::cout << std::endl;
+                    auto& b1 = m->getVertex(boundaryVertices.at(0), useVM);
+                    auto& b2 = m->getVertex(boundaryVertices.at(1), useVM);
+                    // if ([&] () {
+                    //     double angle = m->getAngle(v.id, b1.id, b2.id, useVM);
+                    //     if (angle < 165 || angle > 195) return true;
+                    //     return false;
+                    // }()) continue;
+                    for (auto nvid: nvids) {
+                        // std::cout << "nvid: " << nvid << std::endl;
+                        // std::cout << (nvid == boundaryVertices.at(0)) << " " << (nvid == boundaryVertices.at(1)) << std::endl;
+                        if (nvid == boundaryVertices.at(0) || nvid == boundaryVertices.at(1)) continue;
+                        auto& nv = m->getVertex(nvid, useVM);
+                        // std::cout << "nv: " << nv.id << std::endl;
+                        auto A = v.xyz() - nv.xyz();
+                        auto B = b1.xyz() - nv.xyz();
+                        auto C = b2.xyz() - nv.xyz();
+
+                        double theta_1 = atan2(glm::length(glm::cross(A, B)), glm::dot(A, B));
+                        double theta_2 = atan2(glm::length(glm::cross(A, C)), glm::dot(A, C));
+
+                        double theta = (theta_2 - theta_1) / 2.0;
+
+                        glm::dvec3 r(v.xyz());
+                        double l = 0.0;
+                        if (theta > 0) {
+                            r = b2.xyz() - v.xyz();
+                            l = fabs(theta/theta_2) * glm::length(r);
+                        } else if (theta < 0) {
+                            r = b1.xyz() - v.xyz();
+                            l = fabs(theta/theta_1) * glm::length(r);
+                        }
+                        // std::cout << "l: " << l << std::endl;
+                        // v.xyz(v.xyz()+(l*glm::normalize(r)));
+                        new_xyz.at(i) = v.xyz()+(l*glm::normalize(r));
+                        break;
+                    }
+                     
+                } else {
+                    // continue;
+                    vInfo info_v(mesh, v.id, m, useVM);
+                    auto nvids = info_v.vids();
+                    double polyArea = 0.0;
+                    glm::dvec3 centroid(0.0, 0.0, 0.0);
+                    if (log) {
+                        std::cout << "v: " << v.x << " " << v.y << " " << v.z << std::endl;
+                        std::cout << "nfids: " << v.N_Fids.size() << " " << info_v.fids().size() << std::endl;
+                        std::cout << "nvids: " << nvids.size() << std::endl;
+                    }
+                    for (int i = 0; i < nvids.size(); i++) {
+                        auto v2 = m->getVertex(nvids.at(i), useVM).xyz();
+                        auto v3 = m->getVertex(nvids.at((i+nvids.size()-1)%nvids.size()), useVM).xyz();
+                        auto v4 = m->getVertex(nvids.at((i+1)%nvids.size()), useVM).xyz();
+                        
+                        glm::dvec3 AB = v3-v2; glm::dvec3 BC = v4-v3; glm::dvec3 CA = v2-v4; glm::dvec3 AC = v4-v2;
+
+                        double a = glm::length(BC); double b = glm::length(CA); double c = glm::length(AB);
+                        glm::dvec3 incenter = ((a * v2) + (b * v3) + (c * v4)) / (a + b + c);
+                        
+                        double area = 0.5 * glm::length(glm::cross(AB, AC));
+                        if (log) {
+                            std::cout << "v2: " << v2.x << " " << v2.y << " " << v2.z << std::endl;
+                            std::cout << "v3: " << v3.x << " " << v3.y << " " << v3.z << std::endl;
+                            std::cout << "v4: " << v4.x << " " << v4.y << " " << v4.z << std::endl;
+                            std::cout << "AB: " << AB.x << " " << AB.y << " " << AB.z << std::endl;
+                            std::cout << "BC: " << BC.x << " " << BC.y << " " << BC.z << std::endl;
+                            std::cout << "CA: " << CA.x << " " << CA.y << " " << CA.z << std::endl;
+                            std::cout << "AC: " << AC.x << " " << AC.y << " " << AC.z << std::endl;
+                            std::cout << "a: " << a << " b: " << b << " c: " << c << std::endl;
+                            std::cout << "incenter: " << incenter.x << " " << incenter.y << " " << incenter.z << std::endl;
+                            std::cout << "area: " << area << std::endl;
+                        }
+                        centroid += (area * incenter); 
+                        polyArea += area;
+                    }
+                    if (polyArea == 0.0) continue;
+                    if (log) {
+                        std::cout << "centroid: " << centroid.x << " " << centroid.y << " " << centroid.z << std::endl;
+                        std::cout << "polyArea: " << polyArea << std::endl;
+                        std::cout << "***************************" << std::endl;
+                    }
+                    centroid /= polyArea;
+                    double min_distance = std::numeric_limits<double>::max();
+                    glm::dvec3 intersection(0.0, 0.0, 0.0);
+                    for (auto fid: info_v.fids()) {
+                        auto& f = m->getFace(fid);
+                        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                        Plane p(v, m->getVertex(f.Vids.at((idx+1)%f.Vids.size()), useVM), m->getVertex(f.Vids.at((idx+3)%f.Vids.size()), useVM));
+                        glm::dvec3 intersect(0.0, 0.0, 0.0);
+                        double distance = p.DistanseFromPoint(centroid, intersect);
+                        if (distance < min_distance) {
+                            min_distance = distance;
+                            intersection = intersect;
                         }
                     }
+                    // v.xyz(intersection);
+                    new_xyz.at(i) = intersection;
                 }
-                return res;
-            };
-            auto validV = [&] (vPath* cur, size_t vid, int flag, std::unordered_map<size_t, int>& parent, std::queue<vPath*>& q) {
-                if (parent.find(vid) != parent.end()) return false;
-                // std::cout << "validating vertex: " << vid << std::endl;
-                vInfo info_v(mesh, vid);
-                
-                auto singularities = countSingularities(info_v);
-                bool res = (singularities.size() == 0);
-                
-                if (singularities.size() == 1) {
-                    if (*begin(singularities) == v.id) return true;
-                    // vInfo info_s(mesh, *begin(singularities));
-                    auto nvids = info_v.vids(cur->id);
-                    // std::cout << "nvids.at(2): " << nvids.at(2) << " v.id: " << v.id << std::endl;
-                    // std::cout << "nvid n: " << mesh->V.at(nvids.at(2)).N_Fids.size() << std::endl;
-                    if (parent.find(nvids.at(2)) == parent.end() && !mesh->V.at(nvids.at(2)).isBoundary && mesh->V.at(nvids.at(2)).N_Fids.size() != 4) {
-                        push(parent, q, vid, SKIP, cur->id);
-                        push(parent, q, nvids.at(2), SKIP, vid);
+            }
+            for (int i = 0; i < V.size(); i++) {
+                auto& v = m->getVertex(V.at(i), useVM);
+                v.xyz(new_xyz.at(i));
+            }
+            for (int i = 0; i < V.size(); i++) {
+                auto vid = V.at(i);
+                auto& v = m->getVertex(vid, useVM);
+                if (v.N_Fids.empty()) continue;
+                if (v.isBoundary || v.type == FEATURE) {
+                    // if (path_it == path_idx && iteration_it == iteration_idx) continue;
+                    // if (iteration_it != iteration_idx || path_it != path_idx) continue;
+                    // if (path_it == path_idx && iteration_it == iteration_idx) std::cout << "smoothing boundary" << std::endl;
+                    // bool log = path_it == path_idx && iteration_it == iteration_idx;
+                    // int ideal_valence = m->getIdealValence(v.id, useVM, log);1
+                    // int ideal_valence = m->getIdealValence(v.id, useVM);
+                    // if (path_it == path_idx && iteration_it == iteration_idx) std::cout << "ideal valence: " << ideal_valence << std::endl;
+                    // if ((v.isBoundary && ideal_valence != 2) || (v.type == FEATURE && ideal_valence != 4)) continue;
+                    if (corner(v.id, m, useVM)) continue;                
+                    vInfo info_v(mesh, v.id, m, useVM);
+                    if (log) std::cout << "boundary: " << v.id << (v.isBoundary ? " yes" : " no") << std::endl;
+                    auto nvids = info_v.vids();
+                    std::vector<size_t> boundaryVertices;
+                    for (auto nvid: nvids) {
+                        auto& nv = m->getVertex(nvid, useVM);
+                        if (nv.isBoundary || nv.type == FEATURE) boundaryVertices.push_back(nvid);
+                    }
+                    if (boundaryVertices.size() != 2) continue;
+                    // std::cout << "boundaryVertices: " << boundaryVertices[0] << " " << boundaryVertices[1] << std::endl;
+                    // std::cout << "nvids: "; for (auto nvid: nvids) std::cout << nvid << " "; std::cout << std::endl;
+                    auto& b1 = m->getVertex(boundaryVertices.at(0), useVM);
+                    auto& b2 = m->getVertex(boundaryVertices.at(1), useVM);
+                    // if ([&] () {
+                    //     double angle = m->getAngle(v.id, b1.id, b2.id, useVM);
+                    //     if (angle < 165 || angle > 195) return true;
+                    //     return false;
+                    // }()) continue;
+                    for (auto nvid: nvids) {
+                        // std::cout << "nvid: " << nvid << std::endl;
+                        // std::cout << (nvid == boundaryVertices.at(0)) << " " << (nvid == boundaryVertices.at(1)) << std::endl;
+                        if (nvid == boundaryVertices.at(0) || nvid == boundaryVertices.at(1)) continue;
+                        auto& nv = m->getVertex(nvid, useVM);
+                        // std::cout << "nv: " << nv.id << std::endl;
+                        auto A = v.xyz() - nv.xyz();
+                        auto B = b1.xyz() - nv.xyz();
+                        auto C = b2.xyz() - nv.xyz();
+
+                        double theta_1 = atan2(glm::length(glm::cross(A, B)), glm::dot(A, B));
+                        double theta_2 = atan2(glm::length(glm::cross(A, C)), glm::dot(A, C));
+
+                        double theta = (theta_2 - theta_1) / 2.0;
+
+                        glm::dvec3 r(v.xyz());
+                        double l = 0.0;
+                        if (theta > 0) {
+                            r = b2.xyz() - v.xyz();
+                            l = fabs(theta/theta_2) * glm::length(r);
+                        } else if (theta < 0) {
+                            r = b1.xyz() - v.xyz();
+                            l = fabs(theta/theta_1) * glm::length(r);
+                        }
+                        // std::cout << "l: " << l << std::endl;
+                        // v.xyz(v.xyz()+(l*glm::normalize(r)));
+                        new_xyz.at(i) = v.xyz()+(l*glm::normalize(r));
+                        break;
+                    }
+                     
+                }
+            }
+            for (int i = 0; i < V.size(); i++) {
+                auto& v = m->getVertex(V.at(i), useVM);
+                v.xyz(new_xyz.at(i));
+            }*/
+            it++;
+        }
+        if (!useVM) {
+            // PARALLEL_FOR_BEGIN(0, V.size()) {
+            //     setPos(i, m->getVertex(V.at(i), useVM));
+            // } PARALLEL_FOR_END();
+        }
+    };
+    auto FixDoublets = [&] () {
+        // std::cout << "Fixing doublets" << std::endl;
+        vMesh m(mesh);
+        bool res = false;
+        std::vector<size_t> b_irr;
+        for (auto& v: mesh->V) {
+            // std::cout << "checking vertex " << v.id << "(" << v.N_Fids.size() << ")" << std::endl;
+            // if (v.N_Fids.size() == 6) {
+            //     vInfo info_v(mesh, v.id, &m);
+            //     PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {std::vector<size_t>{v.id, info_v.vids().at(0)}}, "test");
+            // }
+            if (v.N_Fids.empty() || v.isBoundary || v.type == FEATURE) continue;
+            if (m.valence(v) == 2) {
+                b_irr.push_back(v.id);
+            }
+            // std::cout << "after valence calculation" << std::endl;
+            // if (v.N_Fids.size() == 2) b_irr.push_back(v.id);
+        }
+        // vMesh m(mesh);
+        // std::cout << "# doublets " << b_irr.size() << std::endl;
+        for (auto id: b_irr) {
+            m.Clear();
+            auto& v = m.getVertex(id);
+            if (v.N_Fids.empty()) continue;
+            auto& f = m.getFace(v.N_Fids.at(0));
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            // std::cout << "Before doublet collapse" << std::endl;
+            if (!PerformOperation(Operation("Collapse", v.id, std::vector<size_t>{f.Vids.at((idx+2)%f.Vids.size()), v.id}, false), &m)) continue;
+            // std::cout << "After doublet collapse" << std::endl;
+            m.Update();
+            res = true;
+        }
+        return res;
+    };
+    auto fixFeatures = [&] () {
+        std::cout << "Fixing features" << std::endl;
+        while (FixDoublets());
+        bool res = false;
+        std::unordered_set<size_t> b_irr;
+        for (auto& v: mesh->V) {
+            if (v.N_Fids.empty()) continue;
+            if (v.isBoundary || v.type == FEATURE) {
+                if (mesh->valence(v) == 2) {
+                    b_irr.insert(v.id);
+                    continue;
+                }
+                auto plane = mesh->planes(v);
+                for (auto p: plane) {
+                    if (mesh->virtualValence(v, p) != 4) {
+                        b_irr.insert(v.id);
                     }
                 }
-                // std::cout << "res: " << res << " " << singularities.size() << std::endl;
-                if (res && (flag == DEFLECT)) {
-                    // std::cout << "res: " << res << " " << flag << std::endl;
-                    auto nvids = info_v.vids(cur->id);
-                    for (int i = 1; i < nvids.size(); i++) {
-                        if (parent.find(nvids.at(i)) != parent.end() || countSingularities(vInfo(mesh, nvids.at(i))).size() == 0) continue;
-                        // auto singularities = countSingularities(vInfo(mesh, nvids.at(i)));
-                        // std::cout << "singularities: " << singularities.size() << std::endl;
-                        // if (singularities.size() > 0) {
-                            // auto nvid = info_v.vids(nvids.at(i)).at(2);
-                            // if (parent.find(nvid) != parent.end() || countSingularities(vInfo(mesh, nvid)).size() > 0) continue;
-                            // std::cout << "Adding deflect vertex: " << vid << " and its branch " << nvid << std::endl;
-                            push(parent, q, vid, DEFLECT, cur->id);
-                            // push(parent, q, nvid, BRANCH, vid);
-                            // if (!DEFLECT_SKIP) push(parent, q, nvid, BRANCH, vid);
-                            res = false;
-                        // }
+            }
+        }
+        vMesh m(mesh);
+        int it = 0;
+        for (auto id: b_irr) {
+            // std::cout << "id: " << id << std::endl;
+            auto& v = m.getVertex(id);
+            if (v.N_Fids.empty()) continue;
+            if (m.valence(v) == 2) {
+                // std::cout << "Fixing Boundary Doublet" << std::endl;
+                // m.Clear();            
+                // vInfo info_v(mesh, v.id, &m);
+                // PerformOperation(Operation("Rotate", v.id, std::vector<size_t>{}, false), &m);
+                // info_v = vInfo(mesh, v.id, &m);
+                // for (auto fid: info_v.fids()) {
+                //     auto& f = m.getFace(fid);
+                //     int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                //     PerformOperation(Operation("Collapse", v.id, std::vector<size_t>{v.id, f.Vids.at((idx+2)%f.Vids.size())}, false), &m);
+                // }
+                // m.Update();
+                // res = true;
+                // continue;
+            }
+            auto plane = m.planes(v);
+            // std::cout << "planes: " << plane.size() << std::endl;
+            for (auto p: plane) {
+                int val = m.virtualValence(v, true, p);
+                if (val == 2) {
+                    // std::cout << "Fixing Boundary Doublet" << std::endl;
+                    // m.Clear();            
+                    // vInfo info_v(mesh, v.id, &m);
+                    // PerformOperation(Operation("Rotate", v.id, std::vector<size_t>{}, false), &m);
+                    // info_v = vInfo(mesh, v.id, &m);
+                    // for (auto fid: info_v.fids()) {
+                    //     auto& f = m.getFace(fid);
+                    //     int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                    //     PerformOperation(Operation("Collapse", v.id, std::vector<size_t>{f.Vids.at((idx+2)%f.Vids.size()), v.id}, false), &m);
+                    // }
+                    // m.Update();
+                    // res = true;
+                    // break;
+                } else if (val == 3) {
+                    // continue;
+                    /*std::cout << "Fixing val 3 " << v.id << std::endl;
+                    m.Clear();            
+                    auto& f = m.getFace(p[0]);
+                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                    // std::cout << "Let me pass" << std::endl;
+                    if (!PerformOperation(Operation("Collapse", f.Vids.at((idx+1)%f.Vids.size()), std::vector<size_t>{f.Vids.at((idx+1)%f.Vids.size()), f.Vids.at((idx+3)%f.Vids.size())}, false), &m)) break;
+                    // std::cout << "After Performing operation" << std::endl;
+                    // std::cout << "v nfids: " << v.N_Fids.size() << std::endl;
+                    // vInfo info_v(mesh, v.id, &m);
+                    // std::cout << "got info v" << std::endl;
+                    // if (info_v.fids().size() != 2) break;
+                    // auto& toCollapse = m.getFace(info_v.fids().at(0));
+                    // int toCollapse_idx = std::distance(toCollapse.Vids.begin(), std::find(toCollapse.Vids.begin(), toCollapse.Vids.end(), v.id));
+                    // std::vector<size_t> path = {f.Vids.at((idx+1)%f.Vids.size()), f.Vids.at((idx+3)%f.Vids.size())};
+                    // std::cout << "here" << std::endl;
+                    // PerformOperation(Operation("Collapse", v.id, std::vector<size_t>{v.id, toCollapse.Vids.at((toCollapse_idx+2)%toCollapse.Vids.size())}, false), &m);
+                    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{path}, "test");
+                    // std::cout << "m fmap: " << m.fmap.size() << " m vmap; " << m.vmap.size() << std::endl;
+                    // std::cout << "setting vertex feature: " << v.id << "(" << v.N_Fids.size() << ")" << std::endl;
+                    m.getVertex(v.id).type = REGULAR;
+                    m.getVertex(v.id).isBoundary = false;
+                    // std::cout << "regular: " << (v.type == REGULAR) <<  " feature: " << (v.type == FEATURE) << " isBoundary: " << v.isBoundary << std::endl;
+                    m.Update();
+                    // std::cout << "v new fids: " << v.N_Fids.size() << std::endl;
+                    // std::cout << "regular: " << (v.type == REGULAR) <<  " feature: " << (v.type == FEATURE) << " isBoundary: " << v.isBoundary << std::endl;
+                    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{}, "test2");
+                    res = true;
+                    break;
+                    // std::cout << "Fixed val 3" << std::endl;
+                    // if (++it == iters) return res;*/
+                } else if (val > 4) {
+                    // continue;
+                    // std::cout << "Fixing val > 4: " << v.id << std::endl;
+                    m.Clear();
+                    vInfo info_v(mesh, v.id, &m);
+                    for (auto nvid: info_v.vids()) {
+                        auto& nv = m.getVertex(nvid);
+                        if (nv.isBoundary || nv.type == FEATURE || nv.N_Fids.size() == 2) continue;
+                        // std::cout << "nv " << nv.id << "(" << nv.N_Fids.size() << ")" << std::endl;
+                        vInfo info_nv(mesh, nv.id, &m);
+                        std::vector<size_t> edge = {v.id, nv.id};
+                        // std::cout << "edge: " << edge.at(0) << " " << edge.at(1) << std::endl;
+                        if (plane.size() > 2 && PerformOperation(Operation("Flip", v.id, edge, false), &m)) {
+                            // std::cout << "Fixing corner" << std::endl;
+                            // PerformOperation(Operation("Flip", v.id, edge, false), &m);
+                            m.Update();
+                            m.Clear();
+                            res = true;
+                            // if (++it == iters) return res;
+                            break;
+                        }
+                        auto faces = mu->GetIntersection(info_v.fids(), info_nv.fids());
+                        // std::cout << "faces size: " << faces.size() << std::endl;
+                        if (faces.size() != 2) continue;
+                        auto& f1 = m.getFace(faces.at(0));
+                        auto& f2 = m.getFace(faces.at(1));
+                        // std::cout << "f1: "; for (auto fvid: f1.Vids) std::cout << fvid << " "; std::cout << std::endl;
+                        // std::cout << "f2: "; for (auto fvid: f2.Vids) std::cout << fvid << " "; std::cout << std::endl;
+                        std::vector<size_t> edgeccw;
+                        std::vector<size_t> edgecw;
+                        int idx_v_f1 = std::distance(f1.Vids.begin(), std::find(f1.Vids.begin(), f1.Vids.end(), v.id));
+                        int idx_v_f2 = std::distance(f2.Vids.begin(), std::find(f2.Vids.begin(), f2.Vids.end(), v.id));
+                        if (f1.Vids.at((idx_v_f1+1)%4) == nv.id) {
+                            edgeccw = {f1.Vids.at((idx_v_f1+2)%4), f2.Vids.at((idx_v_f2+1)%4)};
+                            edgecw = {f1.Vids.at((idx_v_f1+3)%4), f2.Vids.at((idx_v_f2+2)%4)};
+                        } else {
+                            edgeccw = {f1.Vids.at((idx_v_f1+1)%4), f2.Vids.at((idx_v_f2+2)%4)};
+                            edgecw = {f1.Vids.at((idx_v_f1+2)%4), f2.Vids.at((idx_v_f2+3)%4)};
+                        }
+                        // std::cout << "edgeccw: " << edgeccw.at(0) << " " << edgeccw.at(1) << std::endl;
+                        // std::cout << "edgecw: " << edgecw.at(0) << " " << edgecw.at(1) << std::endl;
+                        auto checkEdge = [&] (std::vector<size_t> edge) {
+                            auto& v1 = m.getVertex(edge.at(0));
+                            auto& v2 = m.getVertex(edge.at(1));
+                            // std::cout << "v1 boundary: " << v1.isBoundary << " " << v1.type << std::endl;
+                            // std::cout << "v2 boundary: " << v2.isBoundary << " " << v2.type << std::endl;
+                            if (v1.isBoundary || v2.isBoundary || v1.type == FEATURE || v2.type == FEATURE) return false;
+                            return true;
+                        };
+                        if (checkEdge(edgeccw) && PerformOperation(Operation("Flip", v.id, edge, false), &m)) {
+                            // PerformOperation(Operation("Flip", v.id, edge, false), &m);
+                            m.Update();
+                            res = true;
+                            // std::cout << "Performed Operation" << std::endl;
+                            break;
+                        } else if (checkEdge(edgecw) && PerformOperation(Operation("Flip", v.id, edge, true), &m)) {
+                            // PerformOperation(Operation("Flip", v.id, edge, true), &m);
+                            m.Update();
+                            // std::cout << "Performed operation" << std::endl;
+                            res = true;
+                            break;
+                        }
+                    }
+                    if (res) break;
+                }
+                // std::cout << "Done with the plane" << std::endl;
+            }
+            // if (++it == iters) {
+            //     PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {}, "test");
+            //     exit(0);
+            // }
+        }
+        while (FixDoublets());
+        return res;
+    };
+    // renewMesh();
+    // if (mainIter == 3) {
+    //     PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{}, "test");
+    // }
+    std::vector<executablePath> paths;
+    std::vector<pathQueueItem> pathQueue;
+
+    // std::cout << "Inside TestFlips" << std::endl;
+    // smoother->vtkSmoother(10);
+    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{}, "test");
+    // while (fixFeatures());
+    // std::cout << "Fixed features" << std::endl;
+    Smooth(nullptr);
+    // return 0;
+    // fixFeatures();
+
+    // return 0;
+    {
+        std::mutex mtx;
+        ThreadPool pool;
+        std::cout << "Made pool" << std::endl;
+        auto push = [&] (std::unordered_map<size_t, int>& parent, std::queue<vPath*>& q, size_t vid, int flag, int parentId) {
+            if (parent.find(vid) != parent.end()) return;
+            parent[vid] = parentId;
+            q.push(new vPath(vid, flag));
+            // auto path = {(size_t) vid, (size_t) parentId};
+            // paths.push_back(path);
+        };
+        auto isTarget = [&] (Vertex& v, std::vector<size_t> qids = {}) {
+            return (mesh->virtualValence(v, qids) == 3 || mesh->virtualValence(v, qids) == 5);
+            // if (v.isBoundary || v.type == FEATURE) {
+            //     vMesh m(mesh);
+            //     int ideal_valence = m.getIdealValence(v.id, false);
+            //     if (v.N_Fids.size() != ideal_valence) return true;
+            // }
+            // if ((!v.isBoundary && v.type != FEATURE) && v.N_Fids.size() != 4) return true;
+            // return false;
+        };
+        auto countSingularities = [&] (vInfo& info_v) {
+            std::unordered_set<size_t> res;
+            for (auto fid: info_v.fids()) {
+                auto& f = mesh->F.at(fid);
+                for (auto fvid: f.Vids) {
+                    if (!mesh->V.at(fvid).isBoundary && mesh->V.at(fvid).N_Fids.size() != 4) {
+                        res.insert(fvid);
                     }
                 }
-                return res;
-            };
-            auto pathVs = [&] (vPath* vp, std::unordered_map<size_t, int>& parent, std::queue<vPath*>& q) {
-                // std::cout << "Getting path's next vertices for " << vp->id << " parent: " << parent[vp->id] << std::endl;
-                vInfo info_v(mesh, vp->id);
-                auto nvids = info_v.vids(parent[vp->id]);
-                if (vp->flag == MAIN) {
-                    // std::cout << "MAIN vertex neighbors" << std::endl;
-                    if (validV(vp, nvids.at(2), vp->flag, parent, q)) push(parent, q, nvids.at(2), MAIN, vp->id);
-                    int flag = (parent[vp->id] == v.id) ? MAIN_BRANCH : BRANCH;
-                    // std::cout << "parent: " << parent[vp->id] << " v.id: " << v.id << " flag " << flag <<  std::endl;
-                    if (validV(vp, nvids.at(1), vp->flag, parent, q)) push(parent, q, nvids.at(1), flag, vp->id);
-                    if (validV(vp, nvids.at(3), vp->flag, parent, q)) push(parent, q, nvids.at(3), flag, vp->id);
-                } else if (vp->flag == BRANCH || vp->flag == MAIN_BRANCH) {
-                    // std::cout << "BRANCH vertex neighbors" << std::endl;
-                    if (validV(vp, nvids.at(2), vp->flag, parent, q)) push(parent, q, nvids.at(2), vp->flag, vp->id);
-                    if (vp->flag == MAIN_BRANCH) return;
-                    // std::cout << "checking for DEFLECT and flag is: " << vp->flag << std::endl;
-                    validV(vp, nvids.at(1), DEFLECT, parent, q);
-                    validV(vp, nvids.at(3), DEFLECT, parent, q);
-                } else if (vp->flag == DEFLECT) {
-                    // std::cout << "DEFLECT vertex neighbors" << std::endl;
-                    validV(vp, nvids.at(2), DEFLECT, parent, q);
-                    if (validV(vp, nvids.at(1), vp->flag, parent, q)) push(parent, q, nvids.at(1), BRANCH, vp->id);
-                    if (validV(vp, nvids.at(3), vp->flag, parent, q)) push(parent, q, nvids.at(3), BRANCH, vp->id);
+            }
+            return res;
+        };
+        auto validV = [&] (Vertex& v, vPath* cur, size_t vid, int flag, std::unordered_map<size_t, int>& parent, std::queue<vPath*>& q) {
+            if (parent.find(vid) != parent.end()) return false;
+            // std::cout << "validating vertex: " << vid << "(" << mesh->V.at(vid).N_Fids.size() << ")" << std::endl;
+            vInfo info_v(mesh, vid);
+            // std::cout << "got info v" << std::endl;
+            if ((mesh->V.at(cur->id).isBoundary || mesh->V.at(cur->id).type == FEATURE) && (mesh->V.at(vid).isBoundary || mesh->V.at(vid).type == FEATURE)) return false;
+            // std::cout << "after boundary check" << std::endl;
+            auto singularities = countSingularities(info_v);
+            bool res = (singularities.size() == 0);
+            // std::cout << "counted singularities and res is " << res << std::endl;
+            if (singularities.size() == 1) {
+                if (*begin(singularities) == v.id) return true;
+                // vInfo info_s(mesh, *begin(singularities));
+                auto nvids = info_v.vids(cur->id);
+                // std::cout << "nvids.at(2): " << nvids.at(2) << " v.id: " << v.id << std::endl;
+                // std::cout << "nvid n: " << mesh->V.at(nvids.at(2)).N_Fids.size() << std::endl;
+                if (parent.find(nvids.at(2)) == parent.end() && !mesh->V.at(nvids.at(2)).isBoundary && mesh->V.at(nvids.at(2)).N_Fids.size() != 4) {
+                    push(parent, q, vid, SKIP, cur->id);
+                    push(parent, q, nvids.at(2), SKIP, vid);
                 }
-            };
-            auto getPaths = [&] (Vertex& v, std::vector<std::vector<size_t>>& paths, const std::function<bool(Vertex&)>& isTarget) {
-                std::cout << "Getting paths for " << v.id << "(" << v.N_Fids.size() << ")" << std::endl;
-                vInfo info_v(mesh, v.id);
-                auto nvids = info_v.vids();
-                for (auto nvid: nvids) {
-                // for (int n = 4; n < 5; n++) {
-                    // auto nvid = nvids.at(n);
-                    // std::cout << "Going in direction: " << nvid << std::endl;
+            }
+            // std::cout << "res: " << res << " " << singularities.size() << std::endl;
+            if (res && (flag == DEFLECT)) {
+                // std::cout << "res: " << res << " " << flag << std::endl;
+                auto nvids = info_v.vids(cur->id);
+                for (int i = 1; i < nvids.size(); i++) {
+                    if (parent.find(nvids.at(i)) != parent.end() || countSingularities(vInfo(mesh, nvids.at(i))).size() == 0) continue;
+                    // auto singularities = countSingularities(vInfo(mesh, nvids.at(i)));
+                    // std::cout << "singularities: " << singularities.size() << std::endl;
+                    // if (singularities.size() > 0) {
+                        // auto nvid = info_v.vids(nvids.at(i)).at(2);
+                        // if (parent.find(nvid) != parent.end() || countSingularities(vInfo(mesh, nvid)).size() > 0) continue;
+                        // std::cout << "Adding deflect vertex: " << vid << " and its branch " << nvid << std::endl;
+                        push(parent, q, vid, DEFLECT, cur->id);
+                        // push(parent, q, nvid, BRANCH, vid);
+                        // if (!DEFLECT_SKIP) push(parent, q, nvid, BRANCH, vid);
+                        res = false;
+                    // }
+                }
+            }
+            return res;
+        };
+        auto pathVs = [&] (Vertex& v, vPath* vp, std::unordered_map<size_t, int>& parent, std::queue<vPath*>& q) {
+            // std::cout << "Getting path's next vertices for " << vp->id << "(" << mesh->V.at(vp->id).N_Fids.size() << ") " 
+            // << " parent: " << parent[vp->id] << "(" << mesh->V.at(parent[vp->id]).N_Fids.size() << ")" << std::endl;
+            vInfo info_v(mesh, vp->id);
+            auto nvids = info_v.vids(parent[vp->id]);
+            // for (int i = 1; i < nvids.size(); i++) {
+            //     if (parent.find(nvids.at(i)) != parent.end()) continue;
+            //     if ((v.isBoundary || v.type == FEATURE) && (mesh->V.at(nvids.at(i)).isBoundary || mesh->V.at(nvids.at(i)).type == FEATURE)) continue;
+            //     push(parent, q, nvids.at(i), MAIN, vp->id);
+            // }
+            // return;
+            if (vp->flag == MAIN) {
+                // std::cout << "MAIN vertex neighbors" << std::endl;
+                if (validV(v, vp, nvids.at(2), vp->flag, parent, q)) push(parent, q, nvids.at(2), MAIN, vp->id);
+                int flag = (parent[vp->id] == v.id) ? MAIN_BRANCH : BRANCH;
+                // std::cout << "parent: " << parent[vp->id] << " v.id: " << v.id << " flag " << flag <<  std::endl;
+                if (validV(v, vp, nvids.at(1), vp->flag, parent, q)) push(parent, q, nvids.at(1), flag, vp->id);
+                // std::vector<size_t> path = {(size_t)parent[vp->id], (size_t)vp->id , nvids.at(1)};
+                // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{path}, "test");
+                // std::cout << "nvids size: " << nvids.size() << std::endl;
+                if (nvids.size() > 3 && validV(v, vp, nvids.at(3), vp->flag, parent, q)) push(parent, q, nvids.at(3), flag, vp->id);
+            } else if (vp->flag == BRANCH || vp->flag == MAIN_BRANCH) {
+                // std::cout << "BRANCH vertex neighbors" << std::endl;
+                if (validV(v, vp, nvids.at(2), vp->flag, parent, q)) push(parent, q, nvids.at(2), vp->flag, vp->id);
+                if (vp->flag == MAIN_BRANCH) return;
+                // std::cout << "checking for DEFLECT and flag is: " << vp->flag << std::endl;
+                validV(v, vp, nvids.at(1), DEFLECT, parent, q);
+                nvids.size() > 3 ? validV(v, vp, nvids.at(3), DEFLECT, parent, q) : 1;
+            } else if (vp->flag == DEFLECT) {
+                // std::cout << "DEFLECT vertex neighbors" << std::endl;
+                validV(v, vp, nvids.at(2), DEFLECT, parent, q);
+                if (validV(v, vp, nvids.at(1), vp->flag, parent, q)) push(parent, q, nvids.at(1), BRANCH, vp->id);
+                if (nvids.size() > 3 && validV(v, vp, nvids.at(3), vp->flag, parent, q)) push(parent, q, nvids.at(3), BRANCH, vp->id);
+            }
+        };
+        auto checkPath_ = [&] (std::vector<size_t>& path, int pth_id) {
+            // return;
+            iteration_it = 0;
+            auto& s = mesh->V.at(path.at(0));
+            vInfo info_s(mesh, s.id);
+            auto nvids = info_s.vids(path.at(1));
+            auto nfids = info_s.fids();
+            // executablePath p;
+            double max_score = -1.0;
+            // if (path_it == path_idx) {
+            //     PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {path}, "test");
+            // }
+            vMesh vmesh(mesh);
+            auto m = &vmesh;
+            for (int idx_ = 0; idx_ < info_s.nvids()*2; idx_++) {
+                // std::cout << "at the vert start" << std::endl;
+                // std::cout << "iteration_it: " << iteration_it << " idx_: " << idx_ <<
+                // " path_it: " << path_it << " path_idx: " << path_idx << " singularity_it: " << singularity_it <<
+                // " singularity_idx: " << singularity_idx << " mainIter: " << mainIter << " info_s.nvids size: " << info_s.nvids() << std::endl;
+                iteration_it++;
+                // if (path_it != path_idx || iteration_it != iteration_idx) continue;
+                // if (path_it != path_idx) continue;
+                bool log = path_it == path_idx && iteration_it == iteration_idx && mainIter == mainIter_idx && singularity_it == singularity_idx;
+                // bool log = iteration_it == 7;
+                // log = false;
+                // log = true;
+                // std::cout << "log: " << log << std::endl;
+                if (log) std::cout << "idx_: " << idx_ << std::endl;
+                // vMesh* m = new vMesh(mesh);
+                m->Clear();
+                // p.m = m;
+                // p.path = path;
+                // p.score = 1;
+                int maxIdx = 0;
+                if (log) std::cout << "path_it: " << path_it << " path_idx: " << path_idx << " idx: " << idx_ << std::endl;
+                if (log) {
+                    // m->Update();
+                    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {path}, "test");
+                    // exit(0);
+                }
+                if (log) std::cout << "GETTING THREE FIVE PAIR" << std::endl;
+                auto tfp = [&] (bool three) {
+                    tfPair tfp(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
+                    // auto m = vm.at(idx_);
+                    int pos = idx_;
+                    if (info_s.nvids() != 3 && info_s.nvids() != 5) return tfp;
+                    if (three) {
+                        tfp.fId = s.id;
+                        if (pos < 3) {
+                            auto& f = m->getFace(nfids.at((pos+1)%3));
+                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
+                            tfp.tId = f.Vids.at((idx+2)%4);
+                        } else {
+                            pos = pos%3;
+                            tfp.diag = true;
+                            tfp.tId = nvids.at(pos);
+                        }
+                        auto dest = nvids.at(pos);
+                        PerformOperation(Operation("Rotate", s.id, std::vector<size_t>{}, false), m);
+                        std::vector<size_t> faces;
+                        vInfo info_t(mesh, s.id, m);
+                        for (auto fid: info_t.fids()) {
+                            auto& f = m->getFace(fid);
+                            if (std::find(f.Vids.begin(), f.Vids.end(), dest) != f.Vids.end()) continue;
+                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
+                            PerformOperation(Operation("Collapse", s.id, std::vector<size_t>{s.id, f.Vids.at((idx+2)%4)}, false), m);
+                        }
+                    } else {
+                        tfp.tId = s.id;
+                        if (pos < 5) {
+                            auto& f = m->getFace(nfids.at((pos+2)%5));
+                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
+                            tfp.fId = f.Vids.at((idx+2)%4);
+                        } else {
+                            pos = pos%5;
+                            tfp.diag = true;
+                            tfp.fId = nvids.at(pos);
+                        }
+                        auto edge1 = {s.id, nvids.at((pos+1)%nvids.size())};
+                        auto edge2 = {s.id, nvids.at((pos+4)%nvids.size())};
+                        PerformOperation(Operation("Split", s.id, edge1, false), m);
+                        PerformOperation(Operation("Split", s.id, edge2, false), m);
+                        PerformOperation(Operation("Rotate", s.id, std::vector<size_t>{}, false), m);
+                    }
+                    auto setMaxIdx = [&] (size_t vid) {
+                        vInfo info_t(mesh, vid, m);
+                        for (auto nvid: info_t.vids()) {
+                            auto it = std::find(path.begin(), path.end(), nvid);
+                            if (it == path.end()) continue;
+                            int idx = std::distance(path.begin(), it);
+                            maxIdx = std::max(maxIdx, idx);
+                        }
+                    };
+                    setMaxIdx(tfp.tId); setMaxIdx(tfp.fId); setMaxIdx(nvids.at(pos));
+                    return tfp;
+                }(info_s.nvids() == 3);
+                if (tfp.tId == std::numeric_limits<size_t>::max() || tfp.fId == std::numeric_limits<size_t>::max()) continue;
+                if (log) std::cout << "UPDATING PATH" << std::endl;
+                auto nPath = [&] (tfPair& tfp) {
+                    std::vector<size_t> tPath(path.begin()+maxIdx, path.end());
                     std::unordered_map<size_t, int> parent;
-                    std::queue<vPath*> q;
-                    parent[v.id] = -1;
-                    push(parent, q, nvid, MAIN, v.id);
-                    std::vector<size_t> path;
-                    int it2 = 0;
+                    std::queue<size_t> q;
+                    // std::queue<size_t> q2;
+                    auto skip = [&] (Vertex& v) {
+                        if (v.id == tfp.tId || v.id == tfp.fId || v.N_Fids.size() == 3 || v.N_Fids.size() == 5) return true;
+                        return false;
+                    };
+                    parent[tfp.tId] = -1; parent[tfp.fId] = -1;
+                    for (auto vid: mu->GetDifference(vInfo(mesh, tfp.tId, m).vids(), std::vector<size_t>{tfp.fId})) {
+                        parent[vid] = tfp.tId;
+                        q.push(vid);
+                        // q2.push(vid);
+                    }
+                    for (auto vid: mu->GetDifference(vInfo(mesh, tfp.fId, m).vids(), std::vector<size_t>{tfp.tId})) {
+                        parent[vid] = tfp.fId;
+                        q.push(vid);
+                        // q2.push(vid);
+                    }
+                    // if (log){
+                    //     std::cout << "q2: ";
+                    //     while (!q2.empty()) {
+                    //         std::cout << q2.front() << " ";
+                    //         q2.pop();
+                    //     }
+                    //     std::cout << std::endl;
+                    // }
                     while (!q.empty()) {
-                        // if (it2++ >= iters) break;
-                        auto curV = q.front();
-                        // path = {(size_t) curV->id, (size_t) parent[curV->id]};
-                        // std::cout << "curV: " << curV->id << " " << curV->flag << std::endl;
+                        auto vid = q.front();
                         q.pop();
-                        // std::cout << "q size: " << q.size() << std::endl;
-                        if (isTarget(mesh->V.at(curV->id))) {
-                            std::vector<size_t> path;
-                            auto path_id = curV->id;
-                            int it = 0;
-                            while (path_id != -1) {
-                                path.push_back(path_id);
+
+                        auto& v = m->getVertex(vid);
+                        if (skip(v)) continue;
+                        auto it = std::find(tPath.begin(), tPath.end(), vid);
+                        if (it != tPath.end()) {
+                            std::vector<size_t> newPath;
+                            auto path_id = vid;
+                            while (true) {
+                                if (parent[path_id] == -1) break;
+                                // CHANGE THIS
+                                // if (path_id > mesh->V.size()) {
+                                    // newPath.push_back(path_id-1);
+                                // } else {
+                                    newPath.push_back(path_id);
+                                // }
                                 path_id = parent[path_id];
                             }
-                            std::reverse(path.begin(), path.end());
-                            paths.push_back(path);
-                            continue;
+                            std::reverse(newPath.begin(), newPath.end());
+                            newPath.insert(newPath.end(), it+1, tPath.end());
+                            return newPath;
                         }
-                        if (curV->flag == SKIP) {delete curV; continue;}
-                        pathVs(curV, parent, q);
-                        delete curV;
+                        vInfo info_v(mesh, vid, m);
+                        auto nvids = info_v.vids(parent[vid]);
+                        for (auto nvid: nvids) {
+                            if (parent.find(nvid) != parent.end()) continue;
+                            parent[nvid] = vid;
+                            q.push(nvid);
+                        }
                     }
-                    // paths.push_back(path);
+                    return std::vector<size_t>{};
+                }(tfp);
+                if (log) {
+                    // std::cout << "tfp.tId: " << tfp.tId << " tfp.fId: " << tfp.fId << std::endl;
+                    // auto& t = m->getVertex(tfp.tId);
+                    // auto& f = m->getVertex(tfp.fId);
+                    // std::cout << "three fids: " << t.N_Fids.size() << " five fids: " << f.N_Fids.size() << std::endl;
+                    // m->Update();
+                    // std::cout << "path: ";
+                    // for (auto id: path) {
+                    //     std::cout << id << " ";
+                    // }
+                    // std::cout << std::endl;
+                    // std::cout << "nPath: ";
+                    // for (int pid = 0; pid < nPath.size(); pid++) {
+                    //     std::cout << nPath.at(pid) << " ";
+                    //     if (nPath.at(pid) > m->maxvid) nPath.at(pid) -= 1;
+                    // }
+                    // std::cout << std::endl;
+                    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {nPath}, "test");
+                }
+                if (log) {
+                    // m->Update();
+                    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {path}, "test");
+                    // exit(0);
+                }
+                auto movePair = [&] (tfPair& tfp, size_t dest) {
+                    // std::cout << "inside movePair" << std::endl;
+                    auto& three = m->getVertex(tfp.tId);
+                    auto& five = m->getVertex(tfp.fId);
+                    // if (three.N_Fids.size() != 3 || three.isBoundary || three.type == FEATURE || 
+                    //     five.N_Fids.size() != 5 || five.isBoundary || five.type == FEATURE) return;
+                        if (m->valence(three) != 3 || three.isBoundary || 
+                        m->valence(five) != 5 || five.isBoundary) return 0;
+                    // std::cout << "three: " << three.id << "(" << three.N_Fids.size() << ") " << " five: " << five.id << "(" << five.N_Fids.size() << ") dest: " << dest << std::endl;
+                    if (log) {
+                        std::cout << "three: " << three.id << "(" << three.N_Fids.size() << ") " << " five: " << five.id << "(" << five.N_Fids.size() << ") dest: " << dest << std::endl;
+                        std::cout << "three fids: ";
+                        for (auto fid: three.N_Fids) std::cout << fid << " ";
+                        std::cout << std::endl;
+                        for (auto fid: three.N_Fids) {
+                            std::cout << "fid: " << fid << " ";
+                            auto& f = m->getFace(fid);
+                            std::cout << "vids: ";
+                            for (auto vid: f.Vids) std::cout << vid << " ";
+                            std::cout << std::endl;
+                        }
+                        std::cout << "five fids: ";
+                        for (auto fid: five.N_Fids) std::cout << fid << " ";
+                        std::cout << std::endl;
+                    }
+                    vInfo info_three(mesh, tfp.tId, m);
+                    vInfo info_five(mesh, tfp.fId, m);
+                    if (log) {
+                        std::cout << "info_three fids: ";
+                        for (auto fid: info_three.fids()) std::cout << fid << " ";
+                        std::cout << std::endl;
+                        std::cout << "info_five fids: ";
+                        for (auto fid: info_five.fids()) std::cout << fid << " ";
+                        std::cout << std::endl;
+                    }
+                    std::vector<size_t> vids = info_three.vids(five.id);
+                    std::vector<size_t> fids = info_three.fids();
+                    if (log) {
+                        std::cout << "info_three fids: ";
+                        for (auto fid: info_three.fids()) std::cout << fid << " ";
+                        std::cout << std::endl;
+                        std::cout << "info_five fids: ";
+                        for (auto fid: info_five.fids()) std::cout << fid << " ";
+                        std::cout << std::endl;
+                    }
+                    auto collapseEdge = [&] (size_t vid, size_t vid2) {
+                        std::vector<size_t> edge = {vid, vid2};
+                        for (int i = 0; i < path.size(); i++) {
+                            if (path.at(i) == vid2) return std::vector<size_t>{vid2, vid};
+                        }
+                        // auto& t_v = m->getVertex(edge[1]);
+                        // if (t_v.isBoundary && m->getIdealValence(t_v.id) != 2) return std::vector<size_t>{edge[1], edge[0]};
+                        // if (t_v.type == FEATURE && m->getIdealValence(t_v.id) != 4) return std::vector<size_t>{edge[1], edge[0]};
+                        return edge;
+                    };
+
+                    auto addVirtualElements = [&] (size_t vid) {
+                        // std::cout << "adding virtual elements" << std::endl;
+                        auto& v = m->getVertex(vid);
+                        vInfo info_v(mesh, vid, m);
+                        auto nvids = info_v.vids();
+                        auto& v1 = m->AddVertex(v.xyz()); auto& v2 = m->AddVertex(v.xyz()); auto& v3 = m->AddVertex(v.xyz());
+                        v1.isBoundary = true; v2.isBoundary = true; v3.isBoundary = true;
+                        // std::cout << "added vertices: " << v1.id << " " << v2.id << " " << v3.id << std::endl;
+                        auto& f1 = m->AddFace({vid, v2.id, v1.id, nvids.at(0)});
+                        auto& f2 = m->AddFace({vid, nvids.at(info_v.nvids()-1), v3.id, v2.id});
+                        // std::cout << "faces: " << f1.id << " " << f2.id << std::endl;
+                        auto addNFace = [&] (Face& f) {
+                            // std::cout << "face: " << f.id << " vids: ";
+                            for (auto fvid: f.Vids) {
+                                // std::cout << fvid << " ";
+                                m->setVertex(fvid);
+                                auto& fv = m->getVertex(fvid);
+                                mu->AddContents(fv.N_Fids, std::vector<size_t>{f.id});
+                            }
+                            // std::cout << std::endl;
+                        };
+                        addNFace(f1); addNFace(f2);
+                        return std::vector<size_t>{v1.id, v2.id, v3.id};
+                    };
+
+                    auto removeVirtualElements = [&] (std::vector<size_t> vids) {
+                        // std::cout << "removing virtual elements" << std::endl;
+                        auto& v = m->getVertex(vids.at(1));
+                        // std::cout << "virtual v: " << v.id << std::endl;
+                        // std::cout << "N_Fids: " << v.N_Fids.size() << std::endl;
+                        // std::cout << "v.N_Fids: " << v.N_Fids.at(0) << " " << v.N_Fids.at(1) << std::endl; 
+                        vInfo info_v(mesh, vids.at(1), m);
+                        auto nfids = info_v.fids();
+                        // std::cout << "nfids: ";
+                        // for (auto fid: nfids) std::cout << fid << " ";
+                        // std::cout << std::endl;
+                        for (auto fid: nfids) {
+                            // std::cout << "removing face: " << fid << std::endl;
+                            auto& f = m->getFace(fid);
+                            for (auto fvid: f.Vids) {
+                                auto& fv = m->getVertex(fvid);
+                                mu->UpdateContents(fv.N_Fids, std::vector<size_t>{f.id});
+                            }
+                            m->fmap.erase(fid);
+                            // std::cout << "removed " << fid << std::endl;
+                        }
+                        m->vmap.erase(vids.at(0)); m->vmap.erase(vids.at(1)); m->vmap.erase(vids.at(2));
+                        // std::cout << "removed: ";
+                        // for (auto vid: vids) std::cout << vid << " ";
+                        // std::cout << std::endl;
+                    };
+                    
+                    if (tfp.diag) {
+                        if (log) std::cout << "Moving diagonal pair" << std::endl;
+                        if (log) {
+                            std::cout << "info_three fids: ";
+                            for (auto fid: info_three.fids()) std::cout << fid << " ";
+                            std::cout << std::endl;
+                            std::cout << "info_five fids: ";
+                            for (auto fid: info_five.fids()) std::cout << fid << " ";
+                            std::cout << std::endl;
+                        }
+                        size_t face_id = mu->GetIntersection(info_three.fids(), info_five.fids()).at(0);
+                        if (log) std::cout << "face_id: " << face_id << std::endl;
+                        auto& f = m->getFace(face_id);
+                        // std::cout << "face id: " << face_id << std::endl;
+                        std::vector<size_t> fids = info_five.fids(face_id);
+                        std::vector<size_t> vids = info_five.vids();
+                        // std::cout << "fids: " << fids.size() << " vids: " << vids.size() << std::endl;
+                        // std::cout << "vids: ";
+                        // for (auto vid: vids) std::cout << vid << " ";
+                        // std::cout << std::endl;
+                        // if (vids.at(3) != dest && (m->getVertex(dest).isBoundary || m->getVertex(dest).type == FEATURE)) return;
+                        if (log) std::cout << "vids: " << vids.size() << " info_five nvids: " << info_five.nvids() << std::endl; 
+                        if (vids.at(0) == dest || vids.at(1) == dest || vids.at(2) == dest || vids.at(4) == dest ||
+                        (info_five.nvids() == 6 && vids.at(5) == dest)) {
+                            if (m->getVertex(dest).isBoundary || m->getVertex(dest).type == FEATURE) return 0;
+                            if (log) std::cout << "performing flip" << std::endl;
+                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.fId));
+                            bool clockwise = (vids.at(1) == dest || vids.at(2) == dest);
+                            std::vector<size_t> edge = {tfp.fId, dest};
+                            if (vids.at(2) == dest) edge.at(1) = vids.at(1);
+                            if (vids.at(4) == dest || (info_five.nvids() == 6 && vids.at(5) == dest)) edge.at(1) = vids.at(0);
+                            // std::cout << "moving pair " << (clockwise ? "clockwise" : "counter-clockwise") << std::endl;
+                            PerformOperation(Operation("Flip", tfp.fId, edge, clockwise), m);
+                            tfp.tId = clockwise ? vids.at(1) : vids.at(0); tfp.fId = clockwise ? vids.at(2) : info_five.nvids() == 6 ? vids.at(5) : vids.at(4);
+                            [this, &m, &tfp, &collapseEdge, &log] () {
+                                if (!m->getVertex(tfp.tId).isBoundary && m->getVertex(tfp.tId).N_Fids.size() == 2) {
+                                    auto& v = m->getVertex(tfp.tId);
+                                    if (log) std::cout << "Performing rotate on doublet: " << v.id << "(" << v.N_Fids.size() << ")" << std::endl;
+                                    PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
+                                    vInfo info_t(mesh, tfp.tId, m);
+                                    for (auto fid: info_t.fids()) {
+                                        auto& f = m->getFace(fid);
+                                        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                                        auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                                        if (log) {
+                                            std::cout << "Performing collapse on three: " << edge.at(0) << "(" << m->getVertex(edge.at(0)).N_Fids.size() << ")"
+                                            << " " << edge.at(1) << "(" << m->getVertex(edge.at(1)).N_Fids.size() << ")" << std::endl;
+                                        }
+                                        PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                                    }
+                                    if (log) {
+                                        std::cout << "vmap size: " << m->vmap.size() << " fmap size: " << m->fmap.size() << std::endl;
+                                        std::cout << "vMesh vids: " << std::endl;
+                                        for (auto el = m->vmap.begin(); el != m->vmap.end(); el++) {
+                                            std::cout << el->first << " " << el->second.id << std::endl;
+                                        }
+                                        std::cout << std::endl;
+                                        std::cout << "vMesh faces: " << std::endl;
+                                        for (auto el = m->fmap.begin(); el != m->fmap.end(); el++) {
+                                            std::cout << "face id: " << el->second.id << " face vids: ";
+                                            for (auto fvid: el->second.Vids) {
+                                                std::cout << fvid << " ";
+                                            }
+                                            std::cout << std::endl;
+                                        }
+                                        // exit(0);
+                                    }
+                                } else if (m->getVertex(tfp.fId).N_Fids.size() == 6 && !(m->getVertex(tfp.fId).isBoundary || m->getVertex(tfp.fId).type == FEATURE)) {
+                                    auto& v = m->getVertex(tfp.fId);
+                                    vInfo info_t(mesh, tfp.fId, m);
+                                    auto fid = mu->GetIntersection(info_t.fids(), vInfo(mesh, tfp.tId, m).fids()).at(0);
+                                    auto fids = info_t.fids(fid);
+                                    auto vids = info_t.vids();
+                                    std::vector<size_t> edge1 = {tfp.fId, vids.at(2)}; std::vector<size_t> edge2 = {tfp.fId, vids.at(5)};
+                                    PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
+                                    PerformOperation(Operation("Split", tfp.fId, edge2, false), m);
+                                    PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
+                                }
+                            }();
+                            return 1;
+                        }
+                        if (vids.at(3) == dest) {
+                            if (log) std::cout << "moving up" << std::endl;
+                            if ((five.isBoundary || five.type == FEATURE) && (m->getVertex(dest).isBoundary || m->getVertex(dest).type == FEATURE)) return 0;
+                            std::vector<size_t> nvs = {vids.at(2), vids.at(4)};
+                            for (auto id: nvs) {
+                                PerformOperation(Operation("Split", tfp.fId, std::vector<size_t>{tfp.fId, id}, false), m);
+                            }
+                            PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
+                            tfp.tId = tfp.fId; tfp.fId = dest;
+                            [this, &m, &tfp, &addVirtualElements, &removeVirtualElements] () {
+                                auto& v = m->getVertex(tfp.fId);
+                                // std::cout << "v nfids: " << v.N_Fids.size() << " isBoundary: " << v.isBoundary << std::endl;
+                                if (v.N_Fids.size() == 6 && !(v.isBoundary || v.type == FEATURE)) {
+                                    vInfo info_t(mesh, tfp.fId, m);
+                                    auto fid = mu->GetIntersection(info_t.fids(), vInfo(mesh, tfp.tId, m).fids()).at(0);
+                                    auto fids = info_t.fids(fid);
+                                    auto vids = info_t.vids();
+                                    std::vector<size_t> edge1 = {tfp.fId, vids.at(2)}; std::vector<size_t> edge2 = {tfp.fId, vids.at(5)};
+                                    PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
+                                    PerformOperation(Operation("Split", tfp.fId, edge2, false), m);
+                                    PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
+                                }
+                                if (v.N_Fids.size() == 3 && v.isBoundary) {
+                                    vInfo info_t(mesh, tfp.fId, m);
+                                    auto t_nvids = info_t.vids();
+                                    std::vector<size_t> edge_vids = {t_nvids.at(0), t_nvids.at(info_t.nvids()-1)};
+                                    auto virtual_vids = addVirtualElements(tfp.fId);
+                                    for (auto id: edge_vids) {
+                                        PerformOperation(Operation("Split", tfp.fId, std::vector<size_t>{tfp.fId, id}, false), m);
+                                    }
+                                    PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
+                                    removeVirtualElements(virtual_vids);
+                                }
+                            }();
+                            return 1;
+                        }
+                        fids = info_three.fids(face_id);
+                        vids = info_three.vids();
+                        if (vids.at(2) == dest) {
+                            if (log) std::cout << "moving down" << std::endl;
+                            if (log) std::cout << "three boundary: " << three.isBoundary << " feature: " << (three.type == FEATURE) << std::endl;
+                            if (log) std::cout << "dest boundary: " << m->getVertex(dest).isBoundary << " feature: " << (m->getVertex(dest).type == FEATURE) << std::endl;
+                            if ((three.isBoundary || three.type == FEATURE) && (m->getVertex(dest).isBoundary || m->getVertex(dest).type == FEATURE)) return 0;
+                            if (log) std::cout << "moving to " << dest << std::endl;
+                            if (log) {
+                                auto& tfpt = m->getVertex(tfp.tId);
+                                std::cout << "three: " << tfpt.id << "(" << tfpt.N_Fids.size() << ")" << std::endl;
+                                for (auto id: tfpt.N_Fids) {
+                                    auto& tfptf = m->getFace(id);
+                                    std::cout << id << ": ";
+                                    for (auto fvid: tfptf.Vids) {
+                                        std::cout << fvid << " ";
+                                    }
+                                    std::cout << std::endl;
+                                }
+                            }
+                            PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
+                            if (log) std::cout << "Rotated" << std::endl;
+                            std::vector<size_t> faces;
+                            vInfo info_t(mesh, tfp.tId, m);
+                            if (log) {
+                                auto& tfpt = m->getVertex(tfp.tId);
+                                std::cout << "three: " << tfpt.id << "(" << tfpt.N_Fids.size() << ")" << std::endl;
+                                for (auto id: tfpt.N_Fids) {
+                                    auto& tfptf = m->getFace(id);
+                                    std::cout << id << ": ";
+                                    for (auto fvid: tfptf.Vids) {
+                                        std::cout << fvid << " ";
+                                    }
+                                    std::cout << std::endl;
+                                }
+                            }
+                            for (auto fid: info_t.fids()) {
+                                if (log) std::cout << "fid: " << fid << std::endl;
+                                auto& f = m->getFace(fid);
+                                if (std::find(f.Vids.begin(), f.Vids.end(), dest) != f.Vids.end()) continue;
+                                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                                auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                                glm::dvec3 coords = {0.0, 0.0, 0.0};
+                                for (auto e: edge) {
+                                    if (corner(e, m)) coords = m->getVertex(e).xyz();
+                                }
+                                PerformOperation(Operation("Collapse", tfp.tId, edge, false, coords), m);
+                                if (log) std::cout << "Collapsed" << std::endl;
+                            }
+                            tfp.fId = tfp.tId; tfp.tId = dest;
+                            [this, &m, &tfp, &collapseEdge, &addVirtualElements, &removeVirtualElements, &corner, &log, &path] () {
+                                if (log) std::cout << "checking stuff" << std::endl;
+                                auto& v = m->getVertex(tfp.tId);
+                                if (!v.isBoundary && v.N_Fids.size() == 2) {
+                                    if (log) std::cout << "le bhai trouble" << std::endl;
+                                    PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
+                                    if (log) std::cout << "Rotated for doublet" << std::endl;
+                                    vInfo info_t(mesh, tfp.tId, m);
+                                    for (auto fid: info_t.fids()) {
+                                        auto& f = m->getFace(fid);
+                                        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                                        auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                                        glm::dvec3 coords = {0.0, 0.0, 0.0};
+                                        for (auto e: edge) {
+                                            if (corner(e, m)) coords = m->getVertex(e).xyz();
+                                        }
+                                        PerformOperation(Operation("Collapse", tfp.tId, edge, false, coords), m);
+                                        if (log) std::cout << "Collapsed for doublet" << std::endl;
+                                    }
+                                }
+                                if (v.N_Fids.size() == 1 && v.isBoundary) {
+                                    if (log) std::cout << "I see" << std::endl;
+                                    // glm::dvec3 coords = {0.0, 0.0, 0.0};
+                                    // if (m->getIdealValence(v.id) != 2) {
+                                        // std::cout << "ITS A CORNER" << std::endl;
+                                        // coords = v.xyz();
+                                        // std::cout << "coords: " << coords.x << " " << coords.y << " " << coords.z << std::endl;
+                                        // std::cout << "glm::length(): " << glm::length(coords) << std::endl;
+                                    // }
+                                    auto& f = m->getFace(v.N_Fids.at(0));
+                                    glm::dvec3 coords = {0.0, 0.0, 0.0};
+                                    for (auto fvid: f.Vids) {
+                                        if (corner(fvid, m)) {
+                                            coords = m->getVertex(fvid).xyz();
+                                            // std::cout << "Got Corner" << std::endl;
+                                            // std::cout << "coords: " << coords.x << " " << coords.y << " " << coords.z << std::endl;
+                                            break;
+                                        }
+                                    }
+                                    auto virtual_vids = addVirtualElements(tfp.tId);
+                                    PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
+                                    
+                                    vInfo virtual_info(mesh, tfp.tId, m);
+                                    auto virtual_fids = m->getVertex(tfp.tId).N_Fids;
+                                    // int itskip = 0;
+                                    for (auto fid: virtual_fids) {
+                                        auto& f = m->getFace(fid);
+                                        if (std::find(f.Vids.begin(), f.Vids.end(), virtual_vids.at(1)) != f.Vids.end()) continue;
+                                        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                                        auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                                        PerformOperation(Operation("Collapse", tfp.tId, edge, false, coords), m);
+                                        // if (log && itskip == 1) {
+                                        //     m->Update();
+                                        //     PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {path}, "test");
+                                        // }
+                                        // itskip++;
+                                    }
+                                    removeVirtualElements(virtual_vids);
+                                }
+                            }();
+                            return 1;
+                        }
+                    } else {
+                        if (log) std::cout << "moving direct pair" << std::endl;
+                        // std::cout << "vids: ";
+                        // for (auto vid: vids) std::cout << vid << " ";
+                        // std::cout << std::endl;
+                        // std::cout << "five vids: ";
+                        // for (auto vid: info_five.vids()) std::cout << vid << " ";
+                        // std::cout << std::endl;
+                        if (m->getVertex(dest).isBoundary || m->getVertex(dest).type == FEATURE) return 0;
+
+                        if (vids.at(1) == dest || vids.at(2) == dest) {
+                            if (log) std::cout << "Performing Collapse" << std::endl;
+                            size_t fidx = (vids.at(1) == dest) ? fids.at(0) : fids.at(2);
+                            auto& f = m->getFace(fidx);
+                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                            auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                            if (m->getVertex(edge[1]).isBoundary || m->getVertex(edge[1]).type == FEATURE) return 0;
+                            tfp.fId = tfp.tId; tfp.tId = dest;
+                            PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                            [this, &m, &tfp, &collapseEdge] () {
+                                auto& v = m->getVertex(tfp.tId);
+                                if (!v.isBoundary && v.N_Fids.size() == 2) {
+                                    auto& f = m->getFace(v.N_Fids.at(0));
+                                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                                    auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                                    PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                                }
+                            }();
+                            return 1;
+                        }
+                        vids = info_five.vids(three.id);
+                        fids = info_five.fids();
+                        // std::cout << "vids: ";
+                        // for (auto vid: vids) std::cout << vid << " ";
+                        // std::cout << std::endl;
+                        // std::cout << "fids: " << std::endl;
+                        // for (auto fid: fids) {
+                        //     std::cout << "fid: " << fid << " ";
+                        //     auto& f = m->getFace(fid);
+                        //     for (auto fvid: f.Vids) std::cout << fvid << " "; std::cout << std::endl;
+                        // }
+                        // std::cout << std::endl;
+                        if (vids.at(1) == dest || vids.at(4) == dest) {
+                            if (log) std::cout << "Performing Flip" << std::endl;
+                            bool clockwise = (vids.at(4) == dest);
+                            // std::cout << "clockwise: " << clockwise << std::endl;
+                            int fidx = (vids.at(1) == dest) ? fids.at(1) : fids.at(3);
+                            // std::cout << "fidx: " << fidx << std::endl;
+                            auto& f = m->getFace(fidx);
+                            // std::cout << "f vids: "; for (auto fvid: f.Vids) std::cout << fvid << " "; std::cout << std::endl;
+                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.fId));
+                            // std::cout << "new five: " << m->getVertex(tfp.fId).N_Fids.size() << std::endl;
+                            size_t temp = f.Vids.at((idx+2)%4);
+                            PerformOperation(Operation("Flip", tfp.fId, std::vector<size_t>{tfp.fId, dest}, clockwise), m);
+                            tfp.tId = dest; tfp.fId = temp;
+                            // std::cout << "new five: " << tfp.fId << " " << m->getVertex(tfp.fId).N_Fids.size() << std::endl;
+                            [this, &m, &tfp, &collapseEdge] () {
+                                auto& v = m->getVertex(tfp.tId);
+                                if (!v.isBoundary && v.N_Fids.size() == 2) {
+                                    auto& f = m->getFace(v.N_Fids.at(0));
+                                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
+                                    auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
+                                    PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
+                                }
+                            }();
+                            return 1;
+                        } else if (vids.at(2) == dest || vids.at(3) == dest) {
+                            if (log) std::cout << "Performing Split" << std::endl;
+                            std::vector<size_t> edge = {tfp.fId, vids.at(2) == dest ? vids.at(1) : vids.at(4)};
+                            PerformOperation(Operation("Split", tfp.fId, edge, false), m);
+                            tfp.tId = m->max_vid; tfp.fId = dest;
+                            [this, &m, &tfp] () {
+                                auto& v = m->getVertex(tfp.fId);
+                                if (v.N_Fids.size() == 6) {
+                                    vInfo info_six(mesh, tfp.fId, m);
+                                    auto vids = info_six.vids(tfp.tId);
+                                    auto fids = info_six.fids();
+                                    std::vector<size_t> edge1 = {tfp.fId, vids.at(1)};
+                                    std::vector<size_t> edge2 = {tfp.fId, vids.at(2)};
+                                    PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
+                                    PerformOperation(Operation("Flip", tfp.fId, edge2, true), m);
+                                }
+                            }();
+                            return 1;
+                        }
+                    }
+                };
+                if (log) std::cout << "MOVING PAIR" << std::endl;
+                // std::cout << "nPath: " << nPath.size() << std::endl;
+                bool ok = true;
+                for (int i = 0; i < nPath.size(); i++) {
+                    if (log) std::cout << "i " << i << std::endl;
+                    if (i+1 < nPath.size()-1 && (nPath.at(i+1) == tfp.tId || nPath.at(i+1) == tfp.fId)) continue;
+                    auto vid = nPath.at(i);
+                    ok = movePair(tfp, vid);
+                    if (!ok) break;
+                    if (log && i == iters) {
+                        // MeshCaretaker c;
+                        // c.saveState(mesh);
+                        m->Update();
+                        PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {path}, "test");
+                        exit(0);
+                        // c.restoreState(mesh);
+                    }
+                }
+                if (log) std::cout << "AFTER MOVING PAIR" << std::endl;
+                if (!ok) continue;
+                if (log) {
+                    // m->Update();
+                    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {path}, "test");
+                    // exit(0);
+                }
+                if (log) {
+                    // m->Update();
+                    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>> {path}, "test");
+                    // exit(0);
+                }
+                if (log) std::cout << "GETTING VALENCE SCORE" << std::endl;
+                auto valenceScore = [&] () {
+                    std::unordered_set<size_t> qids;
+                    for (auto it = m->fmap.begin(); it != m->fmap.end(); it++) qids.insert(it->second.id);
+                    for (auto vid: path) {
+                        auto& v = mesh->V.at(vid);
+                        qids.insert(v.N_Fids.begin(), v.N_Fids.end());
+                    }
+                    
+                    auto ideal_valence = [&] (Vertex& v, bool useVM = true) {
+                        if (v.isBoundary || v.type == FEATURE) {
+                            // bool log = false;
+                            // if (log) log = true;
+                            int ideal_valence = m->getIdealValence(v.id, useVM, log);
+                            if (log) std::cout << "boundary vertex: " << v.N_Fids.size() <<  " ideal_valence: " << ideal_valence << std::endl;
+                            return ideal_valence;
+                        }
+                        return 4;
+                    };
+
+                    auto compareValences = [&] (Vertex& v, bool useVM = true) {
+                        if (v.N_Fids.empty()) return 0.0;
+                        double score = 0.0;
+                        // std::cout << "comparing valences" << std::endl;
+                        if (v.isBoundary || v.type == FEATURE) {
+                            // std::cout << "v is boundary or feature" << std::endl;
+                            auto plane = m->planes(v, useVM);
+                            for (auto p: plane) {
+                                int val = m->valence(v, useVM, p);
+                                int idealVal = m->idealValence(v, useVM, p);
+                                int valence_diff = std::abs(val - idealVal);
+                                if (valence_diff > 0) {
+                                    score -= exp(10*valence_diff);
+                                }
+                            }
+                        } else {
+                            // std::cout << "non boundary v " << v.id << "(" << v.N_Fids.size() << ")" << std::endl;
+                            // std::cout << "useVM_: " << useVM << std::endl;
+                            int val = m->valence(v, useVM);
+                            // std::cout << "val: " << val << std::endl;
+                            // std::cout << "useVM_: " << useVM << std::endl;
+                            int idealVal = m->idealValence(v, useVM);
+                            // std::cout << "idealVal " << idealVal << std::endl;
+                            int valence_diff = std::abs(val - idealVal);
+                            if (valence_diff > 0) {
+                                score -= exp(10*valence_diff);
+                            }
+                            // std::cout << "score " << score << std::endl;    
+                        }
+                        return score;
+                        /*if (v.isBoundary || v.type == FEATURE) {
+                            vInfo info_v(mesh, v.id, m, useVM);
+                            double score = 0.0;
+                            auto fids = info_v.fids();
+                            for (int i = 0; i < fids.size(); i++) {
+                                auto& f = m->getFace(fids.at(i), useVM);
+                                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                                auto& fv = m->getVertex(f.Vids.at((idx+1)%4), useVM);
+                                if (fv.isBoundary || fv.type == FEATURE) {
+                                    fids = info_v.fids(fids.at(i));
+                                    break;
+                                }
+                            }
+                            double total_angle = 0.0;
+                            int n = 0;
+                            int total_valence = 0;
+                            if (log) std::cout << "boundary score for: " << v.id << "(" << fids.size() << ")" << std::endl;
+                            for (auto fid: fids) {
+                                n++;
+                                auto& f = m->getFace(fid, useVM);
+                                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                                auto& v1 = m->getVertex(f.Vids.at((idx+1)%4), useVM);
+                                auto& v2 = m->getVertex(f.Vids.at((idx+2)%4), useVM);
+                                auto& v3 = m->getVertex(f.Vids.at((idx+3)%4), useVM);
+                                total_angle += m->getAngle(v.id, v1.id, v2.id, useVM);
+                                total_angle += m->getAngle(v.id, v2.id, v3.id, useVM);
+                                if (v3.isBoundary || v3.type == FEATURE) {
+                                    int idealValence = (floor(total_angle / 90.0) + floor(std::fmod(total_angle, 90.0) / 45));
+                                    int valence_diff = std::abs((int) n - idealValence);
+                                    total_valence += idealValence;
+                                    score -= valence_diff > 0 ? exp(10*valence_diff) : 0.0;
+                                    if (log) std::cout << "n " << n << " idealValence: " << idealValence << " valence_diff " << valence_diff << " score " << score << std::endl;  
+                                    n = 0;
+                                    total_angle = 0.0;
+                                } 
+                                if (useVM && !v1.isBoundary && v1.type != FEATURE && (v2.isBoundary || v2.type == FEATURE) && !v3.isBoundary && v3.type != FEATURE) {
+                                    if (log) std::cout << "v2 is boundary or feature" << std::endl;
+                                    score -= exp(50);
+                                }
+                            }
+                            int total_valence_diff = std::abs((int) v.N_Fids.size() - total_valence);
+                            score -= total_valence_diff > 0 ? exp(20*total_valence_diff) : 0.0;
+                            return score;
+                        } else {
+                            // if (log) std::cout << "score for: " << v.id << "(" << v.N_Fids.size() << ")" << std::endl;
+                            int valence_diff = std::abs((int) v.N_Fids.size() - 4);
+                            // if (log) std::cout << "valence_diff " << valence_diff << " score " << -exp(10*valence_diff) << std::endl;  
+                            return valence_diff > 0 ? -exp(10*valence_diff) : 0.0;
+                        }*/
+                    };
+
+                    double score_before = [&] () {
+                        if (log) std::cout << "CALCULATING SCORE BEFORE: " << std::endl;
+                        double score = 0.0;
+                        std::unordered_set<size_t> vids;
+                        for (auto qid: qids) {
+                            if (qid > m->maxfid) continue;
+                            auto& q = mesh->F.at(qid);
+                            for (auto vid: q.Vids) vids.insert(vid);
+                        }
+                        for (auto vid: vids) {
+                            auto& v = mesh->V.at(vid);
+                            // int valence_diff = std::abs((int) v.N_Fids.size() - ideal_valence(v, false));
+                            // if (log) std::cout << "v: " << v.id << " v N_Fids: " << v.N_Fids.size() << " ideal_valence: " << ideal_valence(v, false) << " valence_diff: " << valence_diff << std::endl;
+                            // std::cout << valence_diff << std::endl;
+                            // if (valence_diff > 0) score -= exp(10*valence_diff);
+                            score += compareValences(v, false);
+                        }
+                        if (log) std::cout << score << std::endl;
+                        return score;
+                    }();
+                    double score_after = [&] () {
+                        if (log) std::cout << "CALCULATING SCORE AFTER " << std::endl;
+                        double score = 0.0;
+                        std::unordered_set<size_t> vids;
+                        for (auto qid: qids) {
+                            auto& q = m->getFace(qid);
+                            for (auto vid: q.Vids) vids.insert(vid);
+                        }
+                        for (auto vid: vids) {
+                            auto& v = m->getVertex(vid);
+                            // int valence_diff = std::abs((int) v.N_Fids.size() - ideal_valence(v));
+                            // if (log) std::cout << "v: " << v.id << " v N_Fids: " << v.N_Fids.size() << " ideal_valence: " << ideal_valence(v) << " valence_diff: " << valence_diff << std::endl;
+                            // std::cout << valence_diff << std::endl;
+                            // if (valence_diff > 0) score -= exp(10*valence_diff);
+                            score += compareValences(v);
+                        }
+                        if (log) std::cout << score << std::endl;
+                        return score;
+                    }();
+                    
+                    if (log) std::cout << "valence_score_before: " << score_before << " valence_score_after: " << score_after << std::endl;
+                    return score_after - score_before;
+                }();
+                if (valenceScore < 0.0) continue;
+                if (log) std::cout << "GETTING SINGULARITY SCORE" << std::endl;
+                auto singularityScore = [&] () {
+                    std::unordered_set<size_t> vids;
+                    for (auto it = m->vmap.begin(); it != m->vmap.end(); it++) vids.insert(it->second.id); 
+                    auto trace = [&] (size_t vid, bool useVM = false) {
+                        struct node {
+                            size_t id;
+                            int starter;
+                            size_t parent;
+                            bool continuous = false;
+                            double a = 0; double b = 0;
+                            node(size_t id_, size_t parent_, bool continuous_ = false, double a_ = 0, double b_ = 0, int starter_ = -1) {
+                                id = id_;
+                                parent = parent_;
+                                continuous = continuous_;
+                                starter = starter_;
+                                a = a_;
+                                b = b_;
+                            }
+                        };
+                        auto& v = m->getVertex(vid, useVM);
+                        int valence_v = m->virtualValence(v, useVM);
+                        bool skip = valence_v != 3 && valence_v != 5;
+                        if (log) std::cout << "Inside trace for: " << vid << "(" << v.N_Fids.size() << ")" << std::endl;
+                        double score = 0.0;
+                        // if (v.isBoundary || v.type == FEATURE) score -= exp(30);
+                        std::queue<node> q;
+                        std::vector<bool> visited(m->max_vid+1);
+                        vInfo info_v(mesh, v.id, m, useVM);
+                        for (auto nvid: info_v.vids()) {
+                            auto& nv = m->getVertex(nvid, useVM);
+                            int starter = -1;
+                            if (v.isBoundary || v.type == FEATURE) {
+                                if (nv.isBoundary || nv.type == FEATURE) continue;
+                                int b_valence = m->virtualValence(v, useVM, nv.N_Fids);
+                                if (b_valence == 3 || b_valence == 5) skip = false;
+                                if (b_valence != 3 && b_valence != 5) continue;
+                                starter = nvid;
+                            }
+                            q.push(node(nvid, v.id, false, 1, starter));
+                            visited.at(nvid) = true;
+                        }
+                        if (skip) return 0.0;
+                        bool boundary_found = false;
+                        bool opposite_found = false;
+                        double min_boundary_dist = 4;
+                        double min_separatrix_dist = 4;
+                        double min_same_dist = 4;
+                        while (!q.empty()) {
+                            // std::cout << "q size: " << q.size() << std::endl;
+                            std::vector<node> nodes;
+                            while (!q.empty()) {
+                                nodes.push_back(q.front());
+                                q.pop();
+                            }
+                            std::vector<node> q_nodes;
+                            // std::cout << "nodes: " << nodes.size() << std::endl;
+                            for (auto n: nodes) {
+                                // std::cout << "n.a: " << n.a << " n.b: " << n.b << std::endl;
+
+                                // int dist = (n.a + n.b) - std::min(n.a, n.b);
+                                double dist = std::max(n.a, n.b);
+                                auto& qv = m->getVertex(n.id, useVM);
+                                // std::cout << "qv: " << qv.id << "(" << qv.N_Fids.size() << ")" << std::endl; 
+                                // if ((qv.isBoundary || qv.type == FEATURE) && dist < min_boundary_dist) {
+                                if ((qv.isBoundary || qv.type == FEATURE) && !boundary_found) {
+                                    if (log) std::cout << "v.id: " << v.id << " qv.id: " << qv.id << " setting min dist to: " << dist << " n.a: " << n.a << " n.b: " << n.b << std::endl;
+                                    min_boundary_dist = dist;
+                                    // score += -(1.0/dist+1);
+                                    // score += -(1.0 - exp((min_boundary_dist-4.0) - fabs(min_boundary_dist-4.0)));
+                                    double max = 5.0;
+                                    // double factor = 2.0 * max;
+                                    double min = min_boundary_dist < max ? min_boundary_dist : 1.0;
+                                    score += -exp(max/min);
+                                    // score += -(1.0 - exp((min_boundary_dist-4.0) - fabs(min_boundary_dist-4.0)));
+                                    if (log) std::cout << "Found boundary and score now is: " << score << std::endl;
+                                    boundary_found = true;
+                                }
+                                int valence = m->virtualValence(qv, useVM, m->getVertex(n.parent, useVM).N_Fids);
+                                if (valence != 4 && !qv.isBoundary && qv.type != FEATURE) {
+                                    bool singularity_3_or_5 = valence == 3 || valence >= 5;
+                                    if (singularity_3_or_5) {
+                                        if (v.isBoundary || v.type == FEATURE) {
+                                            if (n.starter != -1) {
+                                                valence_v = m->virtualValence(v, useVM, m->getVertex(n.starter, useVM).N_Fids);
+                                            }
+                                        }
+                                        opposite_found = !((valence_v == 3 && valence == 3) || (valence_v == 5 && valence >= 5));
+                                        if (log) {
+                                            std::cout << "v.id: " << v.id << " qv.id: " << qv.id <<  " singularity dist: " << dist << " n.a: " << n.a << " n.b: " << n.b << std::endl;
+                                            std::cout << "qv N_fids: " << qv.N_Fids.size() << " v N_fids: " << v.N_Fids.size() << std::endl;
+                                        }
+                                        // score += opposite_found ? -(1.0 - exp((dist-4.0) - fabs(dist-4.0))) : exp(1.0/dist);
+                                        // score += opposite_found ? exp(1.0/dist) : -(1.0 - exp((dist-4.0) - fabs(dist-4.0)));
+                                        double max = 5.0;
+                                        double min = dist < max ? dist : 1.0;
+                                        // score += opposite_found ? exp(5.0/dist) : -exp(max/min);
+                                        score += opposite_found ? exp(5.0/dist) : -exp(5.0/dist);
+                                        if (log) std::cout << "Found " << (opposite_found ? "opposite" : "same") << " singularity and score now is: " << score << std::endl;
+                                        // score += same ? -exp(1.0/dist) : exp(1.0/dist);
+                                        // double min = std::min(n.a, n.b);
+                                        // if (n.b > 0 && min < min_separatrix_dist) {
+                                        //     min_separatrix_dist = min;
+                                        // }
+                                        // double min = fabs((std::min(n.a, n.b) - 4.0) - fabs(std::min(n.a, n.b) - 4.0));
+                                        // double min = (std::min(n.a, n.b) - 4.0) - fabs(std::min(n.a, n.b) - 4.0);
+                                        // score += n.b == 0 ? 0 : (1.0 - exp(min/(min+0.1)));
+                                        // score += n.b == 0 ? 0 : -(1.0 - exp(min));
+                                    }
+                                    if (opposite_found) {
+                                        return score;
+                                    } else {
+                                        continue;
+                                    }
+                                }
+                                vInfo info_qv(mesh, qv.id, m, useVM);
+                                if (qv.isBoundary || qv.type == FEATURE || info_qv.nvids() != 4) continue;
+                                auto qv_nvids = info_qv.vids(n.parent);
+                                if (!n.continuous) {
+                                    // std::cout << "n is not contiuous" << std::endl;
+                                    // std::cout << "n.a: " << n.a << " n.a+1: " << n.a+1 << std::endl;
+                                    q_nodes.push_back(node(qv_nvids.at(1), n.id, true, n.a, n.b+1, n.starter));
+                                    q_nodes.push_back(node(qv_nvids.at(2), n.id, false, n.a+1, 0, n.starter));
+                                    q_nodes.push_back(node(qv_nvids.at(3), n.id, true, n.a, n.b+1, n.starter));
+                                } else {
+                                    // std::cout << "n is contiuous" << std::endl;
+                                    q_nodes.push_back(node(qv_nvids.at(2), n.id, true, n.a, n.b+1, n.starter));
+                                }
+                            }
+                            for (auto n: q_nodes) {
+                                auto& nv = m->getVertex(n.id, useVM);
+                                // std::cout << "checking visit status" << std::endl;
+                                // std::cout << "nv: " << nv.id << "(" << nv.N_Fids.size() << ")" << std::endl;
+                                // std::cout << "m max_vid: " << m->max_vid << std::endl;
+                                if (visited.at(nv.id)) continue;
+                                // std::cout << "checked visit status" << std::endl;
+                                // if (nv.isBoundary || nv.type == FEATURE) continue;
+                                visited.at(nv.id) = true;
+                                q.push(n);
+                            }
+                        }
+                        // if (min_boundary_dist < min_separatrix_dist) {
+                            // score += -(1.0 - exp((min_boundary_dist-4.0) - fabs(min_boundary_dist-4.0)));
+                        // } else {
+                            // score += -(1.0 - exp((min_separatrix_dist-4.0) - fabs(min_separatrix_dist-4.0)));
+                        // }
+                        return score;
+                    };
+
+                    auto ideal_valence = [&] (Vertex& v, bool useVM = true) {
+                        if (v.isBoundary || v.type == FEATURE) {
+                            // bool log = false;
+                            // if (log) log = true;
+                            int ideal_valence = m->getIdealValence(v.id, useVM, log);
+                            // if (log) std::cout << "boundary vertex: " << v.N_Fids.size() <<  " ideal_valence: " << ideal_valence << std::endl;
+                            return ideal_valence;
+                        }
+                        return 4;
+                    };
+
+                    auto score_before = [&] () {
+                        if (log) std::cout << "CALCULATING SINGULARITY SCORE BEFORE" << std::endl;
+                        double score = 0.0;
+                        for (auto vid: vids) {
+                            if (vid > m->maxvid) continue;
+                            auto& v = m->getVertex(vid, false);
+                            if (v.N_Fids.empty()) continue;
+                            // bool skip = true;
+                            // int valence = m->virtualValence(v, false);
+                            if (v.isBoundary || v.type == FEATURE) {
+                                auto plane = m->planes(v, false);
+                                for (auto p: plane) {
+                                    if (m->virtualValence(v, false, p) != 4) {
+                                        score -= exp(30);
+                                        // skip = false;
+                                    }
+                                }
+                            }
+                            // if (valence != 3 && valence != 5) skip = continue;
+                            // if (v.N_Fids.size() == ideal_valence(v, false)) continue; 
+                            // vInfo info_v(mesh, vid, m, false);
+                            // if (info_v.nfids() != 3 && info_v.nfids() != 5) continue;
+                            score += trace(vid);
+                        }
+                        if (log) std::cout << "SINGULARITY SCORE BEFORE: " << score << std::endl;
+                        return score;
+                    }();
+                    auto score_after = [&] () {
+                        if (log) std::cout << "CALCULATING SINGULARITY SCORE AFTER" << std::endl;
+                        double score = 0.0;
+                        for (auto vid: vids) {
+                            auto& v = m->getVertex(vid);
+                            if (v.N_Fids.empty()) continue;
+                            // if (v.N_Fids.size() == ideal_valence(v)) continue; 
+                            // bool skip = true;
+                            if (v.isBoundary || v.type == FEATURE) {
+                                auto plane = m->planes(v);
+                                for (auto p: plane) {
+                                    if (m->virtualValence(v, true, p) != 4) {
+                                        score -= exp(30);
+                                        // skip = false;
+                                    }
+                                }
+                            }
+                            // else if (m->virtualValence(v) != 4) {
+                            //     skip = false;
+                            // }
+                            // if (skip) continue;
+                            // vInfo info_v(mesh, vid, m);
+                            // if (info_v.nfids() != 3 && info_v.nfids() != 5) continue;
+                            score += trace(vid, true);
+                        }
+                        if (log) std::cout << "SINGULARITY SCORE AFTER: " << score << std::endl;
+                        return score;
+                    }();
+
+                    // std::cout << "singularity score before: " << score_before << " singularity score after: " << score_after << std::endl;
+                    return score_after - score_before;
+                }();
+                if (!(valenceScore > 0.0) && singularityScore < 0.0) continue;
+                if (log) std::cout << "SMOOTHING" << std::endl;
+                Smooth(m);
+                if (log) std::cout << "GETTING ELEMENT SCORE" << std::endl;
+                auto elementScore = [&] () {
+                    // struct sizeNshape {
+                    //     double size = 0.0;
+                    //     double shape = 0.0;
+                    //     double area = 0.0;
+                    //     double avg_area = 0.0;
+                    // };
+                    double score = 0.0;
+                    // std::unordered_map<size_t, sizeNshape> sNs;
+                    std::unordered_set<size_t> qids;
+                    double elementChange = 1.0;
+                    for (auto it = m->fmap.begin(); it != m->fmap.end(); it++) {
+                        if (it->first > m->maxfid || it->second.Vids.empty()) {
+                            elementChange += 1;
+                            // continue;
+                        }
+                        if (it->second.Vids.empty()) continue;
+                        qids.insert(it->second.id);
+                    }
+                    auto qV_arr = [&] (size_t fid, bool useVM = false) {
+                        double coords[4][3];
+                        auto& q = m->getFace(fid, useVM);
+                        for (int i = 0; i < 4; i++) {
+                            auto& v = m->getVertex(q.Vids.at(i), useVM);
+                            coords[i][0] = v.x; coords[i][1] = v.y; coords[i][2] = v.z;
+                        }
+                        return coords;
+                    };
+                    double shape_score = 0.0;
+                    double size_score = 0.0;
+                    for (auto qid: qids) {
+                        auto& q = m->getFace(qid);
+                        double threshold_shape = q.threshold_shape;
+                        double threshold_size = q.threshold_size;
+                        double shape = 0.0;
+                        double size = 0.0;
+                        if (!q.Vids.empty()) {
+                            auto coords = qV_arr(qid, true);
+                            double area = v_quad_area(4, coords);
+                            size = std::pow(std::min(area/q.avg_area, q.avg_area/area), 2);
+                            // shape = v_quad_shape(4, coords);
+                            if (v_quad_scaled_jacobian(4, coords) < 0) return -exp(40);
+                            shape = v_quad_aspect_ratio(4, coords); 
+                        }
+                        // shape_score += std::max(1.0, 0.75 * threshold_shape) - shape;
+                        shape_score += (1.75 * threshold_shape) - shape;
+                        size_score += size - (0.5 * threshold_size);
+                    
+                        if (log) {
+                            // std::cout << "face metrics: " << std::endl;
+                            // std::cout << "area: " << area << " avg area: " << q.avg_area << std::endl;
+                            // std::cout << "threshold shape: " << threshold_shape << " shape: " << shape << std::endl;
+                            // std::cout << "(1.5 * threshold_shape) - shape: " << (1.5 * threshold_shape) - shape << std::endl;
+                            // std::cout << "threshold size: " << threshold_size << " size: " << size << std::endl;
+                            // std::cout << "size - (0.1 * threshold_size): " << size - (0.1 * threshold_size) << std::endl;
+                            // std::cout << "shape score: " << shape_score << " size score: " << size_score << std::endl;                    
+                        }
+                    }
+                    score = (shape_score + size_score) / elementChange;
+                    if (log) {
+                        // std::cout << "element change: " << elementChange << std::endl;
+                    }
+                    return score;
+                }();
+
+                double path_score = -2.0;
+                if (singularityScore > 0.0 && elementScore > 0.0) path_score = (singularityScore + elementScore);
+                if (path_score < 0.0 && valenceScore > 0.0) {
+                // if (path_score < 0.0) {
+                    path_score = valenceScore + singularityScore + elementScore; 
+                } else {
+                    path_score += valenceScore;
+                }
+                // if (mainIter == 4) {
+                // std::cout << "path_it: " << path_it << " singularity_it: " << singularity_it << " mainIter: " << mainIter << std::endl;
+                // std::cout << "iteration idx: " << idx_ << std::endl;
+                // std::cout << "valence score: " << valenceScore << std::endl;
+                // std::cout << "element score: " << elementScore << std::endl;
+                // std::cout << "singularity score: " << singularityScore << std::endl;
+                // std::cout << "path_score: " << path_score << std::endl;
+                // std::cout << "*****************************" << std::endl;
+                // }
+                    
+                if (log) {
+                    // std::cout << "Mesh->V.size(): " << mesh->V.size() << std::endl;
+                    // std::cout << "iteration idx: " << idx_ << std::endl;
+                    // std::cout << "valence score: " << valenceScore << std::endl;
+                    // std::cout << "element score: " << elementScore << std::endl;
+                    // std::cout << "singularity score: " << singularityScore << std::endl;
+                    // std::cout << "path_score: " << path_score << std::endl;
+                    // std::cout << "*****************************" << std::endl;
+                    // m->Update();
+                    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{path}, "test"); 
+                    // exit(0);
+                }
+                {
+                    std::lock_guard<std::mutex> lock(mtx);
+                    if (path_score > paths.at(pth_id).score) {
+                        // std::cout << "iteration idx: " << idx_ << std::endl;
+                        // std::cout << "valence score: " << valenceScore << std::endl;
+                        // std::cout << "element score: " << elementScore << std::endl;
+                        // std::cout << "singularity score: " << singularityScore << std::endl;
+                        // std::cout << "path_score: " << path_score << std::endl;
+                        // std::cout << "*****************************" << std::endl;    
+                        if (log) std::cout << "path_score is greater than max_score" << std::endl;
+                        // max_score = path_score;
+                        paths.at(pth_id).m = vmesh;
+                        paths.at(pth_id).score = path_score;
+                        paths.at(pth_id).valence_score = valenceScore;
+                        paths.at(pth_id).element_score = elementScore;
+                        paths.at(pth_id).singularity_score = singularityScore;
+                        paths.at(pth_id).singularity_it = singularity_it;
+                        paths.at(pth_id).path_it = path_it;
+                        paths.at(pth_id).iteration_it = iteration_it;
+                        paths.at(pth_id).mainIter = mainIter;
+                        paths.at(pth_id).path = path;
+                        // for (auto pid: path) {
+                        //     p.path.push_back(pid);
+                        // }
+                        // p.path.swap(path);
+                        if (log) std::cout << "path: " << paths.at(pth_id).path.size() << " " << path.size() << std::endl;
+                        // std::cout << "path: " << p.path.size() << " " << path.size() << std::endl;
+                    }
+
+                }
+                if (log) std::cout << "Ending iteration" << std::endl;
+                // if (log && p.m) {
+                //     std::cout << "vmap size: " << p.m->vmap.size() << " fmap size: " << p.m->fmap.size() << std::endl;
+                //     std::cout << "vMesh vids: " << std::endl;
+                //     for (auto el = p.m->vmap.begin(); el != p.m->vmap.end(); el++) {
+                //         std::cout << el->first << " " << el->second.id << std::endl;
+                //     }
+                //     std::cout << std::endl;
+                //     std::cout << "vMesh faces: " << std::endl;
+                //     for (auto el = p.m->fmap.begin(); el != p.m->fmap.end(); el++) {
+                //         std::cout << "face id: " << el->second.id << " face vids: ";
+                //         for (auto fvid: el->second.Vids) {
+                //             std::cout << fvid << " ";
+                //         }
+                //         std::cout << std::endl;
+                //     }
+                //     // exit(0);
+                // }
+                // if (log) 
+                // std::cout << "At the very end " << "iteration_it: " << iteration_it << " idx_: " << idx_ <<
+                // " path_it: " << path_it << " path_idx: " << path_idx << " singularity_it: " << singularity_it <<
+                // " singularity_idx: " << singularity_idx << " mainIter: " << mainIter << " info_s.nvids size: " << info_s.nvids() << std::endl;
+            }
+            // if (path_it == path_idx && iteration_it == iteration_idx) std::cout << "did all iterations" << std::endl;
+            // if (p.m && p.score >= 0.0) {
+            // if (p.m) {
+                // std::lock_guard<std::mutex> lock(mtx);
+                // std::cout << "Adding to paths" << std::endl;
+                // p.path = path;
+                // paths_.push(p);
+                // std::cout << "paths size: " << paths_.size() << std::endl;
+            // }
+        };
+        auto handlePathQueue = [&] (pathQueueItem item, bool terminate = false) {
+            auto executeLoop = [&] () {
+                std::cout << "Loop execution start " << pathQueue.size() << std::endl;
+                PARALLEL_FOR_BEGIN(0, pathQueue.size()) {
+                    checkPath_(pathQueue.at(i).path, pathQueue.at(i).pth_id);
+                } PARALLEL_FOR_END();
+                std::cout << "Loop execution end" << std::endl;
+            };
+            if (terminate && pathQueue.size() > 0) {
+                executeLoop();
+                return;
+            }
+            pathQueue.push_back(item);
+            if (pathQueue.size() >= 10000) {
+                executeLoop();
+                pathQueue.clear();
+            }
+        };
+        auto getPaths = [&] (Vertex& v, int pth_id, const std::function<bool(Vertex&, std::vector<size_t>)>& isTarget) {
+            std::cout << "Getting paths for " << v.id << "(" << v.N_Fids.size() << ")" << std::endl;
+            singularity_it++;
+            // std::cout << "singularity idx: " << singularity_it << std::endl;
+            // if (singularity_it != singularity_idx) return;
+            // if (singularity_it != 4) return;
+            std::vector<std::vector<size_t>> pathsToSave;
+            struct Node {
+                size_t id;
+                bool continuous = false;
+                Node(size_t id_, bool continuous_ = false) {id = id_; continuous = continuous_;}
+                Node& operator=(const Node& n) {
+                    id = n.id;
+                    continuous = n.continuous;
+                    return *this;
                 }
             };
-            getPaths(v, paths, isTarget);
-            std::random_device rd;
-            std::mt19937 g(rd());
-            std::uniform_int_distribution<size_t> dist(0, paths.size()-1);
-            int idx = dist(g);
-            idx = 32;
-            auto& path = paths.at(idx);
-            PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{path}, "test");
-            std::cout << "Chose path at idx: " << idx << std::endl;
-            std::cout << "path size: " << path.size() << std::endl;
-            std::cout << "path: ";
-            for (auto id: path) std::cout << id << " ";
-            std::cout << std::endl;
-            CheckPath(path);
-            // PrototypeSaveSeparatrices(paths, "test");
-            // std::cout << "Found " << paths.size() << " paths for vertex: " << v.id << std::endl;
-            break;
-        }
-    }
-}
-
-std::vector<vMesh*> SemiGlobalSimplifier::CheckPath(std::vector<size_t>& path) {
-    auto& s = mesh->V.at(path.at(0));
-    vInfo info_s(mesh, s.id);
-    auto nvids = info_s.vids(path.at(1));
-    auto nfids = info_s.fids();
-    // std::cout << "s: " << s.id << " nvids: ";
-    // for (auto nvid: nvids) std::cout << nvid << " ";
-    // std::cout << std::endl;
-    // std::cout << "nfids: ";
-    // for (auto nfid: nfids) std::cout << nfid << " ";
-    // std::cout << std::endl;
-    std::vector<vMesh*> vm(info_s.nvids()*2, new vMesh(mesh));
-
-    int maxIdx = 0;
-    auto getPair = [&] (int idx_, bool three) {
-        tfPair tfp(std::numeric_limits<size_t>::max(), std::numeric_limits<size_t>::max(), false);
-        auto m = vm.at(idx_);
-        if (three) {
-            tfp.fId = s.id;
-            if (idx_ < 3) {
-                auto& f = m->getFace(nfids.at((idx_+1)%3));
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
-                tfp.tId = f.Vids.at((idx+2)%4);
-            } else {
-                idx_ = idx_%3;
-                tfp.diag = true;
-                tfp.tId = nvids.at(idx_);
-            }
-            auto dest = nvids.at(idx_);
-            PerformOperation(Operation("Rotate", s.id, std::vector<size_t>{}, false), m);
-            std::vector<size_t> faces;
-            vInfo info_t(mesh, s.id, m);
-            for (auto fid: info_t.fids()) {
-                auto& f = m->getFace(fid);
-                if (std::find(f.Vids.begin(), f.Vids.end(), dest) != f.Vids.end()) continue;
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
-                PerformOperation(Operation("Collapse", s.id, std::vector<size_t>{s.id, f.Vids.at((idx+2)%4)}, false), m);
-            }
-        } else {
-            tfp.tId = s.id;
-            if (idx_ < 5) {
-                auto& f = m->getFace(nfids.at((idx_+2)%5));
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), s.id));
-                tfp.fId = f.Vids.at((idx+2)%4);
-            } else {
-                idx_ = idx_%5;
-                tfp.diag = true;
-                tfp.fId = nvids.at(idx_);
-            }
-            auto edge1 = {s.id, nvids.at((idx_+1)%nvids.size())};
-            auto edge2 = {s.id, nvids.at((idx_+4)%nvids.size())};
-            PerformOperation(Operation("Split", s.id, edge1, false), m);
-            PerformOperation(Operation("Split", s.id, edge2, false), m);
-            PerformOperation(Operation("Rotate", s.id, std::vector<size_t>{}, false), m);
-        }
-        auto setMaxIdx = [&] (size_t vid) {
-            vInfo info_t(mesh, vid, m);
-            for (auto nvid: info_t.vids()) {
-                auto it = std::find(path.begin(), path.end(), nvid);
-                if (it == path.end()) continue;
-                int idx = std::distance(path.begin(), it);
-                maxIdx = std::max(maxIdx, idx);
-            }
-        };
-        setMaxIdx(tfp.tId); setMaxIdx(tfp.fId); setMaxIdx(nvids.at(idx_));
-        return tfp;
-    };
-
-    auto updatedPath = [&] (tfPair& tfp, vMesh* m) {
-        std::vector<size_t> tPath(path.begin()+maxIdx, path.end());
-        std::unordered_map<size_t, int> parent;
-        std::queue<size_t> q;
-        auto skip = [] (Vertex& v) {
-            if (v.N_Fids.size() == 3 || v.N_Fids.size() == 5) return true;
-            return false;
-        };
-        parent[tfp.tId] = -1; parent[tfp.fId] = -1;
-        for (auto vid: mu->GetDifference(vInfo(mesh, tfp.tId, m).vids(), std::vector<size_t>{tfp.fId})) {
-            parent[vid] = tfp.tId;
-            q.push(vid);
-        }
-        for (auto vid: mu->GetDifference(vInfo(mesh, tfp.fId, m).vids(), std::vector<size_t>{tfp.tId})) {
-            parent[vid] = tfp.fId;
-            q.push(vid);
-        }
-        
-        while (!q.empty()) {
-            auto vid = q.front();
-            q.pop();
-
-            auto& v = m->getVertex(vid);
-            if (skip(v)) continue;
-            auto it = std::find(tPath.begin(), tPath.end(), vid);
-            if (it != tPath.end()) {
-                std::vector<size_t> newPath;
-                auto path_id = vid;
-                while (true) {
-                    if (parent[path_id] == -1) break;
-                    // CHANGE THIS
-                    // if (path_id > mesh->V.size()) {
-                        // newPath.push_back(path_id-1);
-                    // } else {
-                        newPath.push_back(path_id);
-                    // }
-                    path_id = parent[path_id];
-                }
-                std::reverse(newPath.begin(), newPath.end());
-                newPath.insert(newPath.end(), it+1, tPath.end());
-                return newPath;
-            }
-            vInfo info_v(mesh, vid, m);
-            auto nvids = info_v.vids(parent[vid]);
+            vInfo info_v(mesh, v.id);
+            auto nvids = info_v.vids();
             for (auto nvid: nvids) {
-                if (parent.find(nvid) != parent.end()) continue;
-                parent[nvid] = vid;
-                q.push(nvid);
+                // std::cout << "starting new direction" << std::endl;
+                int boundaryCount = 0;
+                int singularityCount = 0;
+                int nPaths = 0;
+                std::unordered_map<size_t, int> parent;
+                std::queue<Node> q;
+                parent[v.id] = -1;
+                q.push(Node(nvid));
+                parent[nvid] = v.id;
+                while (!q.empty()) {
+                    auto curV = q.front();
+                    // std::cout << "curV: " << curV.id << ", ";
+                    q.pop();
+                    std::vector<size_t> qids = {};
+                    if (mesh->V.at(curV.id).isBoundary || mesh->V.at(curV.id).type == FEATURE) {
+                        // continue;
+                        qids = mesh->V.at(parent[curV.id]).N_Fids;
+                        if (mesh->V.at(parent[curV.id]).isBoundary || mesh->V.at(parent[curV.id]).type == FEATURE) {
+                            qids = mesh->V.at(parent[parent[curV.id]]).N_Fids;
+                        }
+                    }
+                    if (isTarget(mesh->V.at(curV.id), qids)) {
+                        if (boundaryCount > 10) continue;
+                        if (mesh->V.at(curV.id).isBoundary) {
+                            boundaryCount++;
+                        } else {
+                            singularityCount++;
+                        }
+                        std::vector<size_t> path;
+                        auto path_id = curV.id;
+                        // std::cout << "got path, boundary count: " << boundaryCount <<  ", singularityCount: " << singularityCount << ", nPaths: " << nPaths << std::endl;
+                        while (path_id != -1) {
+                            path.push_back(path_id);
+                            path_id = parent[path_id];
+                        }
+                        std::reverse(path.begin(), path.end());
+                        path_it++;
+                        // if (nPaths == iters) {
+                            // pathsToSave.push_back(path);
+                            // std::cout << "Got path: " << path_it << std::endl;
+                            // checkPath_(path, pth_id);
+                        // }
+                        pool.submit(checkPath_, path, pth_id);
+                        if (++nPaths >= 10 && singularityCount > 1) break;
+                        continue;
+                    }
+                    vInfo info_curV(mesh, curV.id);
+                    auto curV_nvids = info_curV.vids(parent[curV.id]);
+                    // std::vector<Node> nodes;
+                    // for (int i = 1; i < curV_nvids.size(); i++) {
+                    //     nodes.push_back(Node(curV_nvids.at(i), i == 2));
+                    // }
+                    // std::cout << "curV_nvids: " << curV_nvids.size() << std::endl;
+                    // for (auto vid: curV_nvids) {
+                    //     std::cout << vid << " ";
+                    // }
+                    // std::cout << std::endl;
+                    if (!curV.continuous) {
+                        for (int i = 1; i < curV_nvids.size(); i++) {
+                            if (parent.find(curV_nvids.at(i)) == parent.end()) {
+                                parent[curV_nvids.at(i)] = curV.id;
+                                q.push(Node(curV_nvids.at(i), i != 2));
+                            }    
+                        }
+                        // if (parent.find(curV_nvids.at(1)) == parent.end()) {
+                        //     parent[curV_nvids.at(1)] = curV.id; 
+                        //     q.push(Node(curV_nvids.at(1), true));
+                        // }
+                        // std::cout << "q front: " << q.front().id << std::endl;
+                        // if (parent.find(curV_nvids.at(2)) == parent.end()) {
+                        //     parent[curV_nvids.at(2)] = curV.id; 
+                        //     q.push(Node(curV_nvids.at(2)));
+                        // }
+                        // std::cout << "q front: " << q.front().id << std::endl;
+                        // if (parent.find(curV_nvids.at(3)) == parent.end()) {
+                        //     parent[curV_nvids.at(3)] = curV.id;
+                        //     q.push(Node(curV_nvids.at(3), true));
+                        // std::cout << "q front: " << q.front().id << std::endl;
+                    } else {
+                        if (parent.find(curV_nvids.at(2)) == parent.end()) {
+                            parent[curV_nvids.at(2)] = curV.id;
+                            if (!mesh->V.at(curV_nvids.at(2)).isBoundary && mesh->V.at(curV_nvids.at(2)).type != FEATURE) {
+                                q.push(Node(curV_nvids.at(2), true));
+                            }
+                        }
+                        // std::cout << "q front: " << q.front().id << std::endl;
+                    }
+                }
+                break;
             }
-        }
-        return std::vector<size_t>{};
-    };
-
-    auto movePair = [&] (tfPair& tfp, size_t dest, vMesh* m) {
-        std::cout << "inside movePair" << std::endl;
-        auto& three = m->getVertex(tfp.tId);
-        auto& five = m->getVertex(tfp.fId);
-        std::cout << "three: " << three.id << "(" << three.N_Fids.size() << ") " << " five: " << five.id << "(" << five.N_Fids.size() << ")" << std::endl;
-        vInfo info_three(mesh, tfp.tId, m);
-        vInfo info_five(mesh, tfp.fId, m);
-        std::vector<size_t> vids = info_three.vids(five.id);
-        std::vector<size_t> fids = info_three.fids();
-        auto collapseEdge = [&] (size_t vid, size_t vid2) {
-            std::vector<size_t> edge = {vid, vid2};
-            for (int i = 0; i < path.size(); i++) {
-                if (path.at(i) == vid2) return std::vector<size_t>{vid2, vid};
+            /*int it2 = 0;
+            vInfo info_v(mesh, v.id);
+            auto nvids = info_v.vids();
+            std::unordered_set<size_t> oneRing;
+            for (auto fid: info_v.fids()) {
+                auto& f = mesh->F.at(fid);
+                for (auto vid: f.Vids) {
+                    if (vid == v.id) continue;
+                    oneRing.insert(vid);
+                }
             }
-            return edge;
+            // std::unordered_map<size_t, int> parent;
+            // std::queue<vPath*> q;
+            // parent[v.id] = -1;
+            // for (auto nvid: nvids) {
+            //     push(parent, q, nvid, MAIN, v.id);
+            // }
+            // ThreadPool pool();
+            // executablePath p;
+            for (auto nvid: nvids) {
+            // for (int n = 4; n < 5; n++) {
+                // auto nvid = nvids.at(n);
+                int nPaths = 0;
+                std::unordered_map<size_t, int> parent;
+                std::queue<vPath*> q;
+                parent[v.id] = -1;
+                push(parent, q, nvid, MAIN, v.id);
+                // std::vector<size_t> path;
+                // int it2 = 0;
+                int boundaryCount = 0;
+                int singularityCount = 0;
+                while (!q.empty()) {
+                    // if (it2++ >= iters) break;
+                    auto curV = q.front();
+                    // path = {(size_t) curV->id, (size_t) parent[curV->id]};
+                    // std::cout << "curV: " << curV->id << "(" << mesh->V.at(curV->id).N_Fids.size() << ") " << curV->flag << std::endl;
+                    q.pop();
+                    // std::cout << "q size: " << q.size() << std::endl;
+                    if (isTarget(mesh->V.at(curV->id))) {
+                        if (boundaryCount > 10) continue;
+                        if (mesh->V.at(curV->id).isBoundary) {
+                            boundaryCount++;
+                        } else {
+                            singularityCount++;
+                        }
+                        std::vector<size_t> path;
+                        auto path_id = curV->id;
+                        int it = 0;
+                        while (path_id != -1) {
+                            path.push_back(path_id);
+                            path_id = parent[path_id];
+                        }
+                        std::reverse(path.begin(), path.end());
+                        // int pathCrossings = 0;
+                        // for (auto pvid: path) {
+                        //     if (std::find(oneRing.begin(), oneRing.end(), pvid) != oneRing.end()) pathCrossings++;
+                        // }
+                        // if (pathCrossings > 1) continue;
+                        // CheckPath(path);
+                        std::cout << "Got path: " << path_it << std::endl;
+                        // if (mainIter == 5) {
+                            pathsToSave.push_back(path);
+                            checkPath_(path, pth_id);
+                            // PrototypeSaveSeparatrices(pathsToSave, "test");
+                            // return;
+                        // } else {
+                            // while (!pool.available());
+                            // {std::cout << "waiting for queue to be available" << std::endl;}
+                            // handlePathQueue(pathQueueItem(path, pth_id));
+                            // pool.submit(checkPath_, path, pth_id);
+                        // }
+                        // std::cout << "After checking path" << std::endl;
+                        path_it++;
+                        // std::cout << "nPaths: " << nPaths << " singularityCount: " << singularityCount << std::endl;
+                        if (++nPaths >= 10 && singularityCount > 1) break;
+                        // return;
+                        // pool.submit(CheckPath, path);
+                        // paths.push_back(path);
+                        continue;
+                    }
+                    if (curV->flag == SKIP) {delete curV; continue;}
+                    pathVs(v, curV, parent, q);
+                    delete curV;
+                }
+                // paths.push_back(path);
+            }*/
+            // std::cout << "pathsToSave: " << pathsToSave.size() << std::endl;
+            // PrototypeSaveSeparatrices(pathsToSave, "test");
+            // if (p.score >= 0.0) {
+            //     std::lock_guard<std::mutex> lock(mtx);
+            //     paths_.push(p);
+            // }
         };
-        
-        if (tfp.diag) {
-            std::cout << "Moving diagonal pair" << std::endl;
-            size_t face_id = mu->GetIntersection(info_three.fids(), info_five.fids()).at(0);
-            auto& f = m->getFace(face_id);
-            std::vector<size_t> fids = info_five.fids(face_id);
-            std::vector<size_t> vids = info_five.vids();
-            if (vids.at(0) == dest || vids.at(1) == dest || vids.at(2) == dest || vids.at(4) == dest) {
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.fId));
-                bool clockwise = (vids.at(1) == dest || vids.at(2) == dest);
-                std::vector<size_t> edge = {tfp.fId, dest};
-                if (vids.at(2) == dest) edge.at(1) = vids.at(1);
-                if (vids.at(4) == dest) edge.at(1) = vids.at(0);
-                std::cout << "moving pair " << (clockwise ? "clockwise" : "counter-clockwise") << std::endl;
-                PerformOperation(Operation("Flip", tfp.fId, edge, clockwise), m);
-                tfp.tId = clockwise ? vids.at(1) : vids.at(0); tfp.fId = clockwise ? vids.at(2) : vids.at(4);
-                [this, &m, &tfp, &collapseEdge] () {
-                    if (m->getVertex(tfp.tId).N_Fids.size() == 2) {
-                        auto& v = m->getVertex(tfp.tId);
-                        PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
-                        vInfo info_t(mesh, tfp.tId, m);
-                        for (auto fid: info_t.fids()) {
-                            auto& f = m->getFace(fid);
-                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                            auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
-                            PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
-                        }
-                    } else if (m->getVertex(tfp.fId).N_Fids.size() == 6) {
-                        auto& v = m->getVertex(tfp.fId);
-                        vInfo info_t(mesh, tfp.fId, m);
-                        auto fid = mu->GetIntersection(info_t.fids(), vInfo(mesh, tfp.tId, m).fids()).at(0);
-                        auto fids = info_t.fids(fid);
-                        auto vids = info_t.vids();
-                        std::vector<size_t> edge1 = {tfp.fId, vids.at(2)}; std::vector<size_t> edge2 = {tfp.fId, vids.at(5)};
-                        PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
-                        PerformOperation(Operation("Split", tfp.fId, edge2, false), m);
-                        PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
-                    }
-                }();
-                return;
-            }
-            if (vids.at(3) == dest) {
-                std::vector<size_t> nvs = {vids.at(2), vids.at(4)};
-                for (auto id: nvs) {
-                    PerformOperation(Operation("Split", tfp.fId, std::vector<size_t>{tfp.fId, id}, false), m);
-                }
-                PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
-                tfp.tId = tfp.fId; tfp.fId = dest;
-                [this, &m, &tfp] () {
-                    auto& v = m->getVertex(tfp.fId);
-                    if (v.N_Fids.size() == 6) {
-                        vInfo info_t(mesh, tfp.fId, m);
-                        auto fid = mu->GetIntersection(info_t.fids(), vInfo(mesh, tfp.tId, m).fids()).at(0);
-                        auto fids = info_t.fids(fid);
-                        auto vids = info_t.vids();
-                        std::vector<size_t> edge1 = {tfp.fId, vids.at(2)}; std::vector<size_t> edge2 = {tfp.fId, vids.at(5)};
-                        PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
-                        PerformOperation(Operation("Split", tfp.fId, edge2, false), m);
-                        PerformOperation(Operation("Rotate", tfp.fId, std::vector<size_t>{}, false), m);
-                    }
-                }();
-                return;
-            }
-            fids = info_three.fids(face_id);
-            vids = info_three.vids();
-            if (vids.at(2) == dest) {
-                PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
-                std::vector<size_t> faces;
-                vInfo info_t(mesh, tfp.tId, m);
-                for (auto fid: info_t.fids()) {
-                    auto& f = m->getFace(fid);
-                    if (std::find(f.Vids.begin(), f.Vids.end(), dest) != f.Vids.end()) continue;
-                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                    auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
-                    PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
-                }
-                tfp.fId = tfp.tId; tfp.tId = dest;
-                [this, &m, &tfp, &collapseEdge] () {
-                    auto& v = m->getVertex(tfp.tId);
-                    if (v.N_Fids.size() == 2) {
-                        PerformOperation(Operation("Rotate", tfp.tId, std::vector<size_t>{}, false), m);
-                        vInfo info_t(mesh, tfp.tId, m);
-                        for (auto fid: info_t.fids()) {
-                            auto& f = m->getFace(fid);
-                            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                            auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
-                            PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
-                        }
-                    }
-                }();
-                return;
-            }
-        } else {
-            std::cout << "moving direct pair" << std::endl;
-            std::cout << "vids: ";
-            for (auto vid: vids) std::cout << vid << " ";
-            std::cout << std::endl;
-            if (vids.at(1) == dest || vids.at(2) == dest) {
-                std::cout << "Performing Collapse" << std::endl;
-                size_t fidx = (vids.at(1) == dest) ? fids.at(0) : fids.at(2);
-                auto& f = m->getFace(fidx);
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
-                tfp.fId = tfp.tId; tfp.tId = dest;
-                PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
-                [this, &m, &tfp, &collapseEdge] () {
-                    auto& v = m->getVertex(tfp.tId);
-                    if (v.N_Fids.size() == 2) {
-                        auto& f = m->getFace(v.N_Fids.at(0));
-                        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                        auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
-                        PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
-                    }
-                }();
-                return;
-            }
-            vids = info_five.vids(three.id);
-            fids = info_five.fids();
-            std::cout << "vids: ";
-            for (auto vid: vids) std::cout << vid << " ";
-            std::cout << std::endl;
-            for (auto fid: fids) {
-                auto& f = m->getFace(fid);
-            }
-            if (vids.at(1) == dest || vids.at(4) == dest) {
-                std::cout << "Performing Flip" << std::endl;
-                bool clockwise = (vids.at(4) == dest);
-                int fidx = (vids.at(1) == dest) ? fids.at(1) : fids.at(3);
-                auto& f = m->getFace(fidx);
-                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.fId));
-                PerformOperation(Operation("Flip", tfp.fId, std::vector<size_t>{tfp.fId, dest}, clockwise), m);
-                tfp.tId = dest; tfp.fId = f.Vids.at((idx+2)%4);
-                [this, &m, &tfp, &collapseEdge] () {
-                    auto& v = m->getVertex(tfp.tId);
-                    if (v.N_Fids.size() == 2) {
-                        auto& f = m->getFace(v.N_Fids.at(0));
-                        int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), tfp.tId));
-                        auto edge = collapseEdge(tfp.tId, f.Vids.at((idx+2)%4)); tfp.tId = edge.at(0);
-                        PerformOperation(Operation("Collapse", tfp.tId, edge, false), m);
-                    }
-                }();
-                return;
-            } else if (vids.at(2) == dest || vids.at(3) == dest) {
-                std::cout << "Performing Split" << std::endl;
-                std::vector<size_t> edge = {tfp.fId, vids.at(2) == dest ? vids.at(1) : vids.at(4)};
-                PerformOperation(Operation("Split", tfp.fId, edge, false), m);
-                tfp.tId = m->max_vid; tfp.fId = dest;
-                [this, &m, &tfp] () {
-                    auto& v = m->getVertex(tfp.fId);
-                    if (v.N_Fids.size() == 6) {
-                        vInfo info_six(mesh, tfp.fId, m);
-                        auto vids = info_six.vids(tfp.tId);
-                        auto fids = info_six.fids();
-                        std::vector<size_t> edge1 = {tfp.fId, vids.at(1)};
-                        std::vector<size_t> edge2 = {tfp.fId, vids.at(2)};
-                        PerformOperation(Operation("Split", tfp.fId, edge1, false), m);
-                        PerformOperation(Operation("Flip", tfp.fId, edge2, true), m);
-                    }
-                }();
-                return;
+
+        std::vector<size_t> singularities;
+        for (auto& v: mesh->V) {
+            if (isSingularity(v)) {
+                singularities.push_back(v.id);
             }
         }
-    };
-    
-    auto tfp = getPair(iters, info_s.nvids() == 3);
-    auto nPath = updatedPath(tfp, vm.at(iters));
-    for (auto vid: nPath) {
-    // for (int i = 0; i < 2; i++) {
-        // auto vid = nPath.at(i);
-        movePair(tfp, vid, vm.at(iters));
+        
+        // size_t seed = std::hash<size_t>{}();
+        // size_t seed = std::hash<size_t>{}(std::chrono::high_resolution_clock::now().time_since_epoch().count() * singularities.size());
+        // std::default_random_engine e{unsigned(seed)};
+        // std::shuffle(singularities.begin(), singularities.end(), e);
+        // int num_singularities = ceil(0.5*singularities.size());
+        int num_singularities = ceil(1*singularities.size());
+        paths.resize(num_singularities);
+        // int num_singularities = singularities.size();
+        // std::cout << "num singularities: " << num_singularities << std::endl;
+        int breaker = 0;
+        for (int i = 0; i < num_singularities; i++) {
+            auto& v = mesh->V.at(singularities.at(i));
+            getPaths(v, i, isTarget);
+            // if (++breaker > iters) break;
+        }
+        // handlePathQueue(pathQueueItem(), true);
+        /*for (auto& v: mesh->V) {
+            if (v.isBoundary || v.type == FEATURE) continue;
+            if (isSingularity(v)) {
+                // if (it++ == 0) continue;
+                // if (singularity_it++ != singularity_idx) continue;
+                getPaths(v, paths, isTarget);
+                // std::random_device rd;
+                // std::mt19937 g(rd());
+                // std::uniform_int_distribution<size_t> dist(0, paths.size()-1);
+                // int idx = dist(g);
+                // idx = 32;
+                // auto& path = paths.at(idx);
+                // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{path}, "test");
+                // PrototypeSaveSeparatrices(paths, "test");
+                // return;
+                // std::cout << "Chose path at idx: " << idx << std::endl;
+                // std::cout << "path size: " << path.size() << std::endl;
+                // for (auto path: paths) {
+                // for (int i = iters; i < iters+1; i++) {
+                // std::cout << "paths: " << paths.size() << std::endl;
+                // for (int i = 0; i < paths.size(); i++) {
+                //     std::cout << "path idx: " << i << std::endl;
+                //     auto path = paths.at(i);
+                //     std::cout << "path: ";
+                //     for (auto id: path) std::cout << id << " ";
+                //     std::cout << std::endl;
+                //    std::cout << "Checking path" << std::endl;
+                    // checkPath_(path);
+                    // break;
+                // }
+                // PrototypeSaveSeparatrices(paths, "test");
+                // std::cout << "Found " << paths.size() << " paths for vertex: " << v.id << std::endl;
+                // break;
+            }
+        }*/
     }
-    for (auto it = vm.at(iters)->fmap.begin(); it != vm.at(iters)->fmap.end(); it++) {
-        std::cout << "qid: " << it->second.id << std::endl;
+    std::vector<std::vector<size_t>> fpaths;
+    std::vector<executablePath> final_paths;
+    for (auto p: paths) {
+        if (p.score >= 0.0) paths_.push(p);
     }
-    for (auto vid: path) {
-        std::cout << "path v: " << vid << "(" << vm.at(iters)->getVertex(vid).N_Fids.size() << ")" << std::endl;
+    std::cout << "paths: " << paths_.size() << std::endl;
+    std::vector<bool> visited(mesh->V.size(), false);
+    // if (paths_.empty()) break;
+    while (!paths_.empty()) {
+        auto p = paths_.top();
+        // std::cout << "Got path with score: " << p.score << std::endl;
+        // fpaths.push_back(p.path);
+        // PrototypeSaveSeparatrices(fpaths, "test");
+        // p.m->Update();
+        paths_.pop();
+        // std::cout << "Popped path out" << std::endl;
+        std::set<size_t> path_vids = [&] () {
+            std::set<size_t> vids;
+            for (auto vid: p.path) {
+                auto& v = mesh->V.at(vid);
+                for (auto fid: v.N_Fids) {
+                    auto& f = mesh->F.at(fid);
+                    vids.insert(f.Vids.begin(), f.Vids.end());
+                }
+            }
+            // for (auto el = p.m->vmap.begin(); el != p.m->vmap.end(); el++) {
+            //     if (el->second.id > p.m->maxvid) continue;
+            //     vids.insert(el->second.id);
+            // }
+            for (auto it = p.m.vmap.begin(); it != p.m.vmap.end(); it++) {
+                if (it->first > p.m.maxvid) continue;
+                // std::cout << "inserting " << it->first << std::endl;
+                vids.insert(it->first);
+            }
+            for (auto it = p.m.fmap.begin(); it != p.m.fmap.end(); it++) {
+                if (it->first <= p.m.maxfid && it->second.Vids.empty()) {
+                    // std::cout << "face Vids are empty: " << it->first << " " << it->second.id << " mesh F size: " << mesh->F.size() << std::endl;
+                    auto& f = mesh->F.at(it->first);
+                    vids.insert(f.Vids.begin(), f.Vids.end());
+                } else {
+                    for (auto vid: it->second.Vids) {
+                        if (vid > p.m.maxvid) continue;
+                        vids.insert(vid);
+                    }
+                }
+            }
+            return vids;
+        }();
+        // std::cout << "got path vids" << std::endl;
+        bool already_taken = false;
+        for (auto vid: path_vids) {
+            // std::cout << "checking " << vid << std::endl;
+            if (visited.at(vid)) {
+                already_taken = true;
+                break;
+            }
+        }
+        // std::cout << "checked path vids" << std::endl;
+            // for (auto it = p.m->vmap.begin(); it != p.m->vmap.end(); it++) {
+            //     if (it->second.id > p.m->maxvid) continue;
+            //     if (visited.at(it->second.id)) {
+                    // std::cout << "checking vertex: " << it->second.id << " visited: " << (visited.at(it->second.id) ? " yes " : " no ") << std::endl;
+                    // already_taken = true;
+                    // break;
+                // }
+                // std::cout << "checking vertex: " << it->second.id << std::endl;
+                // vInfo info_v(mesh, it->second.id, p.m);
+                // for (auto id: info_v.vids()) {
+                    // if (id > p.m->max_vid) continue;
+                    // if (visited.at(id)) return;
+                // }
+                // for (auto fid: it->second.N_Fids) {
+                //     auto& f = p.m->getFace(fid);
+                //     for (auto vid: f.Vids) {
+                //         if (vid > p.m->maxvid) continue;
+                //         if (visited.at(vid)) return;
+                //     }
+                // }
+            // }
+        if (already_taken) continue;
+        // std::cout << "path: " << p.path.size() << std::endl;
+        // for (auto vid: p.path) {
+        //     auto& v = mesh->V.at(vid);
+        //     std::cout << "v: " << v.id << "(" << v.N_Fids.size() << ")" << std::endl;
+        // }
+        // std::cout << "path not already crossed" << std::endl;
+        for (auto vid: path_vids) {
+            // std::cout << "setting " << vid << std::endl;
+            visited.at(vid) = true;
+        }   
+        // std::cout << "-----------------------" << std::endl;
+            // for (auto it = p.m->vmap.begin(); it != p.m->vmap.end(); it++) {
+            //     if (it->second.id > p.m->maxvid) continue;
+                // std::cout << "setting vertex: " << it->second.id << std::endl;
+                // visited.at(it->second.id) = true;
+                // vInfo info_v(mesh, it->second.id, p.m);
+                // for (auto id: info_v.vids()) {
+                    // if (id > p.m->max_vid) continue;
+                    // visited.at(id) = true;
+                // }
+                // std::cout << "visited vertex: " << it->second.id << std::endl;
+                // for (auto fid: it->second.N_Fids) {
+                //     auto& f = p.m->getFace(fid);
+                //     for (auto vid: f.Vids) {
+                //         if (vid > p.m->maxvid) continue;
+                //         visited.at(vid) = true;
+                //     }
+                // }
+            // }
+        // std::cout << "inserting path with score: " << p.score << " in final paths" << std::endl;
+        final_paths.push_back(p);
+            // fpaths.push_back(p.path);
+        // }();
+        // break;
     }
-    vm.at(iters)->Update();
-    // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{nPath}, "test");
-    return vm;
+    std::cout << "final paths: " << final_paths.size() << std::endl;
+    // for (auto p: fpaths) {
+
+    // }
+    int i = 0;
+    int diff_vids = 0;
+    int diff_fids = 0;
+    int new_maxvid = 0;
+    int new_maxfid = 0;
+    // for (auto& p: final_paths) {
+    //     i++;
+    for (int i = 0; i < ceil(1*final_paths.size()); i++) {    
+        // if (mainIter == 0 && i == iters) break;
+        // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{p.path}, "test");
+        auto& p = final_paths.at(i);
+        std::cout << "i: " << i <<  " mainIter_idx: " << p.mainIter << " singularity_idx: " << p.singularity_it << " path_idx: " << p.path_it << " iteration_idx: " << p.iteration_it << std::endl;
+        std::cout << "path score: " << p.score << " valence score: " << p.valence_score << " element score: " << p.element_score << " singularity score: " << p.singularity_score << std::endl;
+        
+        // std::cout << "vMesh vids: ";
+        int least_diff = 4;
+        int current_size = mesh->V.size();
+        int min_id = mesh->V.size();
+        for (auto el = p.m.vmap.begin(); el != p.m.vmap.end(); el++) {
+            if (el->first > p.m.maxvid && el->first < min_id) {
+                min_id = el->first;
+            }
+        }
+        for (auto el = p.m.fmap.begin(); el != p.m.fmap.end(); el++) {
+            for (int j = 0; j < el->second.Vids.size(); j++) {
+                if (el->second.Vids.at(j) > p.m.maxvid && el->second.Vids.at(j) < min_id) {
+                    min_id = el->second.Vids.at(j);
+                }
+            }
+        }
+        if (min_id < current_size) {
+            least_diff += (current_size - min_id);
+            std::map<size_t, Vertex> new_vmap;
+            for (auto el = p.m.vmap.begin(); el != p.m.vmap.end(); el++) {
+                if (el->first > p.m.maxvid) {
+                    el->second.id += least_diff;
+                }
+                // new_vmap[el->second.id] = el->second;
+                new_vmap[el->second.id] = Vertex(el->second.xyz());
+                new_vmap[el->second.id].id = el->second.id; new_vmap[el->second.id].isBoundary = el->second.isBoundary; new_vmap[el->second.id].type = el->second.type;
+                new_vmap[el->second.id].N_Fids = el->second.N_Fids;
+            }
+            for (auto el = p.m.fmap.begin(); el != p.m.fmap.end(); el++) {
+                for (int j = 0; j < el->second.Vids.size(); j++) {
+                    if (el->second.Vids.at(j) > p.m.maxvid) {
+                        el->second.Vids.at(j) += least_diff;
+                    }
+                }
+            }
+            p.m.vmap = new_vmap;
+        }
+        // for (auto el = p.m->vmap.begin(); el != p.m->vmap.end(); el++) {
+            // std::cout << el->second.id << " ";
+        //     if (el->first > p.m->maxvid) {
+        //         diff_vids++;
+        //     }
+        // }
+        // std::cout << std::endl;
+        // std::cout << "vMesh faces: " << std::endl;
+        // for (auto el = p.m->fmap.begin(); el != p.m->fmap.end(); el++) {
+        //     if (el->first > p.m->maxfid) {
+        //         diff_fids++;
+        //     }
+        //     std::cout << "face id: " << el->second.id << " face vids: ";
+        //     for (auto fvid: el->second.Vids) {
+        //         std::cout << fvid << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
+        // if (mainIter == -1) {
+        //     std::cout << "vmap size: " << p.m->vmap.size() << " fmap size: " << p.m->fmap.size() << std::endl;
+        //     std::cout << "vMesh vids: " << std::endl;
+        //     for (auto el = p.m->vmap.begin(); el != p.m->vmap.end(); el++) {
+        //         std::cout << el->first << " " << el->second.id << std::endl;
+        //     }
+        //     std::cout << std::endl;
+        //     std::cout << "vMesh faces: " << std::endl;
+        //     for (auto el = p.m->fmap.begin(); el != p.m->fmap.end(); el++) {
+        //         std::cout << "face id: " << el->second.id << " face vids: ";
+        //         for (auto fvid: el->second.Vids) {
+        //             std::cout << fvid << " ";
+        //         }
+        //         std::cout << std::endl;
+        //     }
+        // }
+        // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{p.path}, "test2");
+        p.m.Update();
+        // PrototypeSaveSeparatrices(std::vector<std::vector<size_t>>{p.path}, "test3");
+        
+        // i++;
+    }
+    // bool res = final_paths.size() > 0;
+    // while (fixFeatures());
+    Smooth(nullptr);
+    // }
+    return final_paths.size() > 0;
 }
 
-void SemiGlobalSimplifier::PerformOperation(Operation& op, vMesh* m) {
-
-    auto Flip = [&] (Operation& op, vMesh* m) {
+bool SemiGlobalSimplifier::PerformOperation(Operation& op, vMesh* m) {
+    bool res = false;
+    auto Flip = [&] () {
         if (!op.isValid()) return;
+        // std::unordered_set<size_t> F;
         auto edge = op.vids;
         std::vector<size_t> quads = mu->GetIntersection(m->getVertex(edge[0]).N_Fids, m->getVertex(edge[1]).N_Fids);
         if (quads.size() != 2) return;
+
         std::vector<size_t> qVerts1, qVerts2;
         for (auto id: quads) {
             auto& q = m->getFace(id);
@@ -9621,16 +11634,18 @@ void SemiGlobalSimplifier::PerformOperation(Operation& op, vMesh* m) {
 
 
         m->setFace(quads[0]); m->setFace(quads[1]);
+        // F.insert(quads[0]); F.insert(quads[1]);
         m->fmap[quads[0]].Vids = q1.Vids; m->fmap[quads[1]].Vids = q2.Vids;
         for (auto id: quads) {
-            auto& q = m->getFace(id);    
+            auto& q = m->getFace(id);  
             for (auto vid: q.Vids) {
                 m->setVertex(vid);
-                auto& v = m->getVertex(vid);
-                for (auto fid: v.N_Fids) {
-                    auto& f = m->getFace(fid);
-                    if (std::find(f.Vids.begin(), f.Vids.end(), vid) == f.Vids.end()) mu->UpdateContents(v.N_Fids, std::vector<size_t>{fid});
-                }
+                // auto& v = m->getVertex(vid);
+                mu->UpdateContents(m->getVertex(vid).N_Fids, quads);
+                // for (auto fid: v.N_Fids) {
+                //     auto& f = m->getFace(fid);
+                //     if (std::find(f.Vids.begin(), f.Vids.end(), vid) == f.Vids.end()) mu->UpdateContents(v.N_Fids, std::vector<size_t>{fid});
+                // }
             }
         }
 
@@ -9641,47 +11656,137 @@ void SemiGlobalSimplifier::PerformOperation(Operation& op, vMesh* m) {
                 if (std::find(v.N_Fids.begin(), v.N_Fids.end(), fid) == v.N_Fids.end()) mu->AddContents(v.N_Fids, std::vector<size_t>{fid});
             }
         }
+        
+        // std::unordered_set<size_t> V;
+        // for (auto fid: F) {
+        //     auto& f = m->getFace(fid);
+        //     for (auto vid: f.Vids) {
+        //         auto& v = m->getVertex(vid);
+        //         if (v.N_Fids.empty()) continue;
+        //     }
+        // }
+
+        // addVerticesToSmooth(op.vids[0], V);
+        // addVerticesToSmooth(op.vids[1], V);
+        // smooth(V);
+        res = true;
     };
 
-    auto Collapse = [&] (Operation& op, vMesh* m) {
+    auto Collapse = [&] () {
         if (!op.isValid()) return;
+        // std::unordered_set<size_t> F;
         auto un = mu->GetIntersection(m->getVertex(op.vids[0]).N_Fids, m->getVertex(op.vids[1]).N_Fids);
         if (un.size() != 1) return;
+
         auto& quad = m->getFace(un.at(0));
+        int featureCount = 0;
+        for (auto qvid: quad.Vids) {
+            auto& qv = m->getVertex(qvid);
+            // if (qv.type == FEATURE && m->planes(qv).size() > 2) return;
+            if (m->getVertex(qvid).type == FEATURE) featureCount++;
+            if (featureCount > 2) return;
+        }
         m->setFace(un.at(0));
+        // F.insert(un.at(0));
         for (auto vid: quad.Vids) {
             m->setVertex(vid);
         }
         mu->AddContents(m->vmap[op.vids[0]].N_Fids, m->vmap[op.vids[1]].N_Fids);
-        m->vmap[op.vids[0]].xyz((m->vmap[op.vids[0]].xyz() + m->vmap[op.vids[1]].xyz())*0.5);
+        // auto coords = (m->vmap[op.vids[0]].xyz() + m->vmap[op.vids[1]].xyz())*0.5;
+        auto coords = op.coords;
+        // std::cout << "vids[0] boundary or feature? " << (m->vmap[op.vids[0]].isBoundary || m->vmap[op.vids[0]].type == FEATURE ? "yes" : "no") << std::endl;
+        // std::cout << "vids[1] boundary or feature? " << (m->vmap[op.vids[1]].isBoundary || m->vmap[op.vids[1]].type == FEATURE ? "yes" : "no") << std::endl;
+        // std::cout << "op.coords length: " << glm::length(op.coords) << std::endl;
+        if (glm::length(op.coords) == 0) {
+            if (!m->vmap[op.vids[0]].isBoundary && m->vmap[op.vids[0]].type != FEATURE && 
+                (m->vmap[op.vids[1]].isBoundary || m->vmap[op.vids[1]].type == FEATURE)) {
+                    coords = m->vmap[op.vids[1]].xyz();
+                    // m->vmap[op.vids[0]].isBoundary = m->vmap[op.vids[1]].isBoundary;
+                    // m->vmap[op.vids[0]].type = m->vmap[op.vids[1]].type;
+            } else if ((!m->vmap[op.vids[1]].isBoundary && m->vmap[op.vids[1]].type != FEATURE && 
+                (m->vmap[op.vids[0]].isBoundary || m->vmap[op.vids[0]].type == FEATURE))) {
+                    coords = m->vmap[op.vids[0]].xyz();
+            } else {
+                coords = (m->vmap[op.vids[0]].xyz() + m->vmap[op.vids[1]].xyz())*0.5;
+            }
+        //     coords = m->vmap[op.vids[1]].isBoundary || m->vmap[op.vids[1]].type == FEATURE ? m->vmap[op.vids[1]].xyz() : (m->vmap[op.vids[0]].xyz() + m->vmap[op.vids[1]].xyz())*0.5;
+        }
+        if (!m->vmap[op.vids[0]].isBoundary && m->vmap[op.vids[0]].type != FEATURE && 
+            (m->vmap[op.vids[1]].isBoundary || m->vmap[op.vids[1]].type == FEATURE)) {
+                m->vmap[op.vids[0]].isBoundary = m->vmap[op.vids[1]].isBoundary;
+                m->vmap[op.vids[0]].type = m->vmap[op.vids[1]].type;
+        }
+        // glm::dvec3 coords = glm::length(op.coords) == 0 ? (m->vmap[op.vids[0]].xyz() + m->vmap[op.vids[1]].xyz())*0.5 : op.coords;
+        // std::cout << "setting coords: " << coords.x << " " << coords.y << " " << coords.z << std::endl;
+        // if (m->vmap[op.vids[0]].isBoundary && m->getIdealValence(m->vmap[op.vids[0]].id) != 2) coords = m->vmap[op.vids[0]].xyz();
+        // if (m->vmap[op.vids[1]].isBoundary && m->getIdealValence(m->vmap[op.vids[1]].id) != 2, false) coords = m->vmap[op.vids[1]].xyz();
+        // if (m->vmap[op.vids[0]].type == FEATURE && m->getIdealValence(m->vmap[op.vids[0]].id) != 4) coords = m->vmap[op.vids[0]].xyz();
+        // if (m->vmap[op.vids[1]].type == FEATURE && m->getIdealValence(m->vmap[op.vids[1]].id) != 4, false) coords = m->vmap[op.vids[1]].xyz();
+
+        m->vmap[op.vids[0]].xyz(coords);
+        // std::cout << "updating source vertex " << op.vids[1] << "s faces" << std::endl;
         for (auto fid: m->getVertex(op.vids[1]).N_Fids) {
             if (fid == un.at(0)) continue;
+            // std::cout << "changing face " << fid << std::endl;
             m->setFace(fid);
+            // F.insert(fid);
             auto& f = m->getFace(fid);
+            // for (auto fvid: f.Vids) std::cout << fvid << " "; std::cout << std::endl;
             int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), op.vids[1]));
             f.Vids.at(idx) = op.vids[0];
+            // for (auto fvid: f.Vids) std::cout << fvid << " "; std::cout << std::endl;
         }
         for (auto vid: quad.Vids) {
             auto& v = m->getVertex(vid);
             mu->UpdateContents(v.N_Fids, std::vector<size_t>{un.at(0)});
         }
-        m->getVertex(op.vids[1]).N_Fids.clear();
+        auto& v1 = m->getVertex(op.vids[0]);
+        auto& v2 = m->getVertex(op.vids[1]);
+        // if (!v1.isBoundary && v1.type != FEATURE && (v2.isBoundary || v2.type == FEATURE)) {
+        //     v1.xyz(v2.xyz()); v1.isBoundary = v2.isBoundary; v1.type = v2.type;
+        // } 
+        v2.N_Fids.clear();
         m->fmap[un.at(0)].Vids.clear();
+
+        // std::unordered_set<size_t> V;
+        // for (auto fid: F) {
+        //     auto& f = m->getFace(fid);
+        //     for (auto vid: f.Vids) {
+        //         auto& v = m->getVertex(vid);
+        //         if (v.N_Fids.empty()) continue;
+        //     }
+        // }
+        // addVerticesToSmooth(op.vids[0], V);
+        // smooth(V);
+        res = true;
     };
 
-    auto Split = [&] (Operation& op, vMesh* m) {
+    auto Split = [&] () {
         if (!op.isValid()) return;
+        // std::unordered_set<size_t> F;
         auto edge = op.vids;
         std::vector<size_t> quads = mu->GetIntersection(m->getVertex(edge[0]).N_Fids, m->getVertex(edge[1]).N_Fids);
         if (quads.size() != 2) return;
-        auto& nv = m->AddVertex((m->getVertex(edge[0]).xyz() + m->getVertex(edge[1]).xyz())*0.5);
+
+        double threshold_shape = 0.0;
+        double threshold_size = 0.0;
+        double avg_area = 0.0;
+        auto& v1 = m->getVertex(edge[0]); auto& v2 = m->getVertex(edge[1]);
+        size_t hash = std::hash<size_t>{}(v1.id) ^ std::hash<size_t>{}(v2.id);
+        auto& nv = m->AddVertex((v1.xyz() + v2.xyz())*0.5, hash);
+        nv.type = v1.type == FEATURE && v2.type == FEATURE ? FEATURE : REGULAR;
+        nv.isBoundary = v1.isBoundary && v2.isBoundary ? true : false;
         mu->AddContents(nv.N_Fids, quads);
         std::vector<size_t> nVids = {edge[0], 0, nv.id, 0};
         m->setVertex(edge[0]);
         mu->UpdateContents(m->vmap[edge[0]].N_Fids, quads);
         for (auto id: quads) {
             m->setFace(id);
+            // F.insert(id);
             auto& q = m->getFace(id);
+            if (q.threshold_shape > threshold_shape) threshold_shape = q.threshold_shape;
+            if (q.threshold_size > threshold_size) threshold_size = q.threshold_size;
+            if (q.avg_area > avg_area) avg_area = q.avg_area;
             int idx = std::distance(q.Vids.begin(), std::find(q.Vids.begin(), q.Vids.end(), edge[0]));
             q.Vids.at(idx) = nv.id;
             if (q.Vids.at((idx+1)%4) == edge[1]) {
@@ -9692,16 +11797,31 @@ void SemiGlobalSimplifier::PerformOperation(Operation& op, vMesh* m) {
                 m->setVertex(nVids[1]);
             }
         }
-        auto& nF = m->AddFace(nVids);
+        auto& nF = m->AddFace(nVids, threshold_shape, threshold_size, avg_area);
+        // F.insert(nF.id);
         for (auto vid: nF.Vids) {
             auto& v = m->getVertex(vid);
             if (std::find(v.N_Fids.begin(), v.N_Fids.end(), nF.id) == v.N_Fids.end()) mu->AddContents(v.N_Fids, std::vector<size_t>{nF.id});
         }
+        // std::unordered_set<size_t> V;
+        // for (auto fid: F) {
+        //     auto& f = m->getFace(fid);
+        //     for (auto vid: f.Vids) {
+        //         auto& v = m->getVertex(vid);
+        //         if (v.N_Fids.empty()) continue;
+        //     }
+        // }
+
+        // addVerticesToSmooth(op.vids[0], V);
+        // addVerticesToSmooth(op.vids[1], V);
+        // smooth(V);
+        res = true;
     };
 
-    auto Rotate = [&] (Operation& op, vMesh* m) {
+    auto Rotate = [&] () {
         auto& v = m->getVertex(op.vid);
-        if (v.isBoundary || v.type == FEATURE) return;
+        // if (v.isBoundary || v.type == FEATURE) return;
+        // std::unordered_set<size_t> F;
         vInfo info_v(mesh, op.vid, m);
         std::vector<size_t> fids = info_v.fids();
         std::vector<std::vector<size_t>> nVids(fids.size());
@@ -9714,6 +11834,7 @@ void SemiGlobalSimplifier::PerformOperation(Operation& op, vMesh* m) {
         }
         for (int i = 0; i < fids.size(); i++) {
             m->setFace(fids.at(i));
+            // F.insert(fids.at(i));
             auto& f = m->getFace(fids.at(i));
             f.Vids = nVids.at(i);
         }
@@ -9729,16 +11850,30 @@ void SemiGlobalSimplifier::PerformOperation(Operation& op, vMesh* m) {
                 }
             }
         }
+        
+        // std::unordered_set<size_t> V;
+        // for (auto fid: F) {
+        //     auto& f = m->getFace(fid);
+        //     for (auto vid: f.Vids) {
+        //         auto& v = m->getVertex(vid);
+        //         if (v.N_Fids.empty()) continue;
+        //     }
+        // }
+
+        // addVerticesToSmooth(op.vid, V);
+        // smooth(V);
+        res = true;
     };
 
-    std::unordered_map<std::string, std::function<void(Operation&, vMesh*)>> op_map = {
+    std::unordered_map<std::string, std::function<void()>> op_map = {
         {"Flip", Flip},
         {"Collapse", Collapse},
         {"Split", Split},
         {"Rotate", Rotate}
     };
 
-    op_map[op.name](op, m);
+    op_map[op.name]();
+    return res;
 }
 
 

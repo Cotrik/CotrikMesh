@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 
 find_package(VTK REQUIRED)
+find_package(CGAL REQUIRED)
+include(${CGAL_USE_FILE})
 # include(${VTK_USE_FILE})   
 include_directories(
     ${PROJECT_SOURCE_DIR}/srcLibs/libcotrik/src/ 
@@ -15,10 +17,12 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/libigl/include/
     ../
     ${VTK_INCLUDE_DIRS}
+    ${CGAL_INCLUDE_DIRS}
 )
 
 set(ALL_LIBS
     ${VTK_LIBRARIES}
+    ${CGAL_LIBRARIES}
 )
 
 add_library(srcLibs SHARED STATIC
@@ -147,6 +151,8 @@ add_library(srcLibs SHARED STATIC
     libnaeem/src/EdgeRotation.cpp
     libnaeem/src/FeatureExtractor.h
     libnaeem/src/FeatureExtractor.cpp
+    libnaeem/src/KDTree.h
+    libnaeem/src/KDTree.cpp
     libnaeem/src/Memento.h
     libnaeem/src/MeshUtil.h
     libnaeem/src/MeshUtil.cpp
@@ -167,6 +173,7 @@ add_library(srcLibs SHARED STATIC
     libnaeem/src/SingularityPair.h
     libnaeem/src/Smooth.h
     libnaeem/src/Smooth.cpp
+    libnaeem/src/ThreadPool.h
     libnaeem/src/ThreeFivePair.h
     libnaeem/src/ThreeFivePair.cpp
     libnaeem/src/VertexRotation.h

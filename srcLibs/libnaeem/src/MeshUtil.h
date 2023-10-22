@@ -10,6 +10,7 @@
 
 #include <vtkPolyData.h>
 #include <glm/glm.hpp>
+#include <mutex>
 
 #include "Mesh.h"
 
@@ -80,6 +81,7 @@ class MeshUtil {
 
         double Q_A = 0.0;
         double delta = 0.0;
+        std::mutex Mutex;
     private:
         Mesh* mesh;
         std::vector<VertexScore> v_scores;

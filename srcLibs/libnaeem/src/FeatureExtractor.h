@@ -41,7 +41,7 @@ class FeatureExtractor {
         MeshUtil* mu;
         vtkSmartPointer<vtkPolyData> mesh_polyData = vtkSmartPointer<vtkPolyData>::New();
         vtkSmartPointer<vtkPolyData> GetPolyDataFromMesh();
-        double angle_threshold = 15.0;
+        double angle_threshold = 30.0;
 };
 
 #endif

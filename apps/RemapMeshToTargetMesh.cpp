@@ -7,7 +7,10 @@
 // #include "ParallelFor.h"
 #include "FeatureExtractor.h"
 #include "Smooth.h"
+#include "KDTree.h"
 #include <ctime>
+
+int Vertex::visitCounter = 0;
 
 int main(int argc, char* argv[]) {
 
@@ -64,12 +67,53 @@ int main(int argc, char* argv[]) {
     MeshUtil mu(source);
     mu.Q_A = source.F.size();
     mu.delta = mu.Q_A - source.F.size();
-    FeatureExtractor fe(source, 20.0, mu);
+    FeatureExtractor fe(source, 30.0, mu);
     fe.Extract();
+    std::cout << "Writing output file" << std::endl;
+    std::ofstream ofs("FeaturePoints.vtk");
+    ofs << "# vtk DataFile Version 3.0\n"
+        << "FeaturePoints.vtk.vtk\n"
+        << "ASCII\n\n"
+        << "DATASET UNSTRUCTURED_GRID\n";
+    ofs << "POINTS " << source.V.size() << " double\n";
+    std::vector<size_t> c_indices;
+    for (auto& v: source.V) {
+        if (v.type == FEATURE) c_indices.push_back(v.id);
+        if (v.isBoundary) {
+            c_indices.push_back(v.id);
+            // std::cout << "v fids: " << v.N_Fids.size() << std::endl;
+            // for (auto fid: v.N_Fids) {
+            //     auto& f = source.C.at(fid);
+            //     for (auto fvid: f.Vids) {
+            //         if (fvid == v.id) continue;
+            //         auto& fv = source.V.at(fvid);
+            //         if (fv.isBoundary) std::cout << fvid << " ";
+            //     }
+            //     std::cout << std::endl;
+            // }
+            // std::cout << std::endl;
+        }
+    }
+    std::cout << "Got features" << std::endl;
+    // std::vector<size_t> c_indices = {12, 296};
+    // std::cout << c_indices.size() << std::endl;
+    for (size_t i = 0; i < source.V.size(); i++) {
+        ofs << std::fixed << std::setprecision(7) <<  source.V.at(i).x << " " <<  source.V.at(i).y << " " <<  source.V.at(i).z << "\n";
+    }
+    ofs << "CELLS " << c_indices.size() << " " << 2 * c_indices.size() << std::endl;
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        ofs << "1 " << c_indices.at(i) << std::endl;
+    }
+    ofs << "CELL_TYPES " << c_indices.size() << "\n";
+    for (size_t i = 0; i < c_indices.size(); i++) {
+        ofs << "1" << std::endl;
+    }
     Smoother s(source, mu);
-
+    // std::unique_ptr<SurfaceProjector> sp = std::make_unique<SurfaceProjector>(source);
+    // SurfaceProjector sp(source);
+    KDTree kd(source);
     // Smoother sm(source, mu);
-    SemiGlobalSimplifier sg(source, mu, s);
+    SemiGlobalSimplifier sg(source, mu, s, kd);
     sg.SetIters(iters);
     // sg.SetVertexSplitOperations();
     // sg.SetQuadSplitOperations();
@@ -91,9 +135,35 @@ int main(int argc, char* argv[]) {
         if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
         if (v.N_Vids.size() != 4) startSingularities += 1;
     }
-    start = std::clock();
 
     bool res = true;
+    start = std::clock();
+    // sg.SetVertexRotationOperations();
+    if (iters == 0) {
+        while (sg.SetBoundaryDirectSeparatrixOperations(false));
+        while (sg.SetBoundaryDirectSeparatrixOperations(true));
+        while (sg.SetDirectSeparatrixOperations(false));
+        while (sg.SetDirectSeparatrixOperations(true));
+        sg.Smooth(nullptr);
+    } else {
+        while (sg.SetBoundaryDirectSeparatrixOperations(false));
+        while (sg.SetBoundaryDirectSeparatrixOperations(true));
+        while (sg.SetDirectSeparatrixOperations(false));
+        while (sg.SetDirectSeparatrixOperations(true));
+        for (int i = 0; i < iters; i++) {
+        // for (int i = 0; i < 1; i++) {
+            // while(sg.FixValences());
+            // while(sg.FixValences());
+            // while(sg.FixValences());
+            // while(sg.FixValences());
+            if (!sg.TestFlips()) break;
+            // while(sg.FixValences());
+        }
+    }
+    
+    // sg.Smooth();
+    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    std::cout << "Simplification time: " << duration << " seconds" << std::endl;
     // sg.SetBoundaryDirectSeparatrixOperations(false);
     // sg.SetBoundaryDirectSeparatrixOperations(false);
     // sg.SetBoundaryDirectSeparatrixOperations(true);
@@ -134,8 +204,8 @@ int main(int argc, char* argv[]) {
     // while (sg.FixValences());
     // res = true;
     
-    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
-    std::cout << "Direct Separatrix simplification time: " << duration << " seconds" << std::endl;
+    // duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    // std::cout << "Direct Separatrix simplification time: " << duration << " seconds" << std::endl;
     
     nSingularities = 0.0;
     for (auto& v: source.V) {
@@ -146,7 +216,16 @@ int main(int argc, char* argv[]) {
     // res = true;
     // while (res) {
     // }
+    // startSingularities = 0.0;
+    // for (auto& v: source.V) {
+    //     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+    //     if (v.N_Vids.size() != 4) startSingularities += 1;
+    // }
+        // start = std::clock();
+        // sg.TestFlips();
 
+    // duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    // std::cout << "Paths time: " << duration << " seconds" << std::endl;
     // int n = 0;
     // std::vector<bool> isVisited(source.V.size(), false);
     // for (auto& v: source.V) {
@@ -167,12 +246,7 @@ int main(int argc, char* argv[]) {
     // }
     // std::cout << "Diagonal 3-5 pairs: " << n << std::endl;
     // sg.Smooth();
-    startSingularities = 0.0;
-    for (auto& v: source.V) {
-        if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
-        if (v.N_Vids.size() != 4) startSingularities += 1;
-    }
-    start = std::clock();
+    
     // for (int i = 0; i < 10; i++) {
     //     sg.PrototypeK();
     //     sg.FixValences();
@@ -216,15 +290,15 @@ int main(int argc, char* argv[]) {
     // sg.PrototypeF(3);
     // if (!sg.CheckMeshValidity()) return 0;
     // sg.PrototypeF(3);
-    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
-    std::cout << "Direct pairs simplification time: " << duration << " seconds" << std::endl;
+    // duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
+    // std::cout << "Direct pairs simplification time: " << duration << " seconds" << std::endl;
     
-    nSingularities = 0.0;
-    for (auto& v: source.V) {
-        if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
-        if (v.N_Vids.size() != 4) nSingularities += 1;
-    }
-    std::cout << "Initial Singularities: " << startSingularities << " Reduced Singularities: " << startSingularities - nSingularities << " ratio: " << ((startSingularities - nSingularities) / startSingularities) * 100.0 << "%" << std::endl;
+    // nSingularities = 0.0;
+    // for (auto& v: source.V) {
+    //     if (v.N_Vids.empty() || v.N_Eids.empty() || v.N_Fids.empty() || v.type == FEATURE || v.isBoundary) continue;
+    //     if (v.N_Vids.size() != 4) nSingularities += 1;
+    // }
+    // std::cout << "Initial Singularities: " << startSingularities << " Reduced Singularities: " << startSingularities - nSingularities << " ratio: " << ((startSingularities - nSingularities) / startSingularities) * 100.0 << "%" << std::endl;
     // sg.SaveEdgeMesh();
     // sg.Smooth();
     // sg.PrototypeD();
@@ -389,9 +463,8 @@ int main(int argc, char* argv[]) {
     // sm.Map();
 
     // source.RemoveUselessVertices();
-    sg.TestFlips();
-    duration = (std::clock() - start) / (double) CLOCKS_PER_SEC;
-    std::cout << "Paths time: " << duration << " seconds" << std::endl;
+    // for (int i = 0; i < iters; i++) {
+    // }
     std::cout << "# F in input mesh: " << source.C.size() << std::endl;
     // std::cout << source.F.size() << std::endl;
     std::vector<Cell> newC;
@@ -419,9 +492,23 @@ int main(int argc, char* argv[]) {
     // ofs << "POINTS " << source.V.size() << " double\n";
     // std::vector<size_t> c_indices;
     // for (auto& v: source.V) {
-    //     // if (v.type == FEATURE) c_indices.push_back(v.id);
-    //     if (v.isBoundary) c_indices.push_back(v.id);
+    //     if (v.type == FEATURE) c_indices.push_back(v.id);
+    //     if (v.isBoundary) {
+    //         c_indices.push_back(v.id);
+    //         // std::cout << "v fids: " << v.N_Fids.size() << std::endl;
+    //         // for (auto fid: v.N_Fids) {
+    //         //     auto& f = source.C.at(fid);
+    //         //     for (auto fvid: f.Vids) {
+    //         //         if (fvid == v.id) continue;
+    //         //         auto& fv = source.V.at(fvid);
+    //         //         if (fv.isBoundary) std::cout << fvid << " ";
+    //         //     }
+    //         //     std::cout << std::endl;
+    //         // }
+    //         // std::cout << std::endl;
+    //     }
     // }
+    // std::cout << "Got features" << std::endl;
     // // std::vector<size_t> c_indices = {12, 296};
     // // std::cout << c_indices.size() << std::endl;
     // for (size_t i = 0; i < source.V.size(); i++) {

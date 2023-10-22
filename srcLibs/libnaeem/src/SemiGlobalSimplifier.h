@@ -9,6 +9,7 @@
 #define SEMI_GLOBAL_SIMPLIFIER_H_
 
 #include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <queue>
 #include <memory>
 #include <mutex>
@@ -16,6 +17,8 @@
 #include <functional>
 #include <stdlib.h>
 #include <time.h>
+#include <Eigen/Core>
+#include <Eigen/Eigenvalues>
 
 #include "Mesh.h"
 #include "Memento.h"
@@ -39,6 +42,9 @@
 #include "PQueue.h"
 #include "PQueue.cpp"
 #include "Renderer.h"
+#include "KDTree.h"
+
+const double PI = 3.1415926535;
 
 struct SingularityLink {
     std::vector<size_t> linkVids;
@@ -161,12 +167,25 @@ struct vMesh {
     int max_vid, max_fid, maxvid, maxfid;
     Mesh* mesh;
 
+    vMesh() {}
+
     vMesh(Mesh* mesh_) {
         mesh = mesh_;
         max_vid = mesh->V.size();
         max_fid = mesh->F.size();
         maxvid = mesh->V.size()-1;
         maxfid = mesh->F.size()-1;
+    }
+    vMesh& operator=(const vMesh& other) {
+        if (this == &other) return *this;
+        vmap = other.vmap;
+        fmap = other.fmap;
+        mesh = other.mesh;
+        max_vid = other.max_vid;
+        max_fid = other.max_fid;
+        maxvid = other.maxvid;
+        maxfid = other.maxfid;
+        return *this;
     }
 
     void SetMesh(Mesh* mesh_) {
@@ -177,17 +196,29 @@ struct vMesh {
         maxfid = mesh->F.size()-1;
     }
 
-    Vertex& AddVertex(glm::dvec3 coords) {
-        max_vid++;
+    Vertex& AddVertex(glm::dvec3 coords, size_t id = 0) {
+        max_vid += 4;
+        // if (id == 0) {
+        //     id = max_vid;
+        // }
+        // size_t hash = std::hash<size_t>{}(std::chrono::high_resolution_clock::now().time_since_epoch().count() + max_vid);
         vmap[max_vid] = Vertex(coords);
         vmap[max_vid].id = max_vid;
         return vmap[max_vid];
     }
 
-    Face& AddFace(std::vector<size_t> vids) {
-        max_fid++;
+    Face& AddFace(std::vector<size_t> vids, double threshold_shape = 0.0, double threshold_size = 0.0, double avg_area = 0.0) {
+        max_fid += 4;
+        // size_t hash = 0;
+        // for (auto vid: vids) {
+        //     hash ^= std::hash<size_t>{}(vid);
+        // }
+        // std::cout << "hash: " << hash << std::endl;
         fmap[max_fid] = Face(vids);
         fmap[max_fid].id = max_fid;
+        fmap[max_fid].threshold_shape = threshold_shape;
+        fmap[max_fid].threshold_size = threshold_size;
+        fmap[max_fid].avg_area = avg_area;
         return fmap[max_fid];
     }
 
@@ -204,10 +235,13 @@ struct vMesh {
         auto& f = mesh->F.at(fid);
         fmap[fid] = Face(f.Vids);
         fmap[fid].id = f.id;
+        fmap[fid].threshold_shape = f.threshold_shape;
+        fmap[fid].threshold_size = f.threshold_size;
+        fmap[fid].avg_area = f.avg_area;
     }
 
-    Vertex& getVertex(size_t vid) {
-        if (vmap.find(vid) != vmap.end()) return vmap[vid];
+    Vertex& getVertex(size_t vid, bool useVM = true) {
+        if (useVM && vmap.find(vid) != vmap.end()) return vmap[vid];
         return mesh->V.at(vid);
     }
 
@@ -216,59 +250,441 @@ struct vMesh {
         return mesh->E.at(eid);
     }
 
-    Face& getFace(size_t fid) {
-        if (fmap.find(fid) != fmap.end()) return fmap[fid];
+    Face& getFace(size_t fid, bool useVM = true) {
+        // std::cout << "getting face with fid: " << fid << std::endl;
+        if (useVM && fmap.find(fid) != fmap.end()) return fmap[fid];
         return mesh->F.at(fid);
+    }
+
+    double getAngle(size_t vid1, size_t vid2, size_t vid3, bool useVM = true) {
+        auto& v1 = getVertex(vid1, useVM);
+        auto& v2 = getVertex(vid2, useVM);
+        auto& v3 = getVertex(vid3, useVM);
+        
+        auto A = v2.xyz() - v1.xyz();
+        auto B = v3.xyz() - v1.xyz();
+        double angle = atan2(glm::length(glm::cross(A, B)), glm::dot(A, B));
+        if (angle < 0) angle += 2*PI;
+        return angle * 180.0 / PI; 
+    }
+    
+    int getIdealValence(size_t vid, bool useVM = true, bool log = false) {
+        auto& v = getVertex(vid, useVM);
+        size_t start = v.N_Fids.at(0);
+        for (int i = 0; i < v.N_Fids.size(); i++) {
+            auto& f = getFace(v.N_Fids.at(i), useVM);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            auto& fv = getVertex(f.Vids.at((idx+1)%4), useVM);
+            if (fv.isBoundary || fv.type == FEATURE) {
+                start = v.N_Fids.at(i);
+                break;
+            }
+        }
+        std::vector<size_t> N_Fids;
+        for (int i = 0; i < v.N_Fids.size(); i++) {
+            auto& f = getFace(start, useVM);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            N_Fids.push_back(f.id);
+            for (auto fid: v.N_Fids) {
+                auto& tf = getFace(fid, useVM);              
+                int idx2 = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), v.id));
+                if (f.Vids.at((idx+3)%4) == tf.Vids.at((idx2+1)%4)) {
+                    start = fid;
+                    break;
+                }
+            }
+        }
+        int idealValence = 0;
+        double total_angle = 0.0;
+        // std::cout << "calculating ideal valence for: " << v.id << "(" << v.N_Fids.size() << ")" << " N_Fids: " << N_Fids.size() << std::endl;
+        for (auto fid: N_Fids) {
+            auto& f = getFace(fid, useVM);
+            // std::cout << "f(" << f.id << "): ";
+            // for (auto fvid: f.Vids) std::cout << fvid << " "; std::cout << std::endl;
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            // auto& v1 = getVertex(f.Vids.at((idx+1)%4), useVM);
+            // auto& v2 = getVertex(f.Vids.at((idx+3)%4), useVM);
+            // total_angle += getAngle(v.id, v1.id, v2.id, useVM);
+            total_angle += getAngle(v.id, f.Vids.at((idx+1)%4), f.Vids.at((idx+2)%4), useVM);
+            total_angle += getAngle(v.id, f.Vids.at((idx+2)%4), f.Vids.at((idx+3)%4), useVM);
+            if (getVertex(f.Vids.at((idx+3)%4), useVM).isBoundary || getVertex(f.Vids.at((idx+3)%4), useVM).type == FEATURE) {
+                idealValence += (floor(total_angle / 90.0) + floor(std::fmod(total_angle, 90.0) / 45));
+                // std::cout << "total_angle: " << total_angle << " idealValence: " << idealValence << std::endl;
+                total_angle = 0.0;
+            }
+        }
+        // std::cout << "************************************" << std::endl;
+        // if (log) std::cout << "v nfids: " << v.N_Fids.size() << std::endl;
+        // v.idealValence = 0;
+        /*int idealValence = 0;
+        double total_angle = 0.0;
+        std::vector<size_t> features;
+        // size_t next = v.N_Fids.at(0);
+        for (int i = 0; i < v.N_Fids.size(); i++) {
+            auto& f = getFace(v.N_Fids.at(i), useVM);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), vid));
+            if (log) {
+                // std::cout << "useVM: " << useVM << std::endl;
+                // std::cout << "vid: " << v.id << " idx: " << idx << " f vids: " << f.Vids.size() << std::endl;
+                // std::cout << "f Vids: "; 
+                // for (auto fvid: f.Vids) std::cout << fvid << " "; 
+                // std::cout << std::endl;
+                // std::cout << "mesh->V: " << mesh->V.size() << " vmap: " << vmap.size() << std::endl;
+                // for (auto it = vmap.begin(); it != vmap.end(); it++) {
+                    // std::cout << it->first << " " << it->second.id << std::endl;
+                // }
+            }
+            auto& b1 = getVertex(f.Vids.at((idx+1)%4), useVM);
+            // if (log) {
+            //     std::cout << "b1: " << b1.id << std::endl;
+            // }
+            auto& b2 = getVertex(f.Vids.at((idx+3)%4), useVM);
+            // if (log) {
+            //     std::cout << "b2: " << b2.id << std::endl;
+            // }
+            if (b1.isBoundary || b1.type == FEATURE) features.push_back(f.Vids.at((idx+1)%4));
+            if (b2.isBoundary || b2.type == FEATURE) features.push_back(f.Vids.at((idx+3)%4));
+            // for (auto fvid: f.Vids) {
+            //     auto& fv = getVertex(fvid, useVM);
+            //     if (fv.id != vid && fv.isBoundary || fv.type == FEATURE) features.push_back(fvid);
+            // }
+            // auto& fv = getVertex(f.Vids.at((idx+1)%4), useVM);
+            // if (fv.isBoundary || fv.type == FEATURE) features.push_back(fv.id);
+            // for (auto fid: v.N_Fids) {
+            //     auto& tf = getFace(fid, useVM);
+            //     int _idx = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), vid));
+            //     if (f.Vids.at((idx+3)%4) == tf.Vids.at((_idx+1)%4)) {
+            //         next = fid;
+            //         break;
+            //     }
+            // }
+        }
+        std::sort(features.begin(), features.end());
+        auto it = std::unique(features.begin(), features.end());
+        features.resize(std::distance(features.begin(), it));
+        // if (log) {
+        //     std::cout << "features: " << features.size() << std::endl;
+        //     for (auto id: features) std::cout << id << " "; std::cout << std::endl;
+        // }
+        if (features.size() == 2) {
+            double angle = getAngle(vid, features.at(0), features.at(1), useVM);
+            // if (log) std::cout << "angle: " << angle << std::endl;
+            idealValence += (floor(angle / 90.0) + floor(std::fmod(angle, 90.0) / 45));
+            // if (log) std::cout << "ideal valence: " << idealValence << std::endl;
+        } else {
+            for (int i = 0; i < features.size(); i++) {
+                double angle = getAngle(vid, features.at(i), features.at((i+1)%features.size()), useVM);
+                // if (log) std::cout << "angle: " << angle << std::endl;
+                idealValence += (floor(angle / 90.0) + floor(std::fmod(angle, 90.0) / 45));
+                // if (log) std::cout << "ideal valence: " << idealValence << std::endl;
+
+            }
+        }
+        // for (int i = 0; i < v.N_Fids.size(); i++) {
+        //     auto& f = getFace(v.N_Fids.at(i), useVM);
+        //     int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), vid));
+        //     auto& fv = getVertex(f.Vids.at((idx+1)%4), useVM);
+        //     if (fv.isBoundary || fv.type == FEATURE) {
+        //         // double total_angle = 0.0;
+        //         features.push_back(fv.id);
+        //         // size_t next = v.N_Fids.at(i);
+        //         // for (int j = 0; j < v.N_Fids.size(); j++) {
+        //             // std::cout << "i " << i << " j " << j  << " i+v.N_Fids.size() " << i+v.N_Fids.size() << std::endl;
+        //             // auto& _f = getFace(next, useVM);
+        //             // int _idx = std::distance(_f.Vids.begin(), std::find(_f.Vids.begin(), _f.Vids.end(), vid));
+        //             // total_angle += getAngle(v.id, _f.Vids.at((_idx+1)%_f.Vids.size()), _f.Vids.at((_idx+3)%_f.Vids.size()));
+        //             // auto& _fv = getVertex(_f.Vids.at((_idx+3)%_f.Vids.size()), useVM);
+        //             for (auto fid: v.N_Fids) {
+        //                 auto& tf = getFace(fid, useVM);
+        //                 int _idx2 = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), vid));
+        //                 if (_f.Vids.at((idx+3)%_f.Vids.size()) == tf.Vids.at((_idx2+1)%tf.Vids.size())) {
+        //                     next = fid;
+        //                     break;
+        //                 }
+        //             }
+        //             if (_fv.isBoundary || _fv.type == FEATURE) {
+        //                 break;
+        //             }
+        //         }
+        //         // std::cout << "total angle: " << total_angle << std::endl;
+        //         idealValence += (floor(total_angle / 90.0) + floor(std::fmod(total_angle, 90.0) / 45));
+        //     }
+        // }
+        // if (log) std::cout << "boundary vertex: " << idealValence << " " << v.N_Fids.size() << std::endl;*/
+        return idealValence;
     }
 
     void Update() {
         for (auto it = fmap.begin(); it != fmap.end(); it++) {
             auto& f = it->second;
-            if (it->first > maxfid) {
+            if (f.id > maxfid) {
                 int nId = mesh->F.size();
+                // std::cout << "face id: " << it->first << " new id: " << nId << std::endl;
                 for (int i = 0; i < f.Vids.size(); i++) {
                     auto& v = getVertex(f.Vids.at(i));
+                    // std::cout << "new Vertex N_Fids before: "; for (auto nfid: v.N_Fids) std::cout << nfid << " "; std::cout << std::endl;
                     int idx = std::distance(v.N_Fids.begin(), std::find(v.N_Fids.begin(), v.N_Fids.end(), it->first));
                     v.N_Fids.at(idx) = nId;
+                    // std::cout << "new Vertex N_Fids after: "; for (auto nfid: v.N_Fids) std::cout << nfid << " "; std::cout << std::endl;
                 }
                 f.id = nId;
                 mesh->F.push_back(f);
+                // mesh->F.resize(mesh->F.size()+1);
+                // mesh->F.at(mesh->F.size()-1) = f;
             } else {
+                // std::cout << "vmap f: " << it->first << " " << f.id << std::endl;
+                // for (auto fvid: f.Vids) std::cout << fvid << " "; std::cout << std::endl;
                 mesh->F.at(it->first).Vids = f.Vids;
+                // std::cout << "mesh f:" << std::endl; 
+                // for (auto fvid: mesh->F.at(it->first).Vids) std::cout << fvid << " "; std::cout << std::endl;
+
             }
         }
         for (auto it = vmap.begin(); it != vmap.end(); it++) {
-            if (it->first > maxvid) {
+            if (it->second.id > maxvid) {
                 auto& v = it->second;
-                v.id = mesh->V.size();
                 for (int i = 0; i < v.N_Fids.size(); i++) {
                     auto& f = mesh->F.at(v.N_Fids.at(i));
-                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), it->first));
-                    f.Vids.at(idx) = v.id;
-                }
+                    // std::cout << "Face id: " << f.id << " it->first: " << it->first << " v.id: " << v.id << std::endl;
+                    // std::cout << "face Vids before: "; for (auto fvid: f.Vids) std::cout << fvid << " "; std::cout << std::endl;
+                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                    f.Vids.at(idx) = mesh->V.size();
+                    // int idx2 = (idx+1)%4;
+                    // if (idx2 > idx && f.Vids.at(idx2) == v.id) {
+                    //     int rot = 4-idx2;
+                    //     std::rotate(f.Vids.begin(), f.Vids.begin()+f.Vids.size()-rot, f.Vids.end());
+                    // }
+                    // std::cout << "face Vids after: "; for (auto fvid: f.Vids) std::cout << fvid << " "; std::cout << std::endl;
+                }                
+                v.id = mesh->V.size();
                 mesh->V.push_back(v);
+                // mesh->V.resize(mesh->V.size()+1);
+                // mesh->V.at(mesh->V.size()-1) = v;
             } else {
+                // std::cout << "Inside Update" << std::endl;
+                // std::cout << "v id: " << it->first << "(" << it->second.N_Fids.size() << ")" << std::endl; 
+                // std::cout << "regular: " << (it->second.type == REGULAR) <<  " feature: " << (it->second.type == FEATURE) << " isBoundary: " << it->second.isBoundary << std::endl;
                 mesh->V.at(it->first).xyz(it->second.xyz());
                 mesh->V.at(it->first).N_Fids = it->second.N_Fids;
+                mesh->V.at(it->first).isBoundary = it->second.isBoundary;
+                mesh->V.at(it->first).type = it->second.type;
             }
         }
+    }
+
+    std::vector<std::vector<size_t>> planes(const Vertex& v, bool useVM = true) {
+        std::vector<std::vector<size_t>> p;
+        if (v.N_Fids.empty()) return p;
+        size_t start = v.N_Fids.at(0);
+        // std::cout << "start: " << start << std::endl;
+        int countFeatures = [&]() {
+            int count = 0;
+            for (auto fid: v.N_Fids) {
+                // std::cout << "useVM: " << useVM << std::endl;
+                auto& f = getFace(fid, useVM);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                // std::cout << "idx: " << idx << std::endl;
+                // std::cout << "f Vids: " << f.Vids.size() << std::endl;
+                if (getVertex(f.Vids[(idx + 1) % f.Vids.size()], useVM).isBoundary || getVertex(f.Vids[(idx + 1) % f.Vids.size()], useVM).type == FEATURE) {
+                    count++;
+                    start = fid;
+                }
+            }
+            return count;
+        }();
+        // std::cout << "countFeatures: " << countFeatures << std::endl;
+        if (countFeatures < 2) {
+            p.push_back(v.N_Fids);
+        } else {
+            p.resize(countFeatures);
+            // std::cout << "p size: " << p.size() << std::endl;
+            int k = 0;
+            for (int i = 0; i < v.N_Fids.size(); i++) {
+                auto& f = getFace(start, useVM);
+                // std::cout << "setting face at k: " << k << std::endl;
+                p[k].push_back(f.id);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                auto& next = getVertex(f.Vids[(idx + 3) % f.Vids.size()], useVM);
+                if (next.isBoundary || next.type == FEATURE) {
+                    k++;
+                    // std::cout << "k: " << k << std::endl;
+                }
+                for (auto fid: v.N_Fids) {
+                    if (fid == start) continue;
+                    auto& tf = getFace(fid, useVM);
+                    int tidx = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), v.id));
+                    if (tf.Vids[(tidx + 1) % tf.Vids.size()] == next.id) {
+                        start = fid;
+                        break;
+                    }
+                }
+            }
+        }
+        // std::cout << "planes " << p.size() << std::endl;
+        return p;
+    }
+
+    int idealValence(const Vertex& v, bool useVM = true, std::vector<size_t> qids = {}) {
+        const double PI = 3.1415926535;
+        auto angle = [&] (Vertex& prev, Vertex& next) {
+            glm::dvec3 p = prev - v;
+            glm::dvec3 n = next - v;
+            return std::acos(glm::dot(p, n) / (glm::length(p) * glm::length(n)));
+        };
+        if (v.N_Fids.empty()) return 0;
+        /*size_t start = v.N_Fids.at(0);
+        int countFeatures = [&]() {
+            int count = 0;
+            for (auto fid: v.N_Fids) {
+                auto& f = getFace(fid, useVM);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                if (getVertex(f.Vids[(idx + 1) % f.Vids.size()], useVM).isBoundary || getVertex(f.Vids[(idx + 1) % f.Vids.size()], useVM).type == FEATURE) {
+                    count++;
+                    start = fid;
+                }
+            }
+            return count;
+        }();
+        if (countFeatures < 2) {
+            double sum = 0.0;
+            for (auto fid: v.N_Fids) {
+                auto& f = getFace(fid, useVM);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                sum += angle(getVertex(f.Vids[(idx + 1) % f.Vids.size()], useVM), getVertex(f.Vids[(idx + 2) % f.Vids.size()], useVM));
+                sum += angle(getVertex(f.Vids[(idx + 2) % f.Vids.size()], useVM), getVertex(f.Vids[(idx + 3) % f.Vids.size()], useVM));
+            }
+            int turns = (int) std::round(sum / (PI / 2.0));
+            return std::max(turns, 1);
+        } else {
+            double sum = 0.0;
+            std::vector<std::pair<std::vector<size_t>, int>> ideals(countFeatures);
+            int k = 0;
+            for (int i = 0; i < v.N_Fids.size(); i++) {
+                auto& f = getFace(start, useVM);
+                ideals[k].first.push_back(f.id);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                auto& prev = getVertex(f.Vids[(idx + 1) % f.Vids.size()], useVM);
+                auto& diag = getVertex(f.Vids[(idx + 2) % f.Vids.size()], useVM);
+                auto& next = getVertex(f.Vids[(idx + 3) % f.Vids.size()], useVM);
+                sum += angle(prev, diag);
+                sum += angle(diag, next);
+                if (next.isBoundary || next.type == FEATURE) {
+                    int turns = (int) std::round(sum / (PI / 2.0));
+                    ideals[k].second = std::max(turns, 1);
+                    sum = 0.0;
+                    k++;
+                }
+                for (auto fid: v.N_Fids) {
+                    if (fid == start) continue;
+                    auto& tf = getFace(fid, useVM);
+                    int tidx = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), v.id));
+                    if (tf.Vids[(tidx + 1) % tf.Vids.size()] == next.id) {
+                        start = fid;
+                        break;
+                    }
+                }
+            }*/
+            auto p = planes(v, useVM);
+            // std::cout << "p size: " << p.size() << std::endl;
+            int total = 0;
+            for (auto plane: p) {
+                double sum = 0.0;
+                for (auto id: plane) {
+                    auto& f = getFace(id, useVM);
+                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                    auto& prev = getVertex(f.Vids[(idx + 1) % f.Vids.size()], useVM);
+                    auto& diag = getVertex(f.Vids[(idx + 2) % f.Vids.size()], useVM);
+                    auto& next = getVertex(f.Vids[(idx + 3) % f.Vids.size()], useVM);
+                    sum += angle(prev, diag);
+                    sum += angle(diag, next);
+                }
+                int turns = (int) std::round(sum / (PI / 2.0));
+                int ideal = std::max(turns, 1);
+                total += ideal;
+                for (auto qid: qids) {
+                    if (std::find(plane.begin(), plane.end(), qid) != plane.end()) {
+                        return ideal;        
+                    }
+                }
+            }
+            // int total = 0;
+            // for (auto ideal: ideals) {
+            //     for (auto qid: qids) {
+            //         if (std::find(ideal.first.begin(), ideal.first.end(), qid) != ideal.first.end()) {
+            //             return ideal.second;
+            //         }
+            //     }
+            //     total += ideal.second;
+            // }
+            return total;
+        // }
+    }
+
+    int valence(const Vertex& v, bool useVM = true, std::vector<size_t> qids = {}) {
+        if (v.N_Fids.empty()) return 0;
+        
+        // std::cout << "getting planes" << std::endl;
+        auto p = planes(v, useVM);
+        // std::cout << "planes size: " << p.size() << std::endl;
+        int total = 0;
+        for (auto plane: p) {
+            for (auto qid: qids) {
+                if (std::find(plane.begin(), plane.end(), qid) != plane.end()) {
+                    return plane.size();
+                }
+            }
+            total += plane.size();
+        }
+        // std::cout << "total: " << total << std::endl;
+        return total;
+    }
+
+    int virtualValence(const Vertex& v, bool useVM = true, std::vector<size_t> qids = {}) {
+        // if (v.isBoundary || v.type == FEATURE) {
+            return 4 + valence(v, useVM, qids) - idealValence(v, useVM, qids);
+        // } else {
+            // return valence(v);
+        // }
+    }
+
+    bool corner(const Vertex& v, bool useVM = true) {
+        if (!v.isBoundary && v.type != FEATURE) return false;
+        return (v.isBoundary && idealValence(v, useVM) != 2) || (v.type == FEATURE && idealValence(v, useVM) != 4);
+    }
+
+    void Clear() {
+        vmap.clear();
+        emap.clear();
+        fmap.clear();
     }
 };
 
 struct vInfo {
     std::vector<size_t> N_Vids;
     std::vector<size_t> N_Fids;
-    vInfo(Mesh* mesh, size_t vid, vMesh* m = nullptr) {
+    vInfo(Mesh* mesh, size_t vid, vMesh* m = nullptr, bool useVM = true) {
         auto& getVertex = [&] (size_t vid) {
             if (m == nullptr) return mesh->V.at(vid);
-            return m->getVertex(vid);
+            return m->getVertex(vid, useVM);
         };
         auto& getFace = [&] (size_t fid) {
             if (m == nullptr) return mesh->F.at(fid);
-            return m->getFace(fid);
+            return m->getFace(fid, useVM);
         };
         auto& v = getVertex(vid);
         size_t start = v.N_Fids.at(0);
+        if (v.isBoundary) {
+            for (int i = 0; i < v.N_Fids.size(); i++) {
+                auto& f = getFace(v.N_Fids.at(i));
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                auto& fv = getVertex(f.Vids.at((idx+1)%4));
+                if (fv.isBoundary) {
+                    start = v.N_Fids.at(i);
+                    break;
+                }
+            }
+        }
+        
         for (int i = 0; i < v.N_Fids.size(); i++) {
             auto& f = getFace(start);
             int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
@@ -282,6 +698,11 @@ struct vInfo {
                     break;
                 }
             }
+        }
+        if (v.isBoundary) {
+            auto& f = getFace(start);
+            int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+            N_Vids.push_back(f.Vids.at((idx+3)%4));
         }
     }
 
@@ -308,6 +729,7 @@ struct vInfo {
     int nfids() {
         return N_Fids.size();
     }
+
 };
 
 
@@ -335,12 +757,14 @@ struct Operation {
     size_t vid;
     std::vector<size_t> vids;
     bool clockwise;
+    glm::dvec3 coords = {0, 0, 0};
 
-    Operation(std::string name_, size_t vid_, std::vector<size_t> vids_, bool clockwise_) {
+    Operation(std::string name_, size_t vid_, std::vector<size_t> vids_, bool clockwise_, glm::dvec3 coords_ = {0, 0, 0}) {
         name = name_;
         vid = vid_;
         vids = vids_;
         clockwise = clockwise_;
+        coords = coords_;
     }
 
     bool isValid() {
@@ -353,12 +777,13 @@ class SemiGlobalSimplifier {
     public:
         // Constructors and Destructor
         SemiGlobalSimplifier();
-        SemiGlobalSimplifier(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_);
+        SemiGlobalSimplifier(Mesh& mesh_, MeshUtil& mu_, Smoother& smoother_, KDTree& kdTree_);
         ~SemiGlobalSimplifier();
 
         // MeshUtil setters and getters
         void SetMembers(Mesh& mesh_, MeshUtil& mu_, Smoother& Smoother_);
         void SetIters(int iters_);
+        void SetFaceMetrics();
 
         // Simplification Operations
         bool FixBoundary();
@@ -366,8 +791,8 @@ class SemiGlobalSimplifier {
         bool FixValences();
         void SetSimplificationOperations();
         void SetDiagonalCollapseOperations();
-        void SetBoundaryDirectSeparatrixOperations(bool looseCollapse);
-        void SetDirectSeparatrixOperations(bool looseCollapse);
+        bool SetBoundaryDirectSeparatrixOperations(bool looseCollapse);
+        bool SetDirectSeparatrixOperations(bool looseCollapse);
         void SetSeparatrixOperations();
         void SetBoundarySeparatrixOperations();
         void SetHalfSeparatrixOperations();
@@ -398,7 +823,7 @@ class SemiGlobalSimplifier {
         void SelectDirectPairLink(std::vector<size_t> threeFiveIds, std::vector<SingularityLink>& links, std::vector<size_t> verticesToAvoid = {});
         void SelectDiagonalPairLink(std::vector<size_t> threeFiveIds, std::vector<SingularityLink>& links, std::vector<size_t> verticesToAvoid = {});
         void PerformGlobalOperations();
-        void Smooth();
+        void Smooth(vMesh* m = nullptr);
 
         bool ResolveHighValences();
         void AlignSingularities();
@@ -506,10 +931,9 @@ class SemiGlobalSimplifier {
         void PrototypeMoveAlongPath(Path& p);
         
 
-        void PerformOperation(Operation& op, vMesh* m);
-        std::vector<vMesh*> CheckPath(std::vector<size_t>& path);
+        bool PerformOperation(Operation& op, vMesh* m);
         void MovePair(tfPair& p, size_t dest, vMesh& m);
-        void TestFlips();
+        bool TestFlips();
 
         bool CheckMeshValidity();
 
@@ -524,6 +948,9 @@ class SemiGlobalSimplifier {
     private:
         Mesh* mesh;
         Smoother* smoother;
+        KDTree* kd;
+        std::unique_ptr<SurfaceProjector> sp;
+        // SurfaceProjector sp;
         MeshCaretaker caretaker;
         Renderer renderer;
 

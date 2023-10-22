@@ -42,21 +42,39 @@ vtkSmartPointer<vtkPolyData> MeshUtil::GetPolyData() {
     CheckValidity();
 
     vtkNew<vtkPoints> points;
+    // points->Allocate(mesh->V.size());
     vtkNew<vtkCellArray> cells;
+    // cells->Allocate(cells->EstimateSize(mesh->F.size(), 4));
     auto polyData = vtkSmartPointer<vtkPolyData>::New();
 
-    for (auto& v: mesh->V) {
-        vtkIdType pId = v.id;
-        points->InsertPoint(pId, v.x, v.y, v.z);
-    }
-    for (auto& c: mesh->C) {
+    PARALLEL_FOR_BEGIN(0, mesh->V.size()) {
+        auto& v = mesh->V.at(i);
+        // vtkIdType pId = v.id;
+        // points->SetPoint(pId, mesh->V.at(i).x, mesh->V.at(i).y, mesh->V.at(i).z);
+        std::lock_guard<std::mutex> lock(Mutex);
+        points->InsertPoint(v.id, v.x, v.y, v.z);
+    } PARALLEL_FOR_END();
+    // for (auto& v: mesh->V) {
+    //     vtkIdType pId = v.id;
+    //     points->InsertPoint(pId, v.x, v.y, v.z);
+    // }
+    PARALLEL_FOR_BEGIN(0, mesh->F.size()) {
         vtkNew<vtkPolygon> p;
-        p->GetPointIds()->SetNumberOfIds(c.Vids.size());
-        for (int i = 0; i < c.Vids.size(); i++) {
-            p->GetPointIds()->SetId(i, c.Vids.at(i));
+        p->GetPointIds()->SetNumberOfIds(mesh->F.at(i).Vids.size());
+        for (int j = 0; j < mesh->F.at(i).Vids.size(); j++) {
+            p->GetPointIds()->SetId(j, mesh->F.at(i).Vids.at(j));
         }
+        std::lock_guard<std::mutex> lock(Mutex);
         cells->InsertNextCell(p);
-    }
+    } PARALLEL_FOR_END();
+    // for (auto& c: mesh->C) {
+    //     vtkNew<vtkPolygon> p;
+    //     p->GetPointIds()->SetNumberOfIds(c.Vids.size());
+    //     for (int i = 0; i < c.Vids.size(); i++) {
+    //         p->GetPointIds()->SetId(i, c.Vids.at(i));
+    //     }
+    //     cells->InsertNextCell(p);
+    // }
     
     polyData->SetPoints(points);
     polyData->SetPolys(cells);

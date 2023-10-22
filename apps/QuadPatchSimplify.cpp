@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     simplifier.SmoothMesh();
     // simplifier.smoothGlobal = true;
     // simplifier.SmoothMesh(true);
-    simplifier.RefineMesh();
+    // simplifier.RefineMesh();
     simplifier.init();
     // SurfaceMapper sm(mesh, simplifier.origMesh);
     // for (auto& v: mesh.V) {

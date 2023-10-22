@@ -11,6 +11,7 @@
 #include "Util.h"
 #include <glm/glm.hpp>
 #include <vtkCellType.h>
+
 class FeatureLine;
 enum ElementType {
     POLYGON,
@@ -207,6 +208,10 @@ public:
         y = r.y;
         z = r.z;
 	}
+
+    static int visitCounter;
+    int visited = 0;
+
     glm::dvec3 normal;
 
     // for edge cone triangle surface
@@ -321,6 +326,12 @@ public:
     , NeighborInfo(NeighborInfo(r))
     , Vids(r.Vids)
     , Eids(r.Eids)
+    , area(r.area)
+    , avg_area(r.avg_area)
+    , size(r.size)
+    , shape(r.shape)
+    , threshold_size(r.threshold_size)
+    , threshold_shape(r.threshold_shape)
     , normal(r.normal)
     , label(r.label)
     {}
@@ -361,6 +372,13 @@ public:
     size_t componentFid = MAXID;
     bool isNegative = false;
     bool isVisited = false;
+
+    double area;
+    double avg_area;
+    double size;
+    double shape;
+    double threshold_size;
+    double threshold_shape;
 };
 
 class Cell : public GeoInfo, public NeighborInfo
@@ -565,6 +583,173 @@ public:
     const float GetScaledJacobian(const Cell& c) const;
     double GetMinScaledJacobian(double& avgSJ) const;
     bool IsPointInside(const glm::dvec3& orig, const glm::dvec3 dir = glm::dvec3(0, 0, 1)) const;
+
+    std::vector<std::vector<size_t>> planes(const Vertex& v) {
+        std::vector<std::vector<size_t>> p;
+        if (v.N_Fids.empty()) return p;
+        size_t start = v.N_Fids.at(0);
+        int countFeatures = [&]() {
+            int count = 0;
+            for (auto fid: v.N_Fids) {
+                auto& f = F[fid];
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                if (V[f.Vids[(idx + 1) % f.Vids.size()]].isBoundary || V[f.Vids[(idx + 1) % f.Vids.size()]].type == FEATURE) {
+                    count++;
+                    start = fid;
+                }
+            }
+            return count;
+        }();
+        if (countFeatures < 2) {
+            p.push_back(v.N_Fids);
+        } else {
+            p.resize(countFeatures);
+            int k = 0;
+            for (int i = 0; i < v.N_Fids.size(); i++) {
+                auto& f = F[start];
+                p[k].push_back(f.id);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                auto& next = V[f.Vids[(idx + 3) % f.Vids.size()]];
+                if (next.isBoundary || next.type == FEATURE) {
+                    k++;
+                }
+                for (auto fid: v.N_Fids) {
+                    if (fid == start) continue;
+                    auto& tf = F[fid];
+                    int tidx = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), v.id));
+                    if (tf.Vids[(tidx + 1) % tf.Vids.size()] == next.id) {
+                        start = fid;
+                        break;
+                    }
+                }
+            }
+        }
+        return p;
+    }
+
+    int idealValence(const Vertex& v, std::vector<size_t> qids = {}) {
+        const double PI = 3.1415926535;
+        auto angle = [&] (Vertex& prev, Vertex& next) {
+            glm::dvec3 p = prev - v;
+            glm::dvec3 n = next - v;
+            return std::acos(glm::dot(p, n) / (glm::length(p) * glm::length(n)));
+        };
+        if (v.N_Fids.empty()) return 0;
+        /*size_t start = v.N_Fids.at(0);
+        int countFeatures = [&]() {
+            int count = 0;
+            for (auto fid: v.N_Fids) {
+                auto& f = F[fid];
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                if (V[f.Vids[(idx + 1) % f.Vids.size()]].isBoundary || V[f.Vids[(idx + 1) % f.Vids.size()]].type == FEATURE) {
+                    count++;
+                    start = fid;
+                }
+            }
+            return count;
+        }();
+        if (countFeatures < 2) {
+            double sum = 0.0;
+            for (auto fid: v.N_Fids) {
+                auto& f = F[fid];
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                sum += angle(V[f.Vids[(idx + 1) % f.Vids.size()]], V[f.Vids[(idx + 2) % f.Vids.size()]]);
+                sum += angle(V[f.Vids[(idx + 2) % f.Vids.size()]], V[f.Vids[(idx + 3) % f.Vids.size()]]);
+            }
+            int turns = (int) std::round(sum / (PI / 2.0));
+            return std::max(turns, 1);
+        } else {
+            double sum = 0.0;
+            std::vector<std::pair<std::vector<size_t>, int>> ideals(countFeatures);
+            int k = 0;
+            for (int i = 0; i < v.N_Fids.size(); i++) {
+                auto& f = F[start];
+                ideals[k].first.push_back(f.id);
+                int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                auto& prev = V[f.Vids[(idx + 1) % f.Vids.size()]];
+                auto& diag = V[f.Vids[(idx + 2) % f.Vids.size()]];
+                auto& next = V[f.Vids[(idx + 3) % f.Vids.size()]];
+                sum += angle(prev, diag);
+                sum += angle(diag, next);
+                if (next.isBoundary || next.type == FEATURE) {
+                    int turns = (int) std::round(sum / (PI / 2.0));
+                    ideals[k].second = std::max(turns, 1);
+                    sum = 0.0;
+                    k++;
+                }
+                for (auto fid: v.N_Fids) {
+                    if (fid == start) continue;
+                    auto& tf = F[fid];
+                    int tidx = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), v.id));
+                    if (tf.Vids[(tidx + 1) % tf.Vids.size()] == next.id) {
+                        start = fid;
+                        break;
+                    }
+                }
+            }*/
+            auto p = planes(v);
+            int total = 0;
+            for (auto plane: p) {
+                double sum = 0.0;
+                for (auto id: plane) {
+                    auto& f = F[id];
+                    int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
+                    auto& prev = V[f.Vids[(idx + 1) % f.Vids.size()]];
+                    auto& diag = V[f.Vids[(idx + 2) % f.Vids.size()]];
+                    auto& next = V[f.Vids[(idx + 3) % f.Vids.size()]];
+                    sum += angle(prev, diag);
+                    sum += angle(diag, next);
+                }
+                int turns = (int) std::round(sum / (PI / 2.0));
+                int ideal = std::max(turns, 1);
+                total += ideal;
+                for (auto qid: qids) {
+                    if (std::find(plane.begin(), plane.end(), qid) != plane.end()) {
+                        return ideal;        
+                    }
+                }
+            }
+            // for (auto ideal: ideals) {
+            //     for (auto qid: qids) {
+            //         if (std::find(ideal.first.begin(), ideal.first.end(), qid) != ideal.first.end()) {
+            //             return ideal.second;
+            //         }
+            //     }
+            //     total += ideal.second;
+            // }
+            return total;
+        // }
+    }
+
+    int valence(const Vertex& v, std::vector<size_t> qids = {}) {
+        if (v.N_Fids.empty()) return 0;
+        
+        auto p = planes(v);
+        int total = 0;
+        for (auto plane: p) {
+            for (auto qid: qids) {
+                if (std::find(plane.begin(), plane.end(), qid) != plane.end()) {
+                    return plane.size();
+                }
+            }
+            total += plane.size();
+        }
+        return total;
+    }
+
+    int virtualValence(const Vertex& v, std::vector<size_t> qids = {}) {
+        // if (v.isBoundary || v.type == FEATURE) {
+            return 4 + valence(v, qids) - idealValence(v, qids);
+        // } else {
+            // return valence(v);
+        // }
+    }
+
+    bool corner(const Vertex& v) {
+        if (!v.isBoundary && v.type != FEATURE) return false;
+        return (v.isBoundary && idealValence(v) != 2) || (v.type == FEATURE && idealValence(v) != 4);
+    }
+
 protected:
     virtual void BuildE();
     virtual void BuildF();

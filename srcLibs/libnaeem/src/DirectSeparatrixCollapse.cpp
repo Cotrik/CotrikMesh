@@ -16,9 +16,45 @@ void DirectSeparatrixCollapse::SetRanking(glm::dvec3 d) {
         ranking = -1;
         return;
     }
+    // std::cout << "Setting ranking" << std::endl;
     auto& centerV = mesh->V.at(cid);
+    std::unordered_set<size_t> vids;
+    for (auto id: mesh->V.at(s1.at(0)).N_Fids) {
+        vids.insert(mesh->F.at(id).Vids.begin(), mesh->F.at(id).Vids.end());
+    }
+    for (auto id: mesh->V.at(s1.at(1)).N_Fids) {
+        vids.insert(mesh->F.at(id).Vids.begin(), mesh->F.at(id).Vids.end());
+    }
+    for (auto vid: vids) {
+        auto& sep_v = mesh->V.at(vid);
+        int val = mesh->valence(sep_v, centerV.N_Fids);
+        int idealVal = mesh->idealValence(sep_v, centerV.N_Fids);
+        int diff = std::abs(val - idealVal - 1);
+        if (diff == 0) ranking += 1e6;
+        else if (diff == 1) ranking += 1e3;
+        else if (diff == 2) ranking += 1e2;
+        else if (diff >= 3) ranking += 1e0;
+    }
 
-    double min = 0.0;
+    for (auto vid: s2) {
+        auto& sv = mesh->V.at(vid);
+        if (sv.isBoundary || sv.type == FEATURE) {
+            int val = mesh->valence(sv, centerV.N_Fids);
+            int idealVal = mesh->idealValence(sv, centerV.N_Fids);
+            if (val - 1 < idealVal) ranking -= 1e8;
+        }
+        if (mesh->corner(sv) && mesh->virtualValence(sv, centerV.N_Fids) > 4) {
+            ranking += 1e8;
+            // for (auto nfid: sv.N_Fids) {
+            //     auto& f = mesh->F.at(nfid);
+            //     int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), vid));
+            //     auto& v1 = mesh->V.at(f.Vids.at((idx + 1) % f.Vids.size()));
+            //     if ((v1.isBoundary || v1.type == FEATURE) && f.Vids.at((idx + 1) % f.Vids.size()) == centerV.id) ranking += 1e6;
+            // }
+        }
+    }
+    // std::cout << "Finished setting ranking" << std::endl;
+    /*double min = 0.0;
     double max = 0.0;
     std::vector<size_t> sepVertices = {s1.at(0), s1.at(1), s2.at(0), s2.at(1)};
     std::vector<size_t> maxVertices;
@@ -66,7 +102,8 @@ void DirectSeparatrixCollapse::SetRanking(glm::dvec3 d) {
 
     min += mesh->V.at(s2.at(0)).N_Vids.size() + mesh->V.at(s2.at(1)).N_Vids.size();
 
-    ranking = max / min;
+    ranking = max / min;*/
+    // ranking = min / max;
 
     // if (glm::length(d) > 0) {
     //     ranking /= GetDistance(d);
@@ -90,24 +127,30 @@ void DirectSeparatrixCollapse::SetRanking(glm::dvec3 d) {
 bool DirectSeparatrixCollapse::IsOperationValid() {
     CheckValidity();
 
-    bool isValid = true;
+    // bool isValid = true;
     auto& v = mesh->V.at(cid);
-    if (v.N_Fids.size() == 0) isValid = false;
-    if (mesh->V.at(s1.at(0)).N_Fids.size() != 3 || mesh->V.at(s1.at(1)).N_Fids.size() != 3) isValid = false;
+    if (mesh->valence(v) == 0) return false;
+    if (mesh->valence(mesh->V.at(s1.at(0))) != 3 || mesh->valence(mesh->V.at(s1.at(1))) != 3) return false;
+    int virtual_val_sn1 = mesh->virtualValence(mesh->V.at(s2.at(0)));
+    int virtual_val_sn2 = mesh->virtualValence(mesh->V.at(s2.at(1)));
+    // if (mesh->V.at(s2.at(0)).type == FEATURE || mesh->V.at(s2.at(1)).type == FEATURE || mesh->V.at(s2.at(0)).isBoundary || mesh->V.at(s2.at(1)).isBoundary) return isValid; 
+    if (((mesh->V.at(s2.at(0)).type == FEATURE || mesh->V.at(s2.at(0)).isBoundary) && mesh->virtualValence(mesh->V.at(s2.at(0)), v.N_Fids) < 5)
+        || ((mesh->V.at(s2.at(1)).type == FEATURE || mesh->V.at(s2.at(1)).isBoundary) && mesh->virtualValence(mesh->V.at(s2.at(1)), v.N_Fids) < 5)) return false;
     if (looseCollapse) {
-        // if (mesh->V.at(s2.at(0)).N_Fids.size() == 4 && mesh->V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
-        if (mesh->V.at(s2.at(0)).type != FEATURE && !mesh->V.at(s2.at(0)).isBoundary && mesh->V.at(s2.at(0)).N_Fids.size() == 4
-            && mesh->V.at(s2.at(1)).type != FEATURE && !mesh->V.at(s2.at(1)).isBoundary && mesh->V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
-        if ((mesh->V.at(s2.at(0)).type == FEATURE || mesh->V.at(s2.at(0)).isBoundary) && mesh->V.at(s2.at(0)).N_Fids.size() < v.idealValence
-            && (mesh->V.at(s2.at(1)).type == FEATURE || mesh->V.at(s2.at(1)).isBoundary) && mesh->V.at(s2.at(1)).N_Fids.size() < v.idealValence) isValid = false;
+        // if (mesh->V.at(s2.at(0)).type != FEATURE && !mesh->V.at(s2.at(0)).isBoundary && mesh->virtualValence(mesh->V.at(s2.at(0))) == 4
+        //     && mesh->V.at(s2.at(1)).type != FEATURE && !mesh->V.at(s2.at(1)).isBoundary && mesh->virtualValence(mesh->V.at(s2.at(1))) == 4) isValid = false;
+        // if ((mesh->V.at(s2.at(0)).type == FEATURE || mesh->V.at(s2.at(0)).isBoundary) && mesh->virtualValence(mesh->V.at(s2.at(0)), v.N_Fids) == 4
+        //     || (mesh->V.at(s2.at(1)).type == FEATURE || mesh->V.at(s2.at(1)).isBoundary) && mesh->virtualValence(mesh->V.at(s2.at(1)), v.N_Fids) == 4) isValid = false;
+        if (virtual_val_sn1 < 4 || virtual_val_sn2 < 4) return false;
     } else {
-        if (mesh->V.at(s2.at(0)).type != FEATURE && !mesh->V.at(s2.at(0)).isBoundary && mesh->V.at(s2.at(0)).N_Fids.size() == 4) isValid = false;
-        if (mesh->V.at(s2.at(1)).type != FEATURE && !mesh->V.at(s2.at(1)).isBoundary && mesh->V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
-        if (mesh->V.at(s2.at(0)).type == FEATURE && mesh->V.at(s2.at(0)).N_Fids.size() < v.idealValence) isValid = false;
-        if (mesh->V.at(s2.at(1)).type == FEATURE && mesh->V.at(s2.at(1)).N_Fids.size() < v.idealValence) isValid = false;
+        // if (mesh->V.at(s2.at(0)).type != FEATURE && !mesh->V.at(s2.at(0)).isBoundary && mesh->V.at(s2.at(0)).N_Fids.size() == 4) isValid = false;
+        // if (mesh->V.at(s2.at(1)).type != FEATURE && !mesh->V.at(s2.at(1)).isBoundary && mesh->V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+        // if (mesh->V.at(s2.at(0)).type == FEATURE && mesh->V.at(s2.at(0)).N_Fids.size() <= v.idealValence) isValid = false;
+        // if (mesh->V.at(s2.at(1)).type == FEATURE && mesh->V.at(s2.at(1)).N_Fids.size() <= v.idealValence) isValid = false;
         // if (mesh->V.at(s2.at(0)).isBoundary && mesh->V.at(s2.at(0)).N_Fids.size() == 2) isValid = false;
         // if (mesh->V.at(s2.at(1)).isBoundary && mesh->V.at(s2.at(1)).N_Fids.size() == 2) isValid = false;
         // if (mesh->V.at(s2.at(0)).N_Fids.size() == 4 || mesh->V.at(s2.at(1)).N_Fids.size() == 4) isValid = false;
+        if (virtual_val_sn1 < 5 || virtual_val_sn2 < 5) return false;
     }
     // for (auto id: s2) {
     //     auto& s = mesh->V.at(id);
@@ -126,7 +169,7 @@ bool DirectSeparatrixCollapse::IsOperationValid() {
     //         }
     //     }
     // }
-    return isValid;
+    return true;
 }
 
 void DirectSeparatrixCollapse::PerformOperation() {
@@ -304,7 +347,7 @@ void DirectSeparatrixCollapse::PerformOperation() {
     AddContents(ToSmooth, s2_2.N_Vids);
     // ToSmooth.insert(ToSmooth.end(), s2_1.N_Vids.begin(), s2_1.N_Vids.end());
     // ToSmooth.insert(ToSmooth.end(), s2_2.N_Vids.begin(), s2_2.N_Vids.end());
-    Smooth();
+    // Smooth();
 }
 
 void DirectSeparatrixCollapse::SetUpdateElements(size_t vid) {
