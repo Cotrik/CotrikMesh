@@ -11,9 +11,9 @@ KDTree::KDTree(const Mesh& mesh_) {
         for (auto fid: v.N_Fids) {
             auto& f = mesh.F.at(fid);
             int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
-            auto& AB = mesh.V.at(f.Vids.at((idx+1)%f.Vids.size())).xyz() - v.xyz();
-            auto& AC = mesh.V.at(f.Vids.at((idx+2)%f.Vids.size())).xyz() - v.xyz();
-            auto& AD = mesh.V.at(f.Vids.at((idx+3)%f.Vids.size())).xyz() - v.xyz();
+            const auto& AB = mesh.V.at(f.Vids.at((idx+1)%f.Vids.size())).xyz() - v.xyz();
+            const auto& AC = mesh.V.at(f.Vids.at((idx+2)%f.Vids.size())).xyz() - v.xyz();
+            const auto& AD = mesh.V.at(f.Vids.at((idx+3)%f.Vids.size())).xyz() - v.xyz();
             auto T_area_a = glm::cross(AB, AC);
             auto T_area_b = glm::cross(AC, AD);
             n += (0.5 * glm::length(T_area_a) * T_area_a);

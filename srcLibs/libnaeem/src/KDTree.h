@@ -199,7 +199,7 @@ struct Point {
     glm::dvec3 n;
     bool feature;
     Point() {}
-    Point(int id_, const glm::dvec3& p_, glm::dvec3& n_, bool feature_) : id(id_), p(p_), n(n_), feature(feature_) {}
+    Point(int id_, const glm::dvec3& p_, const glm::dvec3& n_, bool feature_) : id(id_), p(p_), n(n_), feature(feature_) {}
 };
 
 struct Node {
