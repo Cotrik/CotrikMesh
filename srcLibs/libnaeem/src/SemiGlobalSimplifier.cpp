@@ -79,6 +79,7 @@ void SemiGlobalSimplifier::SetFaceMetrics() {
         // f.shape = v_quad_shape(4, qV_arr);
         f.shape = v_quad_aspect_ratio(4, qV_arr);
     } PARALLEL_FOR_END();
+    std::cout << "Finsished setting quad aspect ratios" << std::endl;
     PARALLEL_FOR_BEGIN(0, mesh->F.size()) {
         auto& f = mesh->F.at(i);
         auto neighborhood = [&] () {
