@@ -663,21 +663,21 @@ struct vInfo {
     std::vector<size_t> N_Vids;
     std::vector<size_t> N_Fids;
     vInfo(Mesh* mesh, size_t vid, vMesh* m = nullptr, bool useVM = true) {
-        auto& getVertex = [&] (size_t vid) {
+        const auto& getVertex = [&] (size_t vid) {
             if (m == nullptr) return mesh->V.at(vid);
             return m->getVertex(vid, useVM);
         };
-        auto& getFace = [&] (size_t fid) {
+        const auto& getFace = [&] (size_t fid) {
             if (m == nullptr) return mesh->F.at(fid);
             return m->getFace(fid, useVM);
         };
-        auto& v = getVertex(vid);
+        const auto& v = getVertex(vid);
         size_t start = v.N_Fids.at(0);
         if (v.isBoundary) {
             for (int i = 0; i < v.N_Fids.size(); i++) {
-                auto& f = getFace(v.N_Fids.at(i));
+                const auto& f = getFace(v.N_Fids.at(i));
                 int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
-                auto& fv = getVertex(f.Vids.at((idx+1)%4));
+                const auto& fv = getVertex(f.Vids.at((idx+1)%4));
                 if (fv.isBoundary) {
                     start = v.N_Fids.at(i);
                     break;
@@ -686,12 +686,12 @@ struct vInfo {
         }
         
         for (int i = 0; i < v.N_Fids.size(); i++) {
-            auto& f = getFace(start);
+            const auto& f = getFace(start);
             int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
             N_Vids.push_back(f.Vids.at((idx+1)%4));
             N_Fids.push_back(f.id);
             for (auto fid: v.N_Fids) {
-                auto& tf = getFace(fid);              
+                const auto& tf = getFace(fid);              
                 int idx2 = std::distance(tf.Vids.begin(), std::find(tf.Vids.begin(), tf.Vids.end(), v.id));
                 if (f.Vids.at((idx+3)%4) == tf.Vids.at((idx2+1)%4)) {
                     start = fid;
@@ -700,7 +700,7 @@ struct vInfo {
             }
         }
         if (v.isBoundary) {
-            auto& f = getFace(start);
+            const auto& f = getFace(start);
             int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
             N_Vids.push_back(f.Vids.at((idx+3)%4));
         }
@@ -875,7 +875,7 @@ class SemiGlobalSimplifier {
 
         int PrototypeGetRotations(size_t vid, size_t start, size_t end);
         void PrototypeSaveMesh(SingularityLink& l1, SingularityLink& l2, std::string in);
-        void PrototypeSaveMesh(std::vector<SingularityLink>& links, std::string in);
+        void PrototypeSaveMesh(const std::vector<SingularityLink>& links, std::string in);
         void PrototypeResolveGroup(SingularityLink& l1, SingularityLink& l2);
         int PrototypeCancelThreeFivePair(SingularityLink& l1, SingularityLink& l2);
         int PrototypeCancelSingularity(size_t vid, BaseComplexQuad& bc);
@@ -931,7 +931,7 @@ class SemiGlobalSimplifier {
         void PrototypeMoveAlongPath(Path& p);
         
 
-        bool PerformOperation(Operation& op, vMesh* m);
+        bool PerformOperation(const Operation& op, vMesh* m);
         void MovePair(tfPair& p, size_t dest, vMesh& m);
         bool TestFlips();
 

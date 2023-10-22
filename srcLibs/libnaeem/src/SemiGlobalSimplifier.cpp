@@ -2288,7 +2288,7 @@ void SemiGlobalSimplifier::PrototypeSaveMesh(SingularityLink& l1, SingularityLin
     }
 }
 
-void SemiGlobalSimplifier::PrototypeSaveMesh(std::vector<SingularityLink>& links, std::string in) {
+void SemiGlobalSimplifier::PrototypeSaveMesh(const std::vector<SingularityLink>& links, std::string in) {
     int colorValue = 0;
     int ncolors = 15;
     std::vector<size_t> c_indices;
@@ -9345,9 +9345,9 @@ bool SemiGlobalSimplifier::TestFlips() {
             for (auto fid: v.N_Fids) {
                 auto& f = m->getFace(fid, useVM);
                 int idx = std::distance(f.Vids.begin(), std::find(f.Vids.begin(), f.Vids.end(), v.id));
-                auto& AB = m->getVertex(f.Vids.at((idx+1)%f.Vids.size()), useVM).xyz() - v.xyz();
-                auto& AC = m->getVertex(f.Vids.at((idx+2)%f.Vids.size()), useVM).xyz() - v.xyz();
-                auto& AD = m->getVertex(f.Vids.at((idx+3)%f.Vids.size()), useVM).xyz() - v.xyz();
+                const auto& AB = m->getVertex(f.Vids.at((idx+1)%f.Vids.size()), useVM).xyz() - v.xyz();
+                const auto& AC = m->getVertex(f.Vids.at((idx+2)%f.Vids.size()), useVM).xyz() - v.xyz();
+                const auto& AD = m->getVertex(f.Vids.at((idx+3)%f.Vids.size()), useVM).xyz() - v.xyz();
                 auto T_area_a = glm::cross(AB, AC);
                 auto T_area_b = glm::cross(AC, AD);
                 n += (0.5 * glm::length(T_area_a) * T_area_a);
@@ -9850,7 +9850,7 @@ bool SemiGlobalSimplifier::TestFlips() {
             // if ((!v.isBoundary && v.type != FEATURE) && v.N_Fids.size() != 4) return true;
             // return false;
         };
-        auto countSingularities = [&] (vInfo& info_v) {
+        auto countSingularities = [&] (const vInfo& info_v) {
             std::unordered_set<size_t> res;
             for (auto fid: info_v.fids()) {
                 auto& f = mesh->F.at(fid);
@@ -11601,7 +11601,7 @@ bool SemiGlobalSimplifier::TestFlips() {
     return final_paths.size() > 0;
 }
 
-bool SemiGlobalSimplifier::PerformOperation(Operation& op, vMesh* m) {
+bool SemiGlobalSimplifier::PerformOperation(const Operation& op, vMesh* m) {
     bool res = false;
     auto Flip = [&] () {
         if (!op.isValid()) return;
