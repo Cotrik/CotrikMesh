@@ -22,14 +22,15 @@ int main(int argc, char* argv[])
     ArgumentManager argumentManager(argc, argv);
     MeshFileReader reader(argv[1]);
     Mesh& mesh = (Mesh&)reader.GetMesh();
-    // mesh.RemoveUselessVertices();
-    // mesh.BuildAllConnectivities();
-    // mesh.ExtractBoundary();
-    // mesh.ExtractSingularities();
+    mesh.RemoveUselessVertices();
+    mesh.BuildAllConnectivities();
+    mesh.ExtractBoundary();
+    mesh.ExtractSingularities();
     // mesh.SetOneRingNeighborhood();
     // for (auto& v: mesh.V) {
+    //     auto temp = v.y;
     //     v.y = v.z;
-    //     v.z = 0;
+    //     v.z = temp;
     // }
 
     MeshFileWriter writer(mesh, argv[2]);

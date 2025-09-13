@@ -144,6 +144,7 @@ int main(int argc, char* argv[]) {
     start = std::clock();
     // sg.SetVertexRotationOperations();
     std::cout << "Setting up operations" << std::endl;
+    // sg.BC();
     if (iters == 0) {
         std::cout << "-------------iters is 0----------------" << std::endl;
         std::cout << "Direct Separatrix Operations" << std::endl;
@@ -152,6 +153,7 @@ int main(int argc, char* argv[]) {
         while (sg.SetDirectSeparatrixOperations(false));
         while (sg.SetDirectSeparatrixOperations(true));
         std::cout << "Smooth" << std::endl;
+        while (sg.FixValences());
         sg.Smooth(nullptr);
     } else {
         std::cout << "-------------iters is " << iters << "----------------" << std::endl;

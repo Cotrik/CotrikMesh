@@ -934,6 +934,7 @@ class SemiGlobalSimplifier {
         bool PerformOperation(Operation op, vMesh* m);
         void MovePair(tfPair& p, size_t dest, vMesh& m);
         bool TestFlips();
+        void BC();
 
         bool CheckMeshValidity();
 
