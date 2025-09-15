@@ -110,6 +110,32 @@ void SemiGlobalSimplifier::SetFaceMetrics() {
         f.threshold_shape = sum_shape / neighborhood.size();
         // f.threshold_shape = f.shape;
     } PARALLEL_FOR_END();
+    
+    // Calculate global reference metrics for isotropic scoring
+    double total_area = 0.0;
+    double total_shape = 0.0;
+    size_t valid_faces = 0;
+    
+    for (const auto& f : mesh->F) {
+        if (!f.Vids.empty()) {
+            total_area += f.area;
+            total_shape += f.shape;
+            valid_faces++;
+        }
+    }
+    
+    if (valid_faces > 0) {
+        global_avg_area = total_area / valid_faces;
+        global_avg_shape = total_shape / valid_faces;
+        std::cout << "Global reference metrics calculated:" << std::endl;
+        std::cout << "  Global average area: " << global_avg_area << std::endl;
+        std::cout << "  Global average shape: " << global_avg_shape << std::endl;
+    } else {
+        global_avg_area = -1.0;
+        global_avg_shape = -1.0;
+        std::cout << "Warning: No valid faces found for global metrics" << std::endl;
+    }
+    
     std::cout << "After setting face metrics" << std::endl;
 }
 
@@ -10953,24 +10979,19 @@ bool SemiGlobalSimplifier::TestFlips() {
                 Smooth(m);
                 if (log) std::cout << "GETTING ELEMENT SCORE" << std::endl;
                 auto elementScore = [&] () {
-                    // struct sizeNshape {
-                    //     double size = 0.0;
-                    //     double shape = 0.0;
-                    //     double area = 0.0;
-                    //     double avg_area = 0.0;
-                    // };
                     double score = 0.0;
-                    // std::unordered_map<size_t, sizeNshape> sNs;
                     std::unordered_set<size_t> qids;
                     double elementChange = 1.0;
+                    
+                    // Collect affected faces
                     for (auto it = m->fmap.begin(); it != m->fmap.end(); it++) {
                         if (it->first > m->maxfid || it->second.Vids.empty()) {
                             elementChange += 1;
-                            // continue;
                         }
                         if (it->second.Vids.empty()) continue;
                         qids.insert(it->second.id);
                     }
+                    
                     auto qV_arr = [&] (size_t fid, bool useVM = false) {
                         double coords[4][3];
                         auto& q = m->getFace(fid, useVM);
@@ -10980,41 +11001,96 @@ bool SemiGlobalSimplifier::TestFlips() {
                         }
                         return coords;
                     };
-                    double shape_score = 0.0;
-                    double size_score = 0.0;
+                    
+                    // Calculate current mesh metrics
+                    std::vector<double> current_areas;
+                    std::vector<double> current_shapes;
+                    double total_current_area = 0.0;
+                    double total_current_shape = 0.0;
+                    size_t valid_faces = 0;
+                    
                     for (auto qid: qids) {
                         auto& q = m->getFace(qid);
-                        double threshold_shape = q.threshold_shape;
-                        double threshold_size = q.threshold_size;
-                        double shape = 0.0;
-                        double size = 0.0;
                         if (!q.Vids.empty()) {
                             auto coords = qV_arr(qid, true);
-                            double area = v_quad_area(4, coords);
-                            size = std::pow(std::min(area/q.avg_area, q.avg_area/area), 2);
-                            // shape = v_quad_shape(4, coords);
                             if (v_quad_scaled_jacobian(4, coords) < 0) return -exp(40);
-                            shape = v_quad_aspect_ratio(4, coords); 
+                            
+                            double area = v_quad_area(4, coords);
+                            double shape = v_quad_aspect_ratio(4, coords);
+                            
+                            current_areas.push_back(area);
+                            current_shapes.push_back(shape);
+                            total_current_area += area;
+                            total_current_shape += shape;
+                            valid_faces++;
                         }
-                        // shape_score += std::max(1.0, 0.75 * threshold_shape) - shape;
-                        shape_score += (1.75 * threshold_shape) - shape;
-                        size_score += size - (0.5 * threshold_size);
+                    }
                     
-                        if (log) {
-                            // std::cout << "face metrics: " << std::endl;
-                            // std::cout << "area: " << area << " avg area: " << q.avg_area << std::endl;
-                            // std::cout << "threshold shape: " << threshold_shape << " shape: " << shape << std::endl;
-                            // std::cout << "(1.5 * threshold_shape) - shape: " << (1.5 * threshold_shape) - shape << std::endl;
-                            // std::cout << "threshold size: " << threshold_size << " size: " << size << std::endl;
-                            // std::cout << "size - (0.1 * threshold_size): " << size - (0.1 * threshold_size) << std::endl;
-                            // std::cout << "shape score: " << shape_score << " size score: " << size_score << std::endl;                    
-                        }
+                    if (valid_faces == 0) return 0.0;
+                    
+                    double current_avg_area = total_current_area / valid_faces;
+                    double current_avg_shape = total_current_shape / valid_faces;
+                    
+                    // Calculate variance and coefficient of variation
+                    double size_variance = 0.0;
+                    double shape_variance = 0.0;
+                    for (size_t i = 0; i < current_areas.size(); i++) {
+                        size_variance += std::pow(current_areas[i] - current_avg_area, 2);
+                        shape_variance += std::pow(current_shapes[i] - current_avg_shape, 2);
                     }
-                    score = (shape_score + size_score) / elementChange;
+                    size_variance /= valid_faces;
+                    shape_variance /= valid_faces;
+                    
+                    double size_std_dev = std::sqrt(size_variance);
+                    double shape_std_dev = std::sqrt(shape_variance);
+                    double size_cv = (current_avg_area > 0.0) ? size_std_dev / current_avg_area : 0.0;
+                    double shape_cv = (current_avg_shape > 0.0) ? shape_std_dev / current_avg_shape : 0.0;
+                    
+                    // 1. ISOTROPIC SCORING: Reward elements close to square (aspect ratio ~1.0)
+                    double isotropic_score = 0.0;
+                    for (double shape : current_shapes) {
+                        double aspect_ratio_penalty = std::abs(shape - 1.0);
+                        isotropic_score += std::exp(-aspect_ratio_penalty * 2.0); // Exponential reward for square elements
+                    }
+                    isotropic_score /= valid_faces;
+                    
+                    // 2. SIZE RELATIVE SCORING: Reward elements close to input mesh average size
+                    double size_relative_score = 0.0;
+                    if (global_avg_area > 0.0) {
+                        double size_ratio = current_avg_area / global_avg_area;
+                        double size_deviation = std::abs(std::log(size_ratio));
+                        size_relative_score = std::exp(-size_deviation * 1.5); // Exponential penalty for size deviation
+                    }
+                    
+                    // 3. UNIFORMITY SCORING: Penalize size and shape variations
+                    double uniformity_score = 0.0;
+                    uniformity_score += std::exp(-size_cv * 3.0);  // Penalize size variation
+                    uniformity_score += std::exp(-shape_cv * 2.0); // Penalize shape variation
+                    uniformity_score /= 2.0;
+                    
+                    // 4. ELEMENT COUNT PENALTY: Penalize operations that create too many small elements
+                    double element_count_penalty = 0.0;
+                    if (elementChange > 1.0) {
+                        element_count_penalty = -std::log(elementChange) * 0.5;
+                    }
+                    
+                    // Combine all scores with weights
+                    double final_score = 0.0;
+                    final_score += isotropic_score * 0.6;        // Prioritize isotropic elements
+                    final_score += size_relative_score * 0.1999; // Maintain relative size
+                    final_score += uniformity_score * 0.3;       // Encourage uniformity
+                    final_score += element_count_penalty * 0.0001; // Slight penalty for element count
+                    
                     if (log) {
-                        // std::cout << "element change: " << elementChange << std::endl;
+                        std::cout << "Element scoring breakdown:" << std::endl;
+                        std::cout << "  Isotropic score: " << isotropic_score << std::endl;
+                        std::cout << "  Size relative score: " << size_relative_score << std::endl;
+                        std::cout << "  Uniformity score: " << uniformity_score << std::endl;
+                        std::cout << "  Element count penalty: " << element_count_penalty << std::endl;
+                        std::cout << "  Final element score: " << final_score << std::endl;
                     }
-                    return score;
+                    
+                    return final_score;
                 }();
 
                 double path_score = -2.0;

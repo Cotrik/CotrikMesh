@@ -481,17 +481,23 @@ int main(int argc, char* argv[]) {
     std::cout << "# F in input mesh: " << source.C.size() << std::endl;
     // std::cout << source.F.size() << std::endl;
     std::vector<Cell> newC;
+    std::vector<Face> newF;
     for (auto& f: source.F) {
         if (f.Vids.empty()) continue;
         Cell c;
         c.id = newC.size();
         c.Vids = f.Vids;
         newC.push_back(c);
+        Face newf;
+        newf.id = newF.size();
+        newf.Vids = f.Vids;
+        newF.push_back(newf);
     }
     source.E.clear();
     source.F.clear();
     source.C.clear();
     source.C.insert(source.C.begin(), newC.begin(), newC.end());
+    source.F.insert(source.F.begin(), newF.begin(), newF.end());
     // source.BuildAllConnectivities();
     // std::cout << newC.size() << std::endl;
     std::cout <<  "# F in output mesh: " << source.C.size() << std::endl;

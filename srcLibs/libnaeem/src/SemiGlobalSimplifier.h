@@ -970,6 +970,10 @@ class SemiGlobalSimplifier {
         std::recursive_mutex mtx;
         std::mutex mx;
         double delta = 0.0;
+        
+        // Global reference metrics for isotropic scoring
+        double global_avg_area = -1.0;
+        double global_avg_shape = -1.0;
 
 };
 

@@ -232,6 +232,9 @@ void MeshFileReader::ReadObjFile()
         output->GetCellPoints(i, idList);
         const vtkIdType csize = idList->GetNumberOfIds();
         Cell c(csize);
+        if (csize == 3) c.cellType = VTK_TRIANGLE;
+        else if (csize == 4) c.cellType = VTK_QUAD;
+        
         for (vtkIdType j = 0; j < csize; j++)
             c.Vids.at(j) = idList->GetId(j);
         C.push_back(c);
@@ -272,6 +275,7 @@ void MeshFileReader::ReadStlFile()
     if (cellType == VTK_TRIANGLE) m_mesh.m_cellType = TRIANGLE;
     else if (cellType == VTK_QUAD) m_mesh.m_cellType = QUAD;
 
+    
     std::vector<Cell>& C = m_mesh.C;
     for (vtkIdType i = 0; i < cnum; i++)
     {
@@ -279,6 +283,9 @@ void MeshFileReader::ReadStlFile()
         output->GetCellPoints(i, idList);
         const vtkIdType csize = idList->GetNumberOfIds();
         Cell c(csize);
+        std::cout << "csize = " << csize << std::endl;
+        if (csize == 3) c.cellType = VTK_TRIANGLE;
+        else if (csize == 4) c.cellType = VTK_QUAD;
         for (vtkIdType j = 0; j < csize; j++)
             c.Vids.at(j) = idList->GetId(j);
         C.push_back(c);

@@ -322,7 +322,7 @@ void MeshFileWriter::WriteOffFile()
 void MeshFileWriter::WriteObjFile()
 {
     const std::vector<Vertex>& V = m_mesh.V;
-    const std::vector<Face>& F = m_mesh.F;
+    const std::vector<Cell>& F = m_mesh.C;
     const size_t vnum = V.size();
     const size_t fnum = F.size();
 

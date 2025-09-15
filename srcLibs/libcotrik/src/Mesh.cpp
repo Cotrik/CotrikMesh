@@ -3155,11 +3155,17 @@ void Mesh::BuildC_C()
 
 void Mesh::BuildAllConnectivities()
 {
+    std::cout << "Building V_C" << std::endl;
     BuildV_C();
+    std::cout << "Building E" << std::endl;
     BuildE(); // BuildV_V(); BuildV_E(); BuildV_F();
+    std::cout << "Building F" << std::endl;
     BuildF(); // BuildF_C();
+    std::cout << "Building C_E" << std::endl;
     BuildC_E();
+    std::cout << "Building F_F" << std::endl;
     BuildF_F();
+    std::cout << "Finished building all connectivities" << std::endl;
 //    if (m_cellType != HEXAHEDRA){
 //        BuildE_V();
 //        BuildE_E();
